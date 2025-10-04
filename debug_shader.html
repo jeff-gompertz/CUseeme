@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shader Trails Debug</title>
+  <style>
+    html, body { margin:0; height:100%; overflow:hidden; background:black; }
+    canvas { width:100%; height:100%; display:block; }
+  </style>
+</head>
+<body>
+<canvas id="glcanvas"></canvas>
+<script>
+const canvas = document.getElementById("glcanvas");
+const gl = canvas.getContext("webgl");
+if (!gl) {
+  console.error("WebGL not supported");
+  document.body.innerText = "WebGL not supported";
+}
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const vsSource = `
+attribute vec2 a_position;
+varying vec2 v_uv;
+void main() {
+  v_uv = (a_position + 1.0) * 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+
+const fsSource = `
+precision mediump float;
+uniform float u_time;
+uniform sampler2D u_prev;
+uniform bool u_hasPrev;
+varying vec2 v_uv;
+
+void main() {
+  vec2 uv = v_uv;
+  vec3 color = vec3(
+    0.5 + 0.5 * sin(u_time + uv.x*10.0),
+    0.5 + 0.5 * sin(u_time * 1.3 + uv.y*12.0),
+    0.5 + 0.5 * sin(u_time * 0.7 + uv.x*6.0 + uv.y*5.0)
+  );
+  if (u_hasPrev) {
+    vec3 prev = texture2D(u_prev, uv).rgb;
+    gl_FragColor = vec4(mix(color, prev, 0.93), 1.0);
+  } else {
+    // First frame fallback
+    gl_FragColor = vec4(color, 1.0);
+  }
+}`;
+
+function compile(type, source) {
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, source);
+  gl.compileShader(sh);
+  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+    console.error("Shader compile error:", gl.getShaderInfoLog(sh));
+  }
+  return sh;
+}
+const vs = compile(gl.VERTEX_SHADER, vsSource);
+const fs = compile(gl.FRAGMENT_SHADER, fsSource);
+
+const prog = gl.createProgram();
+gl.attachShader(prog, vs);
+gl.attachShader(prog, fs);
+gl.linkProgram(prog);
+if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+  console.error("Program link error:", gl.getProgramInfoLog(prog));
+}
+gl.useProgram(prog);
+
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+const posLoc = gl.getAttribLocation(prog, "a_position");
+gl.enableVertexAttribArray(posLoc);
+gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+const timeLoc = gl.getUniformLocation(prog, "u_time");
+const prevLoc = gl.getUniformLocation(prog, "u_prev");
+const hasPrevLoc = gl.getUniformLocation(prog, "u_hasPrev");
+
+const tex = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, tex);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+let frame = 0;
+let time = 0.0;
+
+function render() {
+  time += 0.02;
+  gl.uniform1f(timeLoc, time);
+  gl.uniform1i(prevLoc, 0);
+  gl.uniform1i(hasPrevLoc, frame > 0 ? 1 : 0);
+
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  console.log("Frame:", frame);
+
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, canvas.width, canvas.height, 0);
+
+  frame++;
+  requestAnimationFrame(render);
+}
+render();
+</script>
+</body>
+</html>
