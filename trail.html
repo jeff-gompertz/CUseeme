@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Trail Shader</title>
+<style>
+  html, body { margin:0; height:100%; overflow:hidden; background:black; }
+  canvas { width:100%; height:100%; display:block; }
+</style>
+</head>
+<body>
+<canvas id="glcanvas"></canvas>
+<script>
+const canvas = document.getElementById("glcanvas");
+const gl = canvas.getContext("webgl");
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+// Vertex shader
+const vsSource = `
+attribute vec2 a_position;
+varying vec2 v_uv;
+void main() {
+  v_uv = (a_position + 1.0) * 0.5;
+  gl_Position = vec4(a_position, 0, 1);
+}`;
+
+// Fragment shader: draw color + keep strong trails
+const fsSource = `
+precision mediump float;
+uniform float u_time;
+uniform sampler2D u_prev;
+varying vec2 v_uv;
+
+void main() {
+  vec2 uv = v_uv;
+  
+  // base color (animated stripes + waves)
+  vec3 color = vec3(
+    0.5 + 0.5*sin(u_time*1.2 + uv.x*12.0),
+    0.5 + 0.5*sin(u_time*1.0 + uv.y*10.0),
+    0.5 + 0.5*sin(u_time*0.8 + uv.x*8.0 + uv.y*6.0)
+  );
+  
+  // fetch previous frame
+  vec3 prev = texture2D(u_prev, uv).rgb;
+  
+  // stronger trail (slow fade of previous frame)
+  gl_FragColor = vec4(mix(color, prev, 0.93), 1.0);
+}`;
+
+// Compile helpers
+function compile(type, src) {
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, src);
+  gl.compileShader(sh);
+  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(sh));
+  }
+  return sh;
+}
+const vs = compile(gl.VERTEX_SHADER, vsSource);
+const fs = compile(gl.FRAGMENT_SHADER, fsSource);
+
+// Program
+const prog = gl.createProgram();
+gl.attachShader(prog, vs);
+gl.attachShader(prog, fs);
+gl.linkProgram(prog);
+gl.useProgram(prog);
+
+// Quad
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, "a_position");
+gl.enableVertexAttribArray(loc);
+gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+// Uniforms
+const timeLoc = gl.getUniformLocation(prog, "u_time");
+const prevLoc = gl.getUniformLocation(prog, "u_prev");
+
+// Feedback texture
+const tex = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, tex);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+let time = 0;
+function render() {
+  time += 0.016;
+  gl.uniform1f(timeLoc, time);
+  gl.uniform1i(prevLoc, 0);
+
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  // copy current frame into texture
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, canvas.width, canvas.height, 0);
+
+  requestAnimationFrame(render);
+}
+render();
+</script>
+</body>
+</html>
