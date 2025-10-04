@@ -1,104 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>WebGL Feedback Trail Demo</title>
-  <style>
-    body { margin: 0; overflow: hidden; background: black; }
-    canvas { display: block; }
-  </style>
+<meta charset="UTF-8">
+<title>WebGL Test – Ghost Trails</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+  canvas {
+    display: block;
+  }
+</style>
 </head>
 <body>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-
-<script id="fragShader" type="x-shader/x-fragment">
-  uniform sampler2D prevFrame;
-  uniform sampler2D currentFrame;
-  varying vec2 vUv;
-
-  void main() {
-    vec4 prev = texture2D(prevFrame, vUv) * 0.96;   // fade old frame
-    vec4 curr = texture2D(currentFrame, vUv);       // current image
-    gl_FragColor = max(prev, curr);                 // blend together
-  }
-</script>
-
+<canvas id="glcanvas"></canvas>
 <script>
-const W = window.innerWidth, H = window.innerHeight;
+const canvas = document.getElementById("glcanvas");
+const gl = canvas.getContext("webgl");
+resize();
+window.addEventListener("resize", resize);
 
-// Scene for current image
-const scene = new THREE.Scene();
-const camera = new THREE.OrthographicCamera(-W/2, W/2, H/2, -H/2, 0.1, 10);
-camera.position.z = 1;
-
-// Renderer
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize(W, H);
-document.body.appendChild(renderer.domElement);
-
-// Floating texture (image)
-const textureLoader = new THREE.TextureLoader();
-const tex = textureLoader.load("https://jeffgompertz.site/wp-content/uploads/2024/10/green-jessie.jpg");
-const plane = new THREE.Mesh(
-  new THREE.PlaneGeometry(400, 300),
-  new THREE.MeshBasicMaterial({ map: tex })
-);
-scene.add(plane);
-
-// Drift velocity
-let vx = 0.4, vy = 0.3;
-
-// Render targets (for feedback)
-const rt1 = new THREE.WebGLRenderTarget(W, H);
-const rt2 = new THREE.WebGLRenderTarget(W, H);
-
-// Shader material for blending
-const feedbackMat = new THREE.ShaderMaterial({
-  uniforms: {
-    prevFrame: { value: rt1.texture },
-    currentFrame: { value: rt2.texture }
-  },
-  vertexShader: `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
-    }
-  `,
-  fragmentShader: document.getElementById("fragShader").textContent
-});
-
-// Fullscreen quad
-const quad = new THREE.Mesh(new THREE.PlaneGeometry(W, H), feedbackMat);
-const sceneFB = new THREE.Scene();
-sceneFB.add(quad);
-
-function animate() {
-  requestAnimationFrame(animate);
-
-  // move drifting image
-  plane.position.x += vx;
-  plane.position.y += vy;
-  if (plane.position.x > W/2-200 || plane.position.x < -W/2+200) vx *= -1;
-  if (plane.position.y > H/2-150 || plane.position.y < -H/2+150) vy *= -1;
-
-  // draw current frame to rt2
-  renderer.setRenderTarget(rt2);
-  renderer.render(scene, camera);
-  renderer.setRenderTarget(null);
-
-  // feedback blend
-  feedbackMat.uniforms.prevFrame.value = rt1.texture;
-  feedbackMat.uniforms.currentFrame.value = rt2.texture;
-  renderer.setRenderTarget(rt1);
-  renderer.render(sceneFB, camera);
-  renderer.setRenderTarget(null);
-
-  // display blended result
-  renderer.render(sceneFB, camera);
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
 }
 
-animate();
+// Simple shader program for trails
+const vsSource = `
+  attribute vec2 a_position;
+  void main() {
+    gl_Position = vec4(a_position, 0, 1);
+  }
+`;
+
+const fsSource = `
+  precision mediump float;
+  uniform float u_time;
+  void main() {
+    float r = 0.5 + 0.5 * sin(u_time);
+    float g = 0.5 + 0.5 * sin(u_time + 2.0);
+    float b = 0.5 + 0.5 * sin(u_time + 4.0);
+    gl_FragColor = vec4(r, g, b, 0.08);  // translucent color for ghost trails
+  }
+`;
+
+function compileShader(source, type) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(shader));
+    return null;
+  }
+  return shader;
+}
+
+const vertexShader = compileShader(vsSource, gl.VERTEX_SHADER);
+const fragmentShader = compileShader(fsSource, gl.FRAGMENT_SHADER);
+
+const program = gl.createProgram();
+gl.attachShader(program, vertexShader);
+gl.attachShader(program, fragmentShader);
+gl.linkProgram(program);
+
+const positionBuffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+const positions = [
+  -1, -1,
+   1, -1,
+  -1,  1,
+   1,  1,
+];
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+const positionLocation = gl.getAttribLocation(program, "a_position");
+const timeLocation = gl.getUniformLocation(program, "u_time");
+
+function render(time) {
+  gl.useProgram(program);
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  gl.enableVertexAttribArray(positionLocation);
+  gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+  gl.uniform1f(timeLocation, time * 0.001);
+
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
 </script>
 </body>
 </html>
