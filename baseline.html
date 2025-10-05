@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>YouTube Floating Windows – Drift + Translucent</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+
+  /* Blurred background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: url('https://jeffgompertz.site/wp-content/uploads/2024/10/green-jessie.jpg')
+      no-repeat center center / cover;
+    filter: blur(10px) brightness(0.4);
+    z-index: -1;
+  }
+
+  /* Floating thumbnail windows */
+  .floating-window {
+    position: absolute;
+    width: 260px;
+    height: 180px;
+    overflow: hidden;
+    border: none;
+    box-shadow: 0 0 25px rgba(0,0,0,0.35);
+    cursor: grab;
+    background: rgba(255,255,255,0.08); /* translucent */
+    backdrop-filter: blur(6px);          /* glassy blur */
+    touch-action: none;
+    -webkit-user-select: none;
+            user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .floating-window:active { cursor: grabbing; }
+
+  .floating-window img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none; /* prevent touch hijack on iOS */
+  }
+</style>
+</head>
+<body>
+
+<div id="windows"></div>
+
+<script>
+const container = document.getElementById("windows");
+const W = () => window.innerWidth;
+const H = () => window.innerHeight;
+
+/* Your YouTube channel RSS feed */
+const feedUrl =
+  "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+
+/* Fetch RSS → JSON */
+fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedUrl))
+  .then(res => res.json())
+  .then(data => {
+    const items = data.items || [];
+    const videos = items.sort(() => 0.5 - Math.random()).slice(0, 6);
+
+    videos.forEach((video) => {
+      const div = document.createElement("div");
+      div.className = "floating-window";
+
+      // random position
+      const x = Math.max(0, Math.min(W() - 260, Math.random() * (W() - 260)));
+      const y = Math.max(0, Math.min(H() - 180, Math.random() * (H() - 180)));
+      div.style.left = x + "px";
+      div.style.top  = y + "px";
+
+      // thumbnail image instead of video
+      const thumb = video.thumbnail || "";
+      div.innerHTML = `<img src="${thumb}" alt="thumbnail">`;
+
+      container.appendChild(div);
+      driftAndBounce(div);
+      makeDraggable(div);
+    });
+  })
+  .catch(err => console.error("Feed error:", err));
+
+/* drift + bounce animation */
+function driftAndBounce(el) {
+  let vx = (Math.random() * 2 - 1) * 0.6;
+  let vy = (Math.random() * 2 - 1) * 0.6;
+
+  function animate() {
+    let x = el.offsetLeft + vx;
+    let y = el.offsetTop + vy;
+
+    if (x <= 0 || x + el.offsetWidth >= W()) vx *= -1;
+    if (y <= 0 || y + el.offsetHeight >= H()) vy *= -1;
+
+    el.style.left = Math.max(0, Math.min(W() - el.offsetWidth, x)) + "px";
+    el.style.top  = Math.max(0, Math.min(H() - el.offsetHeight, y)) + "px";
+
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+/* drag support (mouse + touch) */
+function makeDraggable(el) {
+  let dragging = false;
+  let offsetX = 0, offsetY = 0;
+
+  el.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    el.setPointerCapture(e.pointerId);
+    offsetX = e.clientX - el.offsetLeft;
+    offsetY = e.clientY - el.offsetTop;
+    el.style.cursor = "grabbing";
+  });
+
+  el.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    let x = e.clientX - offsetX;
+    let y = e.clientY - offsetY;
+    x = Math.max(0, Math.min(W() - el.offsetWidth, x));
+    y = Math.max(0, Math.min(H() - el.offsetHeight, y));
+    el.style.left = x + "px";
+    el.style.top  = y + "px";
+  });
+
+  el.addEventListener("pointerup", (e) => {
+    dragging = false;
+    el.style.cursor = "grab";
+    try { el.releasePointerCapture(e.pointerId); } catch {}
+  });
+
+  el.addEventListener("pointercancel", () => { dragging = false; });
+}
+</script>
+</body>
+</html>
