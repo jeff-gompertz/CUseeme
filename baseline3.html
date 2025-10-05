@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stacked Thumbnails – Translucent Stagger</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+
+  /* Background (shader injected via canvas) */
+  canvas#bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .floating-window {
+    position: relative;
+    width: 360px;
+    height: 220px;
+    margin: 30px auto; /* centers horizontally */
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.15); /* translucent glass effect */
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    opacity: 0.85; /* translucency */
+  }
+
+  .floating-window img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* Vertical stagger: every other window nudged */
+  .floating-window:nth-child(odd) { transform: translateX(-40px); }
+  .floating-window:nth-child(even){ transform: translateX(40px);  }
+</style>
+</head>
+<body>
+
+<!-- Background shader canvas -->
+<canvas id="bg"></canvas>
+
+<!-- Windows (thumbnails only, not clickable) -->
+<div id="windows"></div>
+
+<script>
+/* === Simple shader background (from shadertest) === */
+const canvas = document.getElementById("bg");
+const gl = canvas.getContext("webgl");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+gl.viewport(0,0,gl.drawingBufferWidth,gl.drawingBufferHeight);
+
+const vShader = `
+  attribute vec2 position;
+  void main() { gl_Position = vec4(position, 0.0, 1.0); }
+`;
+const fShader = `
+  precision mediump float;
+  uniform float time;
+  void main() {
+    vec2 uv = gl_FragCoord.xy / vec2(${window.innerWidth.toFixed(1)}, ${window.innerHeight.toFixed(1)});
+    float col = 0.5 + 0.5*sin(time + uv.x*8.0 + uv.y*8.0);
+    gl_FragColor = vec4(uv.x, col, uv.y, 1.0);
+  }
+`;
+function compile(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, compile(gl.VERTEX_SHADER, vShader));
+gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fShader));
+gl.linkProgram(prog);
+gl.useProgram(prog);
+
+const verts = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, "position");
+gl.enableVertexAttribArray(loc);
+gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+const timeLoc = gl.getUniformLocation(prog, "time");
+function render(t){
+  gl.uniform1f(timeLoc, t*0.001);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(render);
+}
+render(0);
+
+/* === Thumbnails stacked vertically === */
+const feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedUrl))
+  .then(r=>r.json())
+  .then(data=>{
+    const videos = (data.items||[]).slice(0,6);
+    const windows = document.getElementById("windows");
+    videos.forEach(v=>{
+      const vidId = (v.guid||"").split(":").pop();
+      const thumb = v.thumbnail || `https://i.ytimg.com/vi/${vidId}/hqdefault.jpg`;
+      const div = document.createElement("div");
+      div.className="floating-window";
+      div.innerHTML = `<img src="${thumb}" alt="thumb">`;
+      windows.appendChild(div);
+    });
+  });
+</script>
+</body>
+</html>
