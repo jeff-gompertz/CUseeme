@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Stacked Thumbnails • Shader BG • Nudging</title>
+<style>
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: black; font-family: system-ui, sans-serif;
+  }
+  /* Shader background (your working test) */
+  #shader-bg {
+    position: fixed; inset: 0; width: 100%; height: 100%; border: 0; z-index: 0;
+  }
+  /* Windows layer on top of shader */
+  #windows {
+    position: fixed; inset: 0; z-index: 1;
+  }
+  .floating-window {
+    position: absolute;
+    width: 320px; height: 180px;
+    overflow: hidden; border: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    background: rgba(255,255,255,0.10);     /* translucency */
+    opacity: 0.85;                           /* translucency */
+    backdrop-filter: blur(6px);
+    pointer-events: none;                    /* not clickable */
+  }
+  .floating-window img {
+    width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- 🔴 Shader background from your repo -->
+<iframe id="shader-bg" src="https://jeff-gompertz.github.io/CUseeme/shadertest.html"></iframe>
+
+<!-- 🟢 Stacked, translucent thumbnail windows -->
+<div id="windows"></div>
+
+<script>
+const feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+const container = document.getElementById("windows");
+const state = []; // {el,x,y,vx,vy,w,h}
+let W = innerWidth, H = innerHeight;
+
+function layoutTargets(n, boxH) {
+  // Evenly space vertically inside viewport with margin
+  const margin = 40;
+  const usable = Math.max(0, H - 2*margin - boxH);
+  const step = n > 1 ? usable / (n - 1) : 0;
+  const targets = [];
+  for (let i = 0; i < n; i++) {
+    const y = margin + i*step;
+    const x = (W - 320) / 2; // center column (320 = window width)
+    targets.push({x, y});
+  }
+  return targets;
+}
+
+function createThumbEl(src, x, y) {
+  const el = document.createElement("div");
+  el.className = "floating-window";
+  el.innerHTML = `<img src="${src}" alt="">`;
+  el.style.left = x + "px";
+  el.style.top  = y + "px";
+  container.appendChild(el);
+  const rect = { w: 320, h: 180 };
+  state.push({ el, x, y, vx: 0, vy: 0, w: rect.w, h: rect.h });
+}
+
+function startPhysics() {
+  function tick() {
+    if (state.length === 0) return requestAnimationFrame(tick);
+
+    const targets = layoutTargets(state.length, state[0].h);
+
+    // physics params (tune here)
+    const kSpring = 0.02;   // pull toward target column/row
+    const repelK  = 14000;  // overlap repulsion strength
+    const damp    = 0.86;   // velocity damping
+    const maxV    = 20;     // clamp speed
+
+    // spring toward target positions
+    for (let i = 0; i < state.length; i++) {
+      const s = state[i], t = targets[i];
+      const fx = (t.x - s.x) * kSpring;
+      const fy = (t.y - s.y) * kSpring;
+      s.vx += fx;
+      s.vy += fy;
+    }
+
+    // soft repel if overlapping
+    for (let i = 0; i < state.length; i++) {
+      for (let j = i+1; j < state.length; j++) {
+        const a = state[i], b = state[j];
+        const ax = a.x + a.w/2, ay = a.y + a.h/2;
+        const bx = b.x + b.w/2, by = b.y + b.h/2;
+        const dx = ax - bx, dy = ay - by;
+        const distSq = dx*dx + dy*dy;
+        const minDist = Math.max(a.w, a.h) * 0.75;
+        const minSq = minDist*minDist;
+
+        if (distSq < minSq && distSq > 1) {
+          const dist = Math.sqrt(distSq);
+          const nx = dx / dist, ny = dy / dist;
+          const f = (repelK / (distSq + 1));  // inverse-square
+          const fx = nx * f, fy = ny * f;
+          a.vx += fx; a.vy += fy;
+          b.vx -= fx; b.vy -= fy;
+        }
+      }
+    }
+
+    // integrate + damp + clamp + apply
+    for (const s of state) {
+      s.vx *= damp; s.vy *= damp;
+      // clamp
+      if (s.vx >  maxV) s.vx =  maxV; if (s.vx < -maxV) s.vx = -maxV;
+      if (s.vy >  maxV) s.vy =  maxV; if (s.vy < -maxV) s.vy = -maxV;
+      s.x += s.vx; s.y += s.vy;
+
+      // keep within viewport softly
+      if (s.x < 0)             { s.x = 0;             s.vx *= -0.3; }
+      if (s.x + s.w > W)       { s.x = W - s.w;       s.vx *= -0.3; }
+      if (s.y < 0)             { s.y = 0;             s.vy *= -0.3; }
+      if (s.y + s.h > H)       { s.y = H - s.h;       s.vy *= -0.3; }
+
+      s.el.style.left = s.x + "px";
+      s.el.style.top  = s.y + "px";
+    }
+
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function loadFromRSS() {
+  const url = "https://api.rss2json.com/v1/api.json?rss_url=" +
+              encodeURIComponent(feedUrl);
+
+  fetch(url).then(r => r.json()).then(data => {
+    const items = (data && data.items) ? data.items.slice(0, 8) : [];
+    if (!items.length) throw new Error("No RSS items");
+    // initial placement near vertical center, staggered
+    const startY = Math.max(0, (H - (items.length*190)) / 2);
+    items.forEach((item, i) => {
+      const vidId = (item.guid || "").split(":").pop();
+      const thumb = `https://img.youtube.com/vi/${vidId}/hqdefault.jpg`;
+      const x = (W - 320)/2 + (Math.random()*40 - 20); // slight horizontal jitter
+      const y = startY + i*190 + (Math.random()*10 - 5);
+      createThumbEl(thumb, x, y);
+    });
+    startPhysics();
+  }).catch(err => {
+    // graceful fallback: three placeholders
+    const x = (W - 320)/2;
+    const startY = Math.max(0, (H - (3*190)) / 2);
+    const ph = "https://jeffgompertz.site/wp-content/uploads/2024/10/green-jessie.jpg";
+    for (let i = 0; i < 3; i++) {
+      createThumbEl(ph, x, startY + i*190);
+    }
+    startPhysics();
+  });
+}
+
+function onResize() {
+  W = innerWidth; H = innerHeight;
+}
+addEventListener("resize", onResize);
+
+// boot
+loadFromRSS();
+</script>
+</body>
+</html>
