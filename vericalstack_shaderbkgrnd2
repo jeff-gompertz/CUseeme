@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>YouTube Thumbnails – Nudging Vertical Stack</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+
+  /* Blurred background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: url('https://jeffgompertz.site/wp-content/uploads/2024/10/green-jessie.jpg')
+      no-repeat center center / cover;
+    filter: blur(10px) brightness(0.4);
+    z-index: -1;
+  }
+
+  .floating-window {
+    position: absolute;
+    width: 320px;
+    height: 180px;
+    overflow: hidden;
+    border: none;
+    box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    cursor: grab;
+    background: rgba(255,255,255,0.1); /* translucent */
+    opacity: 0.85;
+    touch-action: none;
+    -webkit-user-select: none;
+            user-select: none;
+    -webkit-touch-callout: none;
+    transition: opacity 0.3s;
+  }
+
+  .floating-window img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="windows"></div>
+
+<script>
+const container = document.getElementById("windows");
+const W = () => window.innerWidth;
+const H = () => window.innerHeight;
+
+const feedUrl =
+  "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+
+fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedUrl))
+  .then(res => res.json())
+  .then(data => {
+    const items = data.items || [];
+    const videos = items.slice(0, 8); // top 8 thumbnails
+
+    videos.forEach((video, i) => {
+      const div = document.createElement("div");
+      div.className = "floating-window";
+
+      // start stacked vertically
+      div.style.left = (W()/2 - 160 + (Math.random()*40 - 20)) + "px"; 
+      div.style.top  = (50 + i * 200) + "px"; 
+
+      const thumb = video.thumbnail;
+      div.innerHTML = `<img src="${thumb}" alt="thumb">`;
+
+      container.appendChild(div);
+      makeNudging(div);
+    });
+  });
+
+function makeNudging(el) {
+  let vx = 0, vy = 0;
+
+  function animate() {
+    const windows = [...document.querySelectorAll(".floating-window")];
+
+    // simple "gravity" to vertical line
+    let targetX = W()/2 - el.offsetWidth/2;
+    vx += (targetX - el.offsetLeft) * 0.001;
+
+    // repel from others
+    windows.forEach(other => {
+      if (other === el) return;
+      const dx = el.offsetLeft - other.offsetLeft;
+      const dy = el.offsetTop - other.offsetTop;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 200) {
+        vx += dx / dist * 0.05;
+        vy += dy / dist * 0.05;
+      }
+    });
+
+    // apply velocity
+    el.style.left = (el.offsetLeft + vx) + "px";
+    el.style.top  = (el.offsetTop  + vy) + "px";
+
+    // friction
+    vx *= 0.9;
+    vy *= 0.9;
+
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+</script>
+</body>
+</html>
