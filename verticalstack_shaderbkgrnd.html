@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Vertical Windows + Shader Background</title>
+<title>Vertical Windows + Shader Background (fixed)</title>
 <style>
   html, body {
     margin: 0;
@@ -13,17 +13,18 @@
     font-family: sans-serif;
   }
 
-  /* Background shader as iframe */
+  /* Force shader background iframe to sit underneath */
   #shader-bg {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     border: none;
-    z-index: -1;
+    z-index: 0;   /* lowest layer */
   }
 
-  /* Window stack container */
+  /* Windows container sits above */
   #windows {
     position: relative;
     display: flex;
@@ -33,7 +34,7 @@
     padding-top: 40px;
     height: 100%;
     overflow-y: auto;
-    z-index: 1;
+    z-index: 1;   /* above background */
   }
 
   .floating-window {
@@ -71,10 +72,10 @@
 </head>
 <body>
 
-<!-- Background shader hosted on GitHub -->
+<!-- 🔲 Shader background -->
 <iframe id="shader-bg" src="https://jeff-gompertz.github.io/CUseeme/shadertest.html"></iframe>
 
-<!-- Windows stack -->
+<!-- 🪟 Windows stack -->
 <div id="windows"></div>
 
 <script>
@@ -85,7 +86,7 @@ fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedU
   .then(res => res.json())
   .then(data => {
     const items = data.items || [];
-    const videos = items.slice(0, 6); // Top 6 recent
+    const videos = items.slice(0, 6); // show top 6
 
     videos.forEach(video => {
       const vidId = (video.guid || "").split(':').pop();
@@ -98,7 +99,6 @@ fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedU
         <div class="caption">${video.title}</div>
       `;
 
-      // Optional: open video in new tab on click
       div.addEventListener("click", () => {
         window.open(video.link, "_blank");
       });
