@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Vertical Windows + Shader Background</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: black;
+    font-family: sans-serif;
+  }
+
+  /* Background shader as iframe */
+  #shader-bg {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    z-index: -1;
+  }
+
+  /* Window stack container */
+  #windows {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding-top: 40px;
+    height: 100%;
+    overflow-y: auto;
+    z-index: 1;
+  }
+
+  .floating-window {
+    width: 360px;
+    height: 220px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 6px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+    overflow: hidden;
+    transition: transform 0.3s ease;
+    cursor: pointer;
+  }
+
+  .floating-window:hover {
+    transform: scale(1.05);
+  }
+
+  .floating-window img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .floating-window .caption {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    padding: 6px 10px;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Background shader hosted on GitHub -->
+<iframe id="shader-bg" src="https://jeff-gompertz.github.io/CUseeme/shadertest.html"></iframe>
+
+<!-- Windows stack -->
+<div id="windows"></div>
+
+<script>
+const container = document.getElementById("windows");
+const feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+
+fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedUrl))
+  .then(res => res.json())
+  .then(data => {
+    const items = data.items || [];
+    const videos = items.slice(0, 6); // Top 6 recent
+
+    videos.forEach(video => {
+      const vidId = (video.guid || "").split(':').pop();
+      const thumb = `https://img.youtube.com/vi/${vidId}/hqdefault.jpg`;
+
+      const div = document.createElement("div");
+      div.className = "floating-window";
+      div.innerHTML = `
+        <img src="${thumb}" alt="${video.title}">
+        <div class="caption">${video.title}</div>
+      `;
+
+      // Optional: open video in new tab on click
+      div.addEventListener("click", () => {
+        window.open(video.link, "_blank");
+      });
+
+      container.appendChild(div);
+    });
+  });
+</script>
+</body>
+</html>
