@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shader Thumbnails with Trails</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="glcanvas"></canvas>
+<script>
+const canvas = document.getElementById("glcanvas");
+const gl = canvas.getContext("webgl");
+if (!gl) { alert("WebGL not supported"); }
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  gl.viewport(0,0,canvas.width,canvas.height);
+}
+window.addEventListener("resize", resize);
+resize();
+
+// Vertex shader
+const vsSource = `
+  attribute vec2 aPos;
+  varying vec2 vTex;
+  void main() {
+    vTex = (aPos + 1.0) * 0.5;
+    gl_Position = vec4(aPos, 0.0, 1.0);
+  }
+`;
+
+// Fragment shader with feedback trails
+const fsSource = `
+  precision mediump float;
+  varying vec2 vTex;
+  uniform sampler2D uPrev;
+  uniform sampler2D uThumb;
+  uniform float uAlpha;
+  void main() {
+    vec4 prev = texture2D(uPrev, vTex);
+    vec4 img = texture2D(uThumb, vTex);
+    gl_FragColor = mix(prev * uAlpha, img, 0.6);
+  }
+`;
+
+function compileShader(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    throw gl.getShaderInfoLog(s);
+  }
+  return s;
+}
+
+const vs = compileShader(gl.VERTEX_SHADER, vsSource);
+const fs = compileShader(gl.FRAGMENT_SHADER, fsSource);
+const prog = gl.createProgram();
+gl.attachShader(prog, vs);
+gl.attachShader(prog, fs);
+gl.linkProgram(prog);
+gl.useProgram(prog);
+
+// Quad setup
+const quad = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, "aPos");
+gl.enableVertexAttribArray(loc);
+gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+// Create textures
+function createTexture() {
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return tex;
+}
+
+const prevTex = createTexture();
+const thumbTex = createTexture();
+
+// Load static thumbnail image
+const img = new Image();
+img.src = "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg"; // replace with your image
+img.crossOrigin = "anonymous";
+img.onload = () => {
+  gl.bindTexture(gl.TEXTURE_2D, thumbTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+};
+
+const uPrev = gl.getUniformLocation(prog,"uPrev");
+const uThumb = gl.getUniformLocation(prog,"uThumb");
+const uAlpha = gl.getUniformLocation(prog,"uAlpha");
+
+const fb = gl.createFramebuffer();
+let texA = createTexture();
+let texB = createTexture();
+function initTex(tex) {
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0,
+                gl.RGBA, gl.UNSIGNED_BYTE, null);
+}
+function swap() { let t=texA; texA=texB; texB=t; }
+
+function render() {
+  initTex(texB);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texB, 0);
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texA);
+  gl.uniform1i(uPrev, 0);
+
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, thumbTex);
+  gl.uniform1i(uThumb, 1);
+
+  gl.uniform1f(uAlpha, 0.97); // trail persistence
+
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+  // draw to screen
+  gl.bindTexture(gl.TEXTURE_2D, texB);
+  gl.uniform1i(uPrev, 0);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  swap();
+  requestAnimationFrame(render);
+}
+render();
+</script>
+</body>
+</html>
