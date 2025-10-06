@@ -2,16 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>6 Floating Translucent Cards with Trails</title>
+<title>6 Translucent Cards + Trails Improved</title>
 <style>
   body {
     margin: 0;
     overflow: hidden;
     background: black;
   }
-  canvas {
-    display: block;
-  }
+  canvas { display: block; }
 </style>
 </head>
 <body>
@@ -20,44 +18,58 @@
 <script>
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
-resize();
-window.addEventListener("resize", resize);
 
 function resize() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 }
+window.addEventListener("resize", resize);
+resize();
 
-// cards setup
+// Setup cards
 const cards = [];
 for (let i = 0; i < 6; i++) {
+  const w = 160, h = 100;
   cards.push({
-    x: Math.random() * canvas.width,
-    y: Math.random() * canvas.height,
-    vx: (Math.random() - 0.5) * 2,
-    vy: (Math.random() - 0.5) * 2,
-    w: 160,
-    h: 100
+    x: Math.random() * (canvas.width - w),
+    y: Math.random() * (canvas.height - h),
+    vx: (Math.random() - 0.5) * 2.5,
+    vy: (Math.random() - 0.5) * 2.0,
+    w, h
   });
 }
 
 function animate() {
-  // feedback layer for trails
-  ctx.fillStyle = "rgba(0,0,0,0.15)";
+  // stronger trails: lighter fade
+  ctx.fillStyle = "rgba(0,0,0,0.03)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   cards.forEach(card => {
-    // translucent body only, no border
+    // draw card
     ctx.fillStyle = "rgba(255,255,255,0.15)";
     ctx.fillRect(card.x, card.y, card.w, card.h);
 
-    // motion update
+    // update pos
     card.x += card.vx;
     card.y += card.vy;
 
-    // bounce off edges
-    if (card.x <= 0 || card.x + card.w >= canvas.width) card.vx *= -1;
-    if (card.y <= 0 || card.y + card.h >= canvas.height) card.vy *= -1;
+    // bounce properly & clamp
+    if (card.x < 0) {
+      card.x = 0;
+      card.vx *= -1;
+    }
+    if (card.x + card.w > canvas.width) {
+      card.x = canvas.width - card.w;
+      card.vx *= -1;
+    }
+    if (card.y < 0) {
+      card.y = 0;
+      card.vy *= -1;
+    }
+    if (card.y + card.h > canvas.height) {
+      card.y = canvas.height - card.h;
+      card.vy *= -1;
+    }
   });
 
   requestAnimationFrame(animate);
