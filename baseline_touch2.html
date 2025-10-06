@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Baseline Touch Test – with Thumbnails</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+
+  .floating-window {
+    position: absolute;
+    width: 390px;
+    height: 260px;
+    overflow: hidden;
+    border: none;
+    box-shadow: 0 0 25px rgba(0,0,0,0.4);
+    cursor: grab;
+    background: rgba(255,255,255,0.05);
+    touch-action: none; /* iOS: allow drag */
+    -webkit-user-select: none;
+            user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .floating-window:active { cursor: grabbing; }
+
+  .floating-window img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none; /* ensures drag works instead of capturing taps */
+  }
+</style>
+</head>
+<body>
+
+<div id="windows"></div>
+
+<script>
+const container = document.getElementById("windows");
+const W = () => window.innerWidth;
+const H = () => window.innerHeight;
+const MAX_THUMBS = 6;
+
+/* ✅ Your YouTube channel RSS feed */
+const feedUrl =
+  "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+
+/* Convert RSS → JSON */
+fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedUrl))
+  .then(res => res.json())
+  .then(data => {
+    const items = (data && data.items) ? data.items.slice(0, MAX_THUMBS) : [];
+    if (!items.length) throw new Error("No RSS items");
+
+    // Build image list
+    items.forEach(item => {
+      const vid = (item.guid || "").split(":").pop();
+      const src =
+        item.thumbnail ||
+        https://i.ytimg.com/vi/${vid}/hqdefault.jpg;   // ✅ FIXED
+
+      const div = document.createElement("div");
+      div.className = "floating-window";
+
+      const x = Math.max(0, Math.min(W() - 390, Math.random() * (W() - 390)));
+      const y = Math.max(0, Math.min(H() - 260, Math.random() * (H() - 260)));
+      div.style.left = x + "px";
+      div.style.top  = y + "px";
+
+      div.innerHTML = <img src="${src}" alt="thumbnail">;
+
+      container.appendChild(div);
+      makeDraggableAndBouncing(div);
+    });
+  })
+  .catch(err => console.error("Feed error:", err));
+
+/* ✅ Drift + Drag with bounce */
+function makeDraggableAndBouncing(el) {
+  let dragging = false;
+  let offsetX = 0, offsetY = 0;
+
+  // random gentle drift
+  let vx = (Math.random() * 2 - 1) * 0.6;
+  let vy = (Math.random() * 2 - 1) * 0.6;
+
+  el.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    el.setPointerCapture(e.pointerId);
+    offsetX = e.clientX - el.offsetLeft;
+    offsetY = e.clientY - el.offsetTop;
+    el.style.cursor = "grabbing";
+  });
+
+  el.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    let x = e.clientX - offsetX;
+    let y = e.clientY - offsetY;
+    x = Math.max(0, Math.min(W() - el.offsetWidth, x));
+    y = Math.max(0, Math.min(H() - el.offsetHeight, y));
+    el.style.left = x + "px";
+    el.style.top  = y + "px";
+  });
+
+  el.addEventListener("pointerup", (e) => {
+    dragging = false;
+    el.style.cursor = "grab";
+    try { el.releasePointerCapture(e.pointerId); } catch {}
+  });
+  el.addEventListener("pointercancel", () => { dragging = false; });
+
+  // Drift loop with bounce
+  function animate() {
+    if (!dragging) {
+      let x = el.offsetLeft + vx;
+      let y = el.offsetTop  + vy;
+
+      if (x <= 0 || x + el.offsetWidth >= W()) vx *= -1;
+      if (y <= 0 || y + el.offsetHeight >= H()) vy *= -1;
+
+      el.style.left = Math.max(0, Math.min(W() - el.offsetWidth, x)) + "px";
+      el.style.top  = Math.max(0, Math.min(H() - el.offsetHeight, y)) + "px";
+    }
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+</script>
+</body>
+</html>
