@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>YouTube Thumbnail Windows + Trails</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+
+  canvas#trails {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .floating-window {
+    position: absolute;
+    width: 300px;
+    height: 200px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.1); /* translucent */
+    box-shadow: 0 0 25px rgba(0,0,0,0.3);
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    z-index: 1;
+  }
+
+  .floating-window img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .floating-window:active { cursor: grabbing; }
+</style>
+</head>
+<body>
+
+<canvas id="trails"></canvas>
+<div id="windows"></div>
+
+<script>
+const container = document.getElementById("windows");
+const canvas = document.getElementById("trails");
+const ctx = canvas.getContext("2d");
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
+
+const feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+const MAX_CARDS = 6;
+const KEYWORD = "ghost"; // optional filter
+
+let windows = [];
+
+// Fetch RSS
+fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedUrl))
+  .then(res => res.json())
+  .then(data => {
+    let items = (data.items || []);
+    // filter if keyword is present
+    let filtered = items.filter(item => item.title.toLowerCase().includes(KEYWORD));
+    if (!filtered.length) filtered = items.slice(0, 15);
+
+    const vids = filtered.sort(() => 0.5 - Math.random()).slice(0, MAX_CARDS);
+
+    vids.forEach((video) => {
+      const vid = (video.guid || "").split(":").pop();
+      const thumb = `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+
+      const div = document.createElement("div");
+      div.className = "floating-window";
+      div.style.left = Math.random() * (window.innerWidth - 320) + "px";
+      div.style.top  = Math.random() * (window.innerHeight - 220) + "px";
+      div.innerHTML = `<img src="${thumb}" alt="Thumbnail">`;
+
+      container.appendChild(div);
+
+      windows.push({
+        el: div,
+        vx: (Math.random() * 2 - 1) * 1.2,
+        vy: (Math.random() * 2 - 1) * 1.2,
+        dragging: false,
+        offsetX: 0,
+        offsetY: 0
+      });
+
+      makeDraggable(div, windows[windows.length - 1]);
+    });
+
+    requestAnimationFrame(loop);
+  });
+
+function makeDraggable(el, obj) {
+  el.addEventListener("pointerdown", e => {
+    obj.dragging = true;
+    obj.offsetX = e.clientX - el.offsetLeft;
+    obj.offsetY = e.clientY - el.offsetTop;
+    el.setPointerCapture(e.pointerId);
+    el.style.cursor = "grabbing";
+  });
+
+  el.addEventListener("pointermove", e => {
+    if (!obj.dragging) return;
+    let x = e.clientX - obj.offsetX;
+    let y = e.clientY - obj.offsetY;
+    x = Math.max(0, Math.min(window.innerWidth - el.offsetWidth, x));
+    y = Math.max(0, Math.min(window.innerHeight - el.offsetHeight, y));
+    el.style.left = x + "px";
+    el.style.top  = y + "px";
+  });
+
+  el.addEventListener("pointerup", e => {
+    obj.dragging = false;
+    try { el.releasePointerCapture(e.pointerId); } catch {}
+    el.style.cursor = "grab";
+  });
+  el.addEventListener("pointercancel", () => { obj.dragging = false; });
+}
+
+function loop() {
+  // fade trails
+  ctx.fillStyle = "rgba(0,0,0,0.2)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  windows.forEach(obj => {
+    const el = obj.el;
+    if (!obj.dragging) {
+      let x = el.offsetLeft + obj.vx;
+      let y = el.offsetTop  + obj.vy;
+      if (x <= 0 || x + el.offsetWidth >= window.innerWidth) obj.vx *= -1;
+      if (y <= 0 || y + el.offsetHeight >= window.innerHeight) obj.vy *= -1;
+      el.style.left = (x) + "px";
+      el.style.top  = (y) + "px";
+    }
+
+    // draw ghost
+    ctx.drawImage(el, el.offsetLeft, el.offsetTop, el.offsetWidth, el.offsetHeight);
+  });
+
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
