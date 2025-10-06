@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>YouTube Thumbnail Windows + Trails</title>
+<title>Thumbnail Recursion 4</title>
 <style>
   body {
     margin: 0;
@@ -10,24 +10,28 @@
     background: black;
   }
 
-  canvas#trails {
+  canvas {
     position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     z-index: 0;
-    pointer-events: none;
   }
 
   .floating-window {
     position: absolute;
-    width: 300px;
-    height: 200px;
-    overflow: hidden;
-    background: rgba(255,255,255,0.1); /* translucent */
-    box-shadow: 0 0 25px rgba(0,0,0,0.3);
+    width: 280px;
+    height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.15); /* more translucent */
+    backdrop-filter: blur(10px);           /* frosted glass effect */
+    border-radius: 8px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.4);
     cursor: grab;
     user-select: none;
-    touch-action: none;
+    overflow: hidden;
     z-index: 1;
   }
 
@@ -35,120 +39,109 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    display: block;
+    pointer-events: none;
   }
 
   .floating-window:active { cursor: grabbing; }
 </style>
 </head>
 <body>
-
-<canvas id="trails"></canvas>
+<canvas id="feedback"></canvas>
 <div id="windows"></div>
 
 <script>
 const container = document.getElementById("windows");
-const canvas = document.getElementById("trails");
+const canvas = document.getElementById("feedback");
 const ctx = canvas.getContext("2d");
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-resize();
-window.addEventListener("resize", resize);
+let W = window.innerWidth, H = window.innerHeight;
+canvas.width = W; canvas.height = H;
 
+window.addEventListener("resize", () => {
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W; canvas.height = H;
+});
+
+/* RSS feed */
 const feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
-const MAX_CARDS = 6;
-const KEYWORD = "ghost"; // optional filter
-
 let windows = [];
 
-// Fetch RSS
 fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedUrl))
-  .then(res => res.json())
+  .then(r => r.json())
   .then(data => {
-    let items = (data.items || []);
-    // filter if keyword is present
-    let filtered = items.filter(item => item.title.toLowerCase().includes(KEYWORD));
-    if (!filtered.length) filtered = items.slice(0, 15);
+    const items = (data.items || []).slice(0, 15);
+    const picks = items.sort(() => 0.5 - Math.random()).slice(0, 6);
 
-    const vids = filtered.sort(() => 0.5 - Math.random()).slice(0, MAX_CARDS);
-
-    vids.forEach((video) => {
-      const vid = (video.guid || "").split(":").pop();
-      const thumb = `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+    picks.forEach((item, i) => {
+      const vid = (item.guid || "").split(":").pop();
+      const src = item.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
 
       const div = document.createElement("div");
       div.className = "floating-window";
-      div.style.left = Math.random() * (window.innerWidth - 320) + "px";
-      div.style.top  = Math.random() * (window.innerHeight - 220) + "px";
-      div.innerHTML = `<img src="${thumb}" alt="Thumbnail">`;
+      div.style.left = (Math.random() * (W-300)) + "px";
+      div.style.top  = (Math.random() * (H-200)) + "px";
+
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = src;
+      div.appendChild(img);
 
       container.appendChild(div);
-
-      windows.push({
-        el: div,
-        vx: (Math.random() * 2 - 1) * 1.2,
-        vy: (Math.random() * 2 - 1) * 1.2,
-        dragging: false,
-        offsetX: 0,
-        offsetY: 0
-      });
-
-      makeDraggable(div, windows[windows.length - 1]);
+      makeDrift(div, img);
     });
-
-    requestAnimationFrame(loop);
   });
 
-function makeDraggable(el, obj) {
+function makeDrift(el, img) {
+  let vx = (Math.random() * 2 - 1) * 1.0;
+  let vy = (Math.random() * 2 - 1) * 1.0;
+  let dragging = false, offX = 0, offY = 0;
+
   el.addEventListener("pointerdown", e => {
-    obj.dragging = true;
-    obj.offsetX = e.clientX - el.offsetLeft;
-    obj.offsetY = e.clientY - el.offsetTop;
-    el.setPointerCapture(e.pointerId);
+    dragging = true;
+    offX = e.clientX - el.offsetLeft;
+    offY = e.clientY - el.offsetTop;
     el.style.cursor = "grabbing";
+    el.setPointerCapture(e.pointerId);
   });
 
   el.addEventListener("pointermove", e => {
-    if (!obj.dragging) return;
-    let x = e.clientX - obj.offsetX;
-    let y = e.clientY - obj.offsetY;
-    x = Math.max(0, Math.min(window.innerWidth - el.offsetWidth, x));
-    y = Math.max(0, Math.min(window.innerHeight - el.offsetHeight, y));
+    if (!dragging) return;
+    let x = e.clientX - offX;
+    let y = e.clientY - offY;
+    x = Math.max(0, Math.min(W - el.offsetWidth, x));
+    y = Math.max(0, Math.min(H - el.offsetHeight, y));
     el.style.left = x + "px";
     el.style.top  = y + "px";
   });
 
   el.addEventListener("pointerup", e => {
-    obj.dragging = false;
-    try { el.releasePointerCapture(e.pointerId); } catch {}
+    dragging = false;
     el.style.cursor = "grab";
+    try { el.releasePointerCapture(e.pointerId); } catch {}
   });
-  el.addEventListener("pointercancel", () => { obj.dragging = false; });
-}
 
-function loop() {
-  // fade trails
-  ctx.fillStyle = "rgba(0,0,0,0.2)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  function animate() {
+    if (!dragging) {
+      let x = el.offsetLeft + vx;
+      let y = el.offsetTop  + vy;
 
-  windows.forEach(obj => {
-    const el = obj.el;
-    if (!obj.dragging) {
-      let x = el.offsetLeft + obj.vx;
-      let y = el.offsetTop  + obj.vy;
-      if (x <= 0 || x + el.offsetWidth >= window.innerWidth) obj.vx *= -1;
-      if (y <= 0 || y + el.offsetHeight >= window.innerHeight) obj.vy *= -1;
-      el.style.left = (x) + "px";
-      el.style.top  = (y) + "px";
+      if (x <= 0 || x + el.offsetWidth >= W) vx *= -1;
+      if (y <= 0 || y + el.offsetHeight >= H) vy *= -1;
+
+      el.style.left = Math.max(0, Math.min(W - el.offsetWidth, x)) + "px";
+      el.style.top  = Math.max(0, Math.min(H - el.offsetHeight, y)) + "px";
     }
 
-    // draw ghost
-    ctx.drawImage(el, el.offsetLeft, el.offsetTop, el.offsetWidth, el.offsetHeight);
-  });
+    // paint trails
+    ctx.globalAlpha = 0.85; // fade factor
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.fillRect(0,0,W,H);
 
-  requestAnimationFrame(loop);
+    ctx.globalAlpha = 0.9;
+    ctx.drawImage(img, el.offsetLeft, el.offsetTop, el.offsetWidth, el.offsetHeight);
+
+    requestAnimationFrame(animate);
+  }
+  animate();
 }
 </script>
 </body>
