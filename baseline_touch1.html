@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Baseline + Canvas Feedback (Thumbnails)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #000;
+    overflow: hidden; /* keep it fullscreen */
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  }
+  /* Fullscreen feedback canvas */
+  #fx {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  /* Optional overlay to help judge opacity while testing */
+  /* #glass { position: fixed; inset:0; pointer-events:none; background: linear-gradient(transparent, rgba(0,0,0,.2)); } */
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<!-- <div id="glass"></div> -->
+
+<script>
+/* ===============================
+   Config (tweak safely)
+   =============================== */
+const CHANNEL_ID = "UCREEmHdAYvlboosrKCHe4UA"; // your channel
+const MAX_THUMBS = 6;        // how many thumbnails to use
+const COL_WIDTH_PX = 360;    // target width of each card (auto-scales on small screens)
+const SPACING = 24;          // vertical spacing between cards
+const DECAY_ALPHA = 0.92;    // 0.85..0.98 : lower = longer trails
+const ZOOM = 1.0035;         // 1.0..1.01 : subtle zoom for feedback
+const SHIFT_X = 0.0;         // small sub-pixel pan per frame (e.g. 0.05)
+const SHIFT_Y = 0.05;
+const THUMB_OPACITY = 0.92;  // opacity of fresh thumbnail draw (0.7..1)
+
+/* ===============================
+   Setup canvases
+   =============================== */
+const fx = document.getElementById('fx');
+const ctx = fx.getContext('2d', { alpha: false }); // opaque for performance
+
+// Offscreen buffer to hold last frame (for feedback)
+let back = document.createElement('canvas');
+let bctx = back.getContext('2d', { alpha: false });
+
+// HiDPI
+function resize() {
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const w = Math.floor(window.innerWidth * dpr);
+  const h = Math.floor(window.innerHeight * dpr);
+
+  fx.width = w;   fx.height = h;
+  back.width = w; back.height = h;
+
+  // Reset transform & scale to DPR
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // Clear both
+  ctx.fillStyle = "#000"; ctx.fillRect(0,0,fx.width,fx.height);
+  bctx.fillStyle = "#000"; bctx.fillRect(0,0,back.width,back.height);
+
+  // recompute layout targets
+  computeLayout();
+}
+window.addEventListener('resize', resize);
+
+/* ===============================
+   Layout for vertical stack
+   =============================== */
+let layout = []; // {x,y,w,h,img}
+let images = []; // Image objects (loaded)
+let readyCount = 0;
+
+function computeLayout() {
+  if (!images.length) return;
+
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+
+  // scale width for small screens
+  const cardW = Math.min(COL_WIDTH_PX, Math.floor(W * 0.9));
+  const cardH = Math.floor(cardW * 9/16);
+
+  // total height of stack
+  const totalH = images.length * cardH + (images.length - 1) * SPACING;
+  const startY = Math.max( (H - totalH)/2, 20 );
+
+  layout = images.map((img, i) => {
+    const y = startY + i*(cardH + SPACING);
+    const stagger = ((i % 2) ? 16 : -16); // slight left/right offset
+    const x = Math.floor((W - cardW)/2 + stagger);
+    return { x, y, w: cardW, h: cardH, img };
+  });
+}
+
+/* ===============================
+   RSS → thumbnails → Image objects
+   =============================== */
+const FEED_URL = "https://www.youtube.com/feeds/videos.xml?channel_id=" + CHANNEL_ID;
+fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(FEED_URL))
+  .then(r => r.json())
+  .then(data => {
+    const items = (data && data.items) ? data.items.slice(0, MAX_THUMBS) : [];
+    if (!items.length) throw new Error("No RSS items");
+
+    // Build image list
+    images = items.map(item => {
+      const vid = (item.guid || "").split(":").pop();
+      const src =
+        item.thumbnail ||
+        https://i.ytimg.com/vi/${vid}/hqdefault.jpg;
+      const im = new Image();
+      im.crossOrigin = "anonymous"; // safer on canvas
+      im.src = src;
+      im.onload = () => {
+        readyCount++;
+        if (readyCount === images.length) {
+          computeLayout();
+          start();
+        }
+      };
+      im.onerror = () => {
+        // fallback single-color block if a thumb fails
+        const fallback = document.createElement('canvas');
+        fallback.width = 16; fallback.height = 9;
+        const fctx = fallback.getContext('2d');
+        fctx.fillStyle = "#333"; fctx.fillRect(0,0,16,9);
+        im.onload = null; // avoid double-calls
+        readyCount++;
+        im.src = fallback.toDataURL();
+        if (readyCount === images.length) {
+          computeLayout();
+          start();
+        }
+      };
+      return im;
+    });
+  })
+  .catch(err => {
+    // Graceful fallback: 3 placeholders
+    images = [0,1,2].map(() => {
+      const im = new Image();
+      im.crossOrigin = "anonymous";
+      im.src = "https://picsum.photos/640/360?grayscale";
+      im.onload = () => {
+        readyCount++;
+        if (readyCount === images.length) {
+          computeLayout();
+          start();
+        }
+      };
+      return im;
+    });
+  });
+
+/* ===============================
+   Feedback render loop
+   =============================== */
+let rafId = null;
+function start() {
+  cancelAnimationFrame(rafId);
+  resize(); // ensure sizes & layout
+  // seed back buffer with black
+  bctx.save();
+  bctx.setTransform(1,0,0,1,0,0);
+  bctx.fillStyle = "#000"; bctx.fillRect(0,0,back.width,back.height);
+  bctx.restore();
+  rafId = requestAnimationFrame(loop);
+}
+
+function loop() {
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+
+  // 1) Copy last frame from back → fx with slight zoom/shift & alpha
+  ctx.save();
+  ctx.globalAlpha = DECAY_ALPHA;
+  // Centered zoom
+  const cx = W/2, cy = H/2;
+  ctx.translate(cx, cy);
+  ctx.scale(ZOOM, ZOOM);
+  ctx.translate(-cx + SHIFT_X, -cy + SHIFT_Y);
+  ctx.drawImage(back, 0, 0, back.width, back.height, 0, 0, W, H);
+  ctx.restore();
+
+  // 2) Draw current thumbnails at full opacity, stacked vertically
+  if (layout.length) {
+    ctx.save();
+    ctx.globalAlpha = THUMB_OPACITY;
+    layout.forEach(({x,y,w,h,img}) => {
+      ctx.drawImage(img, x, y, w, h);
+    });
+    ctx.restore();
+  }
+
+  // 3) Copy fx → back for next frame
+  bctx.save();
+  bctx.setTransform(1,0,0,1,0,0);
+  bctx.drawImage(fx, 0, 0, fx.width, fx.height);
+  bctx.restore();
+
+  rafId = requestAnimationFrame(loop);
+}
+
+// Kick off sizing
+resize();
+</script>
+</body>
+</html>
