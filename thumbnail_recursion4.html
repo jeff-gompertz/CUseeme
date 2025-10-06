@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Thumbnail Recursion Trails</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+  canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+  }
+  .floating-window {
+    position: absolute;
+    width: 200px;
+    height: 120px;
+    overflow: hidden;
+    cursor: grab;
+    border-radius: 8px;
+    opacity: 0.75; /* semi-translucent */
+    background: rgba(255,255,255,0.15);
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  }
+  .floating-window img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none; /* don’t block dragging */
+  }
+  .floating-window:active { cursor: grabbing; }
+</style>
+</head>
+<body>
+<canvas id="trails"></canvas>
+<div id="windows"></div>
+
+<script>
+const container = document.getElementById("windows");
+const canvas = document.getElementById("trails");
+const ctx = canvas.getContext("2d");
+let W = window.innerWidth, H = window.innerHeight;
+canvas.width = W; canvas.height = H;
+
+window.addEventListener("resize", () => {
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W; canvas.height = H;
+});
+
+/* ✅ Your channel feed */
+const feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+
+let cards = [];
+let images = [];
+
+/* Get videos → thumbnails */
+fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedUrl))
+  .then(res => res.json())
+  .then(data => {
+    const items = (data.items || []).slice(0, 6);
+    items.forEach((item,i) => {
+      const vid = (item.guid || "").split(":").pop();
+      const thumb = item.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+
+      const div = document.createElement("div");
+      div.className = "floating-window";
+      div.style.left = (50 + i*220) + "px";
+      div.style.top  = (100 + i*140) + "px";
+
+      const im = new Image();
+      im.src = thumb;
+      im.onload = () => images.push({img:im, el:div});
+
+      div.innerHTML = `<img src="${thumb}">`;
+      container.appendChild(div);
+
+      cards.push({
+        el: div,
+        x: div.offsetLeft,
+        y: div.offsetTop,
+        w: div.offsetWidth,
+        h: div.offsetHeight,
+        vx: (Math.random()*2-1)*1.0,
+        vy: (Math.random()*2-1)*1.0,
+        dragging:false,
+        offsetX:0,
+        offsetY:0
+      });
+
+      makeDraggable(cards[cards.length-1]);
+    });
+  });
+
+/* Dragging handler */
+function makeDraggable(card) {
+  card.el.addEventListener("pointerdown", e=>{
+    card.dragging = true;
+    card.offsetX = e.clientX - card.x;
+    card.offsetY = e.clientY - card.y;
+    card.el.setPointerCapture(e.pointerId);
+  });
+  card.el.addEventListener("pointermove", e=>{
+    if(!card.dragging) return;
+    card.x = e.clientX - card.offsetX;
+    card.y = e.clientY - card.offsetY;
+    clamp(card);
+    updatePosition(card);
+  });
+  card.el.addEventListener("pointerup", e=>{
+    card.dragging = false;
+    try{ card.el.releasePointerCapture(e.pointerId); }catch{}
+  });
+}
+
+/* Keep inside viewport */
+function clamp(card) {
+  card.x = Math.max(0, Math.min(W-card.w, card.x));
+  card.y = Math.max(0, Math.min(H-card.h, card.y));
+}
+
+/* Update element position */
+function updatePosition(card){
+  card.el.style.left = card.x+"px";
+  card.el.style.top  = card.y+"px";
+}
+
+/* Main animation loop */
+function animate(){
+  // fade canvas slightly → trails
+  ctx.fillStyle = "rgba(0,0,0,0.08)";
+  ctx.fillRect(0,0,W,H);
+
+  cards.forEach(card=>{
+    if(!card.dragging){
+      card.x += card.vx;
+      card.y += card.vy;
+      if(card.x<=0 || card.x+card.w>=W) card.vx*=-1;
+      if(card.y<=0 || card.y+card.h>=H) card.vy*=-1;
+      clamp(card);
+      updatePosition(card);
+    }
+
+    // draw trail from stored thumbnail image
+    const match = images.find(im=>im.el===card.el);
+    if(match){
+      ctx.drawImage(match.img, card.x, card.y, card.w, card.h);
+    }
+  });
+  requestAnimationFrame(animate);
+}
+animate();
+</script>
+</body>
+</html>
