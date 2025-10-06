@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>6 Feedback Squares</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+  canvas {
+    display: block;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+resize();
+window.addEventListener("resize", resize);
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+// square objects
+const squares = [];
+for (let i = 0; i < 6; i++) {
+  squares.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    vx: (Math.random() - 0.5) * 2,
+    vy: (Math.random() - 0.5) * 2,
+    size: 50
+  });
+}
+
+function animate() {
+  // feedback fade
+  ctx.fillStyle = "rgba(0,0,0,0.1)"; // lower alpha = longer trails
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // draw & move squares
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  squares.forEach(sq => {
+    ctx.fillRect(sq.x, sq.y, sq.size, sq.size);
+
+    sq.x += sq.vx;
+    sq.y += sq.vy;
+
+    // bounce at edges
+    if (sq.x < 0 || sq.x + sq.size > canvas.width) sq.vx *= -1;
+    if (sq.y < 0 || sq.y + sq.size > canvas.height) sq.vy *= -1;
+  });
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>
