@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Thumbnail Recursion 4 – Strong Trails</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+  canvas {
+    position: fixed;
+    inset: 0;
+    z-index: -1; /* trails behind cards */
+  }
+  .card {
+    position: absolute;
+    width: 240px;
+    height: 160px;
+    background: rgba(255,255,255,0.15); /* frosted translucent look */
+    box-shadow: 0 0 25px rgba(0,0,0,0.4);
+    cursor: grab;
+    overflow: hidden;
+  }
+  .card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="trails"></canvas>
+<div id="cards"></div>
+
+<script>
+const W = () => window.innerWidth;
+const H = () => window.innerHeight;
+const MAX_CARDS = 6;
+const KEYWORD = "ghost";
+
+const canvas = document.getElementById("trails");
+const ctx = canvas.getContext("2d");
+canvas.width = W();
+canvas.height = H;
+
+let cards = [];
+
+// YouTube RSS feed
+const feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+
+fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedUrl))
+  .then(res => res.json())
+  .then(data => {
+    const items = (data.items || []).slice(0, 15);
+    const filtered = items.filter(v => v.title.toLowerCase().includes(KEYWORD));
+    const chosen = (filtered.length ? filtered : items)
+      .sort(() => 0.5 - Math.random())
+      .slice(0, MAX_CARDS);
+
+    chosen.forEach((video, i) => {
+      const vid = (video.guid || "").split(":").pop();
+      const thumb = video.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+
+      const card = document.createElement("div");
+      card.className = "card";
+      card.style.left = (W()/4 + (i*50)) + "px";
+      card.style.top  = (H()/6 + (i*30)) + "px";
+      card.innerHTML = `<img src="${thumb}" crossorigin="anonymous">`;
+      document.getElementById("cards").appendChild(card);
+
+      cards.push({
+        el: card,
+        img: card.querySelector("img"),
+        x: card.offsetLeft,
+        y: card.offsetTop,
+        vx: (Math.random() * 2 - 1) * 1.2,
+        vy: (Math.random() * 2 - 1) * 1.2
+      });
+
+      makeDraggable(card);
+    });
+  });
+
+// Dragging
+function makeDraggable(el) {
+  let dragging = false, offsetX=0, offsetY=0;
+  el.addEventListener("pointerdown", e => {
+    dragging = true;
+    offsetX = e.clientX - el.offsetLeft;
+    offsetY = e.clientY - el.offsetTop;
+    el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    el.style.left = (e.clientX - offsetX) + "px";
+    el.style.top  = (e.clientY - offsetY) + "px";
+  });
+  el.addEventListener("pointerup", e => dragging = false);
+}
+
+// Animation loop
+function animate() {
+  // fade canvas lightly to accumulate trails
+  ctx.fillStyle = "rgba(0,0,0,0.08)"; 
+  ctx.fillRect(0, 0, W(), H());
+
+  cards.forEach(card => {
+    // drift motion
+    if (!card.el.matches(":active")) {
+      card.x += card.vx;
+      card.y += card.vy;
+      if (card.x <= 0 || card.x+card.el.offsetWidth >= W()) card.vx *= -1;
+      if (card.y <= 0 || card.y+card.el.offsetHeight >= H()) card.vy *= -1;
+      card.el.style.left = card.x + "px";
+      card.el.style.top  = card.y + "px";
+    }
+
+    // paint image trail
+    if (card.img.complete) {
+      ctx.drawImage(card.img, card.x, card.y, card.el.offsetWidth, card.el.offsetHeight);
+    }
+  });
+
+  requestAnimationFrame(animate);
+}
+animate();
+</script>
+</body>
+</html>
