@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>6 Cards – Filtered Thumbnails</title>
+<title>YouTube Thumbnails Debug</title>
 <style>
   body {
     margin: 0;
@@ -12,18 +12,11 @@
 
   .floating-window {
     position: absolute;
-    width: 260px;
+    width: 240px;
     height: 160px;
     overflow: hidden;
-    border: none;
-    opacity: 0.75; /* translucent */
-    box-shadow: 0 0 25px rgba(0,0,0,0.4);
-    cursor: grab;
-    background: rgba(255,255,255,0.1);
-    touch-action: none;
-    -webkit-user-select: none;
-            user-select: none;
-    -webkit-touch-callout: none;
+    background: rgba(255,255,255,0.08);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
   }
 
   .floating-window img {
@@ -32,135 +25,66 @@
     object-fit: cover;
     display: block;
   }
-
-  .floating-window:active { cursor: grabbing; }
-
-  canvas {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: -1;
-  }
 </style>
 </head>
 <body>
 
-<canvas id="trail"></canvas>
 <div id="windows"></div>
 
 <script>
 const container = document.getElementById("windows");
-const canvas = document.getElementById("trail");
-const ctx = canvas.getContext("2d");
-
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-resize();
-window.addEventListener("resize", resize);
-
 const W = () => window.innerWidth;
 const H = () => window.innerHeight;
 
-/* ✅ Selection word to filter videos */
-const SELECTION_WORD = "ghost"; // <--- change this as needed
+/* ✅ Your YouTube RSS feed */
+const feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+const KEYWORD = "ghost"; // keyword filter
+const MAX_THUMBS = 6;
 
-/* ✅ Your YouTube channel RSS feed */
-const feedUrl =
-  "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
-
-/* Fetch RSS via rss2json */
+/* Fetch RSS → JSON */
 fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedUrl))
   .then(res => res.json())
   .then(data => {
-    let items = data.items || [];
+    console.log("✅ Raw feed data:", data);
 
-    // filter by keyword in title
-    items = items.filter(item =>
-      item.title.toLowerCase().includes(SELECTION_WORD.toLowerCase())
-    );
+    const items = (data && data.items) ? data.items.slice(0, 15) : [];
+    console.log("✅ RSS items (first 15):", items);
 
-    // only keep videos that have a proper thumbnail
-    items = items.filter(item => item.thumbnail && item.thumbnail.startsWith("http"));
-
-    const videos = items.sort(() => 0.5 - Math.random()).slice(0, 6);
-
-    videos.forEach((video) => {
-      const div = document.createElement("div");
-      div.className = "floating-window";
-
-      // Random starting position
-      const x = Math.random() * (W() - 260);
-      const y = Math.random() * (H() - 160);
-      div.style.left = x + "px";
-      div.style.top  = y + "px";
-
-      // Thumbnail only (no iframe)
-      div.innerHTML = `<img src="${video.thumbnail}" alt="${video.title}">`;
-
-      container.appendChild(div);
-      makeDraggableAndBouncing(div);
+    let videos = items.filter(item => {
+      return item.title && item.title.toLowerCase().includes(KEYWORD.toLowerCase());
     });
-  })
-  .catch(err => console.error("Feed error:", err));
 
-/* ✅ Drift + Drag with trails */
-function makeDraggableAndBouncing(el) {
-  let dragging = false;
-  let offsetX = 0, offsetY = 0;
+    console.log(`✅ Filtered with keyword "${KEYWORD}":`, videos);
 
-  let vx = (Math.random() * 2 - 1) * 1.2;
-  let vy = (Math.random() * 2 - 1) * 1.2;
-
-  el.addEventListener("pointerdown", (e) => {
-    dragging = true;
-    el.setPointerCapture(e.pointerId);
-    offsetX = e.clientX - el.offsetLeft;
-    offsetY = e.clientY - el.offsetTop;
-    el.style.cursor = "grabbing";
-  });
-
-  el.addEventListener("pointermove", (e) => {
-    if (!dragging) return;
-    let x = e.clientX - offsetX;
-    let y = e.clientY - offsetY;
-    x = Math.max(0, Math.min(W() - el.offsetWidth, x));
-    y = Math.max(0, Math.min(H() - el.offsetHeight, y));
-    el.style.left = x + "px";
-    el.style.top  = y + "px";
-  });
-
-  el.addEventListener("pointerup", (e) => {
-    dragging = false;
-    el.style.cursor = "grab";
-    try { el.releasePointerCapture(e.pointerId); } catch {}
-  });
-  el.addEventListener("pointercancel", () => { dragging = false; });
-
-  function animate() {
-    if (!dragging) {
-      let x = el.offsetLeft + vx;
-      let y = el.offsetTop  + vy;
-
-      if (x <= 0 || x + el.offsetWidth >= W()) vx *= -1;
-      if (y <= 0 || y + el.offsetHeight >= H()) vy *= -1;
-
-      el.style.left = Math.max(0, Math.min(W() - el.offsetWidth, x)) + "px";
-      el.style.top  = Math.max(0, Math.min(H() - el.offsetHeight, y)) + "px";
+    if (videos.length === 0) {
+      console.warn("⚠️ No keyword match, falling back to first items.");
+      videos = items;
     }
 
-    // Trails
-    ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(el, el.offsetLeft, el.offsetTop);
+    videos = videos.sort(() => 0.5 - Math.random()).slice(0, MAX_THUMBS);
+    console.log("🎲 Final video selection:", videos);
 
-    requestAnimationFrame(animate);
-  }
-  animate();
-}
+    if (!videos.length) {
+      console.error("❌ No videos to show at all.");
+      return;
+    }
+
+    videos.forEach((video, i) => {
+      const vid = (video.guid || "").split(":").pop();
+      const src = video.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+
+      console.log("🖼️ Using thumbnail:", src);
+
+      const div = document.createElement("div");
+      div.className = "floating-window";
+      div.style.left = (20 + i * 260) + "px";
+      div.style.top  = "100px";
+
+      div.innerHTML = `<img src="${src}" alt="${video.title}">`;
+      container.appendChild(div);
+    });
+  })
+  .catch(err => console.error("❌ Feed error:", err));
 </script>
 </body>
 </html>
