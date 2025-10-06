@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>6 Translucent Cards + Trails Improved</title>
+<title>6 Translucent Cards + Strong Trails</title>
 <style>
   body {
     margin: 0;
@@ -40,35 +40,31 @@ for (let i = 0; i < 6; i++) {
 }
 
 function animate() {
-  // stronger trails: lighter fade
-  ctx.fillStyle = "rgba(0,0,0,0.03)";
+  // much lighter fade → stronger trails
+  ctx.fillStyle = "rgba(0,0,0,0.01)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   cards.forEach(card => {
-    // draw card
-    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    // semi-translucent card
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
     ctx.fillRect(card.x, card.y, card.w, card.h);
 
-    // update pos
+    // update position
     card.x += card.vx;
     card.y += card.vy;
 
-    // bounce properly & clamp
+    // bounce + clamp
     if (card.x < 0) {
-      card.x = 0;
-      card.vx *= -1;
+      card.x = 0; card.vx *= -1;
     }
     if (card.x + card.w > canvas.width) {
-      card.x = canvas.width - card.w;
-      card.vx *= -1;
+      card.x = canvas.width - card.w; card.vx *= -1;
     }
     if (card.y < 0) {
-      card.y = 0;
-      card.vy *= -1;
+      card.y = 0; card.vy *= -1;
     }
     if (card.y + card.h > canvas.height) {
-      card.y = canvas.height - card.h;
-      card.vy *= -1;
+      card.y = canvas.height - card.h; card.vy *= -1;
     }
   });
 
