@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Database Recursion Visual</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: black;
+      color: #0ff;
+      font-family: monospace;
+    }
+
+    .window {
+      position: absolute;
+      width: 160px;
+      height: 120px;
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(0,255,255,0.4);
+      box-shadow: 0 0 12px rgba(0,255,255,0.2);
+      color: #0ff;
+      text-align: center;
+      font-size: 11px;
+      padding: 6px;
+      cursor: grab;
+      user-select: none;
+      border-radius: 4px;
+    }
+
+    h2 {
+      position: fixed;
+      top: 10px;
+      left: 20px;
+      color: #0ff;
+      margin: 0;
+      font-weight: normal;
+    }
+  </style>
+</head>
+<body>
+  <h2>🌀 database_recursion_visual.html</h2>
+
+  <script>
+    // === STEP 1: load or create virtual database ===
+    let db = JSON.parse(localStorage.getItem('virtualDB')) || {
+      generation: 0,
+      entries: [
+        { title: "window_1", value: Math.random() },
+        { title: "window_2", value: Math.random() },
+        { title: "window_3", value: Math.random() }
+      ]
+    };
+
+    // === STEP 2: evolve ===
+    db.generation++;
+    const newEntries = db.entries.map(e => ({
+      title: e.title + "_gen" + db.generation,
+      value: (e.value + Math.random()) / 2
+    }));
+    db.entries = db.entries.concat(newEntries);
+    localStorage.setItem('virtualDB', JSON.stringify(db));
+
+    // === STEP 3: create floating window elements ===
+    const windows = [];
+    const container = document.body;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    db.entries.slice(-12).forEach((entry, i) => {
+      const el = document.createElement('div');
+      el.className = 'window';
+      el.innerHTML = `<strong>${entry.title}</strong><br>val: ${entry.value.toFixed(3)}`;
+      el.style.left = Math.random() * (width - 160) + 'px';
+      el.style.top = Math.random() * (height - 120) + 'px';
+      container.appendChild(el);
+
+      windows.push({
+        el,
+        x: parseFloat(el.style.left),
+        y: parseFloat(el.style.top),
+        vx: (Math.random() - 0.5) * 1.2,
+        vy: (Math.random() - 0.5) * 1.2
+      });
+    });
+
+    // === STEP 4: animate drift and bounce ===
+    function animate() {
+      for (let w of windows) {
+        w.x += w.vx;
+        w.y += w.vy;
+        if (w.x < 0 || w.x > width - 160) w.vx *= -1;
+        if (w.y < 0 || w.y > height - 120) w.vy *= -1;
+        w.el.style.transform = `translate(${w.x}px, ${w.y}px)`;
+      }
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    // === STEP 5: simple drag to reposition ===
+    let drag = null;
+    document.addEventListener('mousedown', e => {
+      const w = windows.find(w => w.el === e.target.closest('.window'));
+      if (!w) return;
+      drag = { w, dx: e.clientX - w.x, dy: e.clientY - w.y };
+      e.target.style.cursor = 'grabbing';
+    });
+    document.addEventListener('mousemove', e => {
+      if (!drag) return;
+      drag.w.x = e.clientX - drag.dx;
+      drag.w.y = e.clientY - drag.dy;
+    });
+    document.addEventListener('mouseup', () => {
+      if (drag) drag.w.el.style.cursor = 'grab';
+      drag = null;
+    });
+  </script>
+</body>
+</html>
