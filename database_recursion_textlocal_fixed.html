@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Database Recursion – Local Text Layer (Fixed)</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+    color: white;
+    font-family: "Courier New", monospace;
+  }
+  canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -2;
+  }
+  #text-layer {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+    overflow: hidden;
+    mix-blend-mode: screen;
+    color: rgba(180,255,255,0.6);
+    font-size: 18px;
+    line-height: 1.4;
+  }
+  .text-line {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    white-space: nowrap;
+    opacity: 0.5;
+    filter: blur(4px);
+    transition: filter 2s, opacity 2s;
+  }
+  .floating-window {
+    position: absolute;
+    width: 400px;
+    height: 260px;
+    overflow: hidden;
+    opacity: 0.6;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    border-radius: 8px;
+    transition: opacity 2s ease, filter 2s ease, box-shadow 2s ease;
+  }
+  .floating-window img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<canvas id="trail"></canvas>
+<div id="text-layer"></div>
+<div id="windows"></div>
+
+<script>
+// === BASIC SETUP ===
+const container = document.getElementById("windows");
+const textLayer = document.getElementById("text-layer");
+const canvas = document.getElementById("trail");
+const ctx = canvas.getContext("2d");
+let W = innerWidth, H = innerHeight;
+canvas.width=W; canvas.height=H;
+addEventListener("resize",()=>{W=innerWidth;H=innerHeight;canvas.width=W;canvas.height=H;});
+
+// === DATABASE + VISUAL WINDOWS ===
+let db = JSON.parse(localStorage.getItem('rssTextLocalDB')) || { generation: 0, entries: [] };
+const feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+const apiUrl  = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedUrl);
+
+fetch(apiUrl)
+  .then(res => res.json())
+  .then(data => {
+    const items = (data.items || []).slice(0, 6);
+    db.generation++;
+    items.forEach(item => {
+      const vid = (item.guid || "").split(":").pop();
+      const thumb = item.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+      const prev = db.entries.find(e => e.id === vid);
+      const value = prev ? Math.max(0, prev.value - Math.random()*0.05) : 0.9 + Math.random()*0.1;
+      db.entries.push({ id: vid, title: item.title, thumb, value, gen: db.generation });
+    });
+    if (db.entries.length > 60) db.entries = db.entries.slice(-60);
+    localStorage.setItem('rssTextLocalDB', JSON.stringify(db));
+    initializeVisuals(db.entries.slice(-12));
+  })
+  .catch(() => {
+    // fallback visuals if network blocked
+    const fallback = Array.from({length:6},(_,i)=>({
+      id:"local"+i,
+      thumb:`https://picsum.photos/seed/${i}/400/260`,
+      value:Math.random()
+    }));
+    initializeVisuals(fallback);
+  });
+
+let windows = [];
+let thumbs = [];
+
+function initializeVisuals(entries) {
+  entries.forEach(e => {
+    e.value = 0.9 + Math.random() * 0.1;
+    const div = document.createElement("div");
+    div.className = "floating-window";
+    div.style.left = Math.random() * (W - 400) + "px";
+    div.style.top  = Math.random() * (H - 260) + "px";
+    const v = e.value;
+    const blur = v * 20;
+    const glow = 80 * v + 10;
+    const hue = 180 + v * 120;
+    const alpha = 0.3 + (1 - v) * 0.7;
+    div.style.filter = `blur(${blur}px) saturate(${1+0.3*(1-v)}) hue-rotate(${hue}deg)`;
+    div.style.boxShadow = `0 0 ${glow}px hsla(${hue},100%,60%,${0.3+0.5*v})`;
+    div.style.opacity = alpha;
+    div.innerHTML = `<img src="${e.thumb}" alt="">`;
+    container.appendChild(div);
+    makeDraggableAndDrifting(div, e);
+    const img = new Image();
+    img.src = e.thumb;
+    img.onload = () => thumbs.push({ img, el: div, data: e });
+    windows.push({ el: div, data: e });
+  });
+  startMutationCycle();
+}
+
+function makeDraggableAndDrifting(el, data) {
+  let dragging = false, offsetX=0, offsetY=0;
+  let vx = (Math.random()*2-1)*1.2;
+  let vy = (Math.random()*2-1)*1.2;
+  el.addEventListener("pointerdown", e => {
+    dragging = true;
+    offsetX = e.clientX - el.offsetLeft;
+    offsetY = e.clientY - el.offsetTop;
+    el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    let x = e.clientX - offsetX;
+    let y = e.clientY - offsetY;
+    x = Math.max(0, Math.min(W - el.offsetWidth, x));
+    y = Math.max(0, Math.min(H - el.offsetHeight, y));
+    el.style.left = x+"px";
+    el.style.top  = y+"px";
+  });
+  el.addEventListener("pointerup", e => { dragging=false; el.releasePointerCapture(e.pointerId); });
+  el.addEventListener("pointercancel", ()=> dragging=false);
+
+  function animate() {
+    if (!dragging) {
+      const cx = W / 2 - el.offsetWidth / 2;
+      const pull = (cx - el.offsetLeft) * 0.0005;
+      vx += pull;
+      vx *= 0.99;
+      vy *= 0.99;
+      let activity = 0.5 + data.value;
+      let x = el.offsetLeft + vx * activity;
+      let y = el.offsetTop + vy * activity;
+      if (x <= 0 || x+el.offsetWidth >= W) vx *= -1;
+      if (y <= 0 || y+el.offsetHeight >= H) vy *= -1;
+      el.style.left = x+"px";
+      el.style.top  = y+"px";
+    }
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+function startMutationCycle() {
+  setInterval(() => {
+    db.generation++;
+    windows.forEach(w => {
+      w.data.value = Math.max(0, w.data.value - Math.random()*0.02);
+      const v = w.data.value;
+      const blur = v * 20;
+      const glow = 80 * v + 10;
+      const hue = 180 + v * 120;
+      const alpha = 0.3 + (1 - v) * 0.7;
+      w.el.style.filter = `blur(${blur}px) saturate(${1+0.3*(1-v)}) hue-rotate(${hue}deg)`;
+      w.el.style.boxShadow = `0 0 ${glow}px hsla(${hue}, 100%, 60%, ${0.2+0.5*v})`;
+      w.el.style.opacity = alpha;
+    });
+    localStorage.setItem('rssTextLocalDB', JSON.stringify(db));
+  }, 4000);
+}
+
+// === CANVAS FEEDBACK + HARMONICS ===
+let phase = 0;
+function feedbackLoop() {
+  let avg = 0;
+  if (thumbs.length) avg = thumbs.reduce((a,b)=>a+b.data.value,0)/thumbs.length;
+  phase += 0.005 + avg*0.002;
+  const hueShift = (Math.sin(phase)*45);
+  const globalPulse = 0.8 + 0.15 * Math.sin(phase*2.3);
+  ctx.globalAlpha = globalPulse;
+  ctx.drawImage(canvas, 0, 0, W, H);
+  ctx.fillStyle = "rgba(0,0,0,0.07)";
+  ctx.fillRect(0, 0, W, H);
+  thumbs.forEach(obj => {
+    const v = obj.data.value;
+    ctx.globalAlpha = 0.2 + (1-v)*0.5;
+    const tintHue = 180 + v*120 + hueShift;
+    ctx.filter = `hue-rotate(${tintHue}deg) blur(${v*3}px)`;
+    ctx.drawImage(obj.img, obj.el.offsetLeft, obj.el.offsetTop, obj.el.offsetWidth, obj.el.offsetHeight);
+  });
+  ctx.filter = "none";
+  requestAnimationFrame(feedbackLoop);
+}
+feedbackLoop();
+
+// === LOCAL TEXT LAYER ===
+const localLines = [
+  "Feedback breathing through translucent fields",
+  "Text drifts like static across the signal",
+  "Every word is a window opening inside another window",
+  "The system dreams of itself, recursively",
+  "Ghosts of data whisper under the light trails",
+  "Semantics dissolving into chromatic noise",
+  "You are inside the loop watching itself unfold"
+];
+
+// ✅ Corrected text spawning logic
+function startTextLayer(lines){
+  let idx=0;
+  function spawn(){
+    if(idx>=lines.length) idx=0;
+    const el=document.createElement("div");
+    el.className="text-line";
+    el.textContent=lines[idx++];
+    // start just below bottom
+    let y = H - 20 + Math.random()*40;
+    el.style.top = y + "px";
+    textLayer.appendChild(el);
+    const speed = 0.25 + Math.random()*0.2;
+    const blurStart = 6;
+    function scroll(){
+      y -= speed;
+      el.style.top = y + "px";
+      el.style.filter = `blur(${Math.max(0, blurStart*(y/H))}px)`;
+      if(y < -60){
+        el.remove();
+        spawn();
+      }
+      requestAnimationFrame(scroll);
+    }
+    requestAnimationFrame(scroll);
+  }
+  // delay first spawn slightly for layout stability
+  setTimeout(()=>{ for(let i=0;i<6;i++) setTimeout(spawn,i*1200); },500);
+}
+
+// start text animation
+startTextLayer(localLines);
+</script>
+</body>
+</html>
