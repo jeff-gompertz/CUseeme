@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Database Recursion – Aesthetic Evolution</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+
+  canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+  }
+
+  .floating-window {
+    position: absolute;
+    width: 200px;
+    height: 130px;
+    overflow: hidden;
+    opacity: 0.8;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    border-radius: 6px;
+    transition: opacity 1.5s ease, filter 2s ease, box-shadow 1.5s ease;
+  }
+
+  .floating-window img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<canvas id="trail"></canvas>
+<div id="windows"></div>
+
+<script>
+const container = document.getElementById("windows");
+const canvas = document.getElementById("trail");
+const ctx = canvas.getContext("2d");
+let W = window.innerWidth, H = window.innerHeight;
+canvas.width = W; canvas.height = H;
+
+window.addEventListener("resize", () => {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+});
+
+// === Load or seed DB ===
+let db = JSON.parse(localStorage.getItem('rssAestheticDB')) || { generation: 0, entries: [] };
+
+const feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+const apiUrl  = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedUrl);
+
+fetch(apiUrl)
+  .then(res => res.json())
+  .then(data => {
+    const items = (data.items || []).slice(0, 6);
+    db.generation++;
+    items.forEach(item => {
+      const vid = (item.guid || "").split(":").pop();
+      const thumb = item.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+      const prev = db.entries.find(e => e.id === vid);
+      const value = prev ? (prev.value + Math.random()) / 2 : Math.random();
+      db.entries.push({ id: vid, title: item.title, thumb, value, gen: db.generation });
+    });
+    if (db.entries.length > 60) db.entries = db.entries.slice(-60);
+    localStorage.setItem('rssAestheticDB', JSON.stringify(db));
+    initializeVisuals(db.entries.slice(-12));
+  })
+  .catch(err => console.error("RSS load error", err));
+
+let windows = [];
+let thumbs = [];
+
+function initializeVisuals(entries) {
+  entries.forEach(e => {
+    const div = document.createElement("div");
+    div.className = "floating-window";
+    div.style.left = Math.random() * (W - 200) + "px";
+    div.style.top  = Math.random() * (H - 130) + "px";
+    div.innerHTML = `<img src="${e.thumb}" alt="">`;
+    container.appendChild(div);
+    makeDraggableAndDrifting(div, e);
+    const img = new Image();
+    img.src = e.thumb;
+    img.onload = () => thumbs.push({img, el: div, data: e});
+    windows.push({el: div, data: e});
+  });
+  startMutationCycle();
+}
+
+function makeDraggableAndDrifting(el, data) {
+  let dragging = false, offsetX=0, offsetY=0;
+  let vx = (Math.random()*2-1)*1.2;
+  let vy = (Math.random()*2-1)*1.2;
+
+  el.addEventListener("pointerdown", e => {
+    dragging = true;
+    offsetX = e.clientX - el.offsetLeft;
+    offsetY = e.clientY - el.offsetTop;
+    el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    let x = e.clientX - offsetX;
+    let y = e.clientY - offsetY;
+    x = Math.max(0, Math.min(W - el.offsetWidth, x));
+    y = Math.max(0, Math.min(H - el.offsetHeight, y));
+    el.style.left = x+"px";
+    el.style.top  = y+"px";
+  });
+  el.addEventListener("pointerup", e => { dragging=false; el.releasePointerCapture(e.pointerId); });
+  el.addEventListener("pointercancel", ()=> dragging=false);
+
+  function animate() {
+    if (!dragging) {
+      let activity = 0.5 + data.value; // motion amplitude
+      let x = el.offsetLeft + vx * activity;
+      let y = el.offsetTop + vy * activity;
+      if (x <= 0 || x+el.offsetWidth >= W) vx *= -1;
+      if (y <= 0 || y+el.offsetHeight >= H) vy *= -1;
+      el.style.left = x+"px";
+      el.style.top  = y+"px";
+    }
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+// === Mutation + aesthetic update ===
+function startMutationCycle() {
+  setInterval(() => {
+    db.generation++;
+
+    windows.forEach(w => {
+      w.data.value = (w.data.value + Math.random()) / 2;
+      const v = w.data.value;
+
+      // Map value (0–1) → visual traits
+      const glow = 20 + v*80;
+      const blur = v*10;
+      const hue = 180 + v*120; // cyan → magenta shift
+      const alpha = 0.6 + v*0.4;
+
+      w.el.style.filter = `blur(${blur}px) saturate(${1+v}) hue-rotate(${hue}deg)`;
+      w.el.style.boxShadow = `0 0 ${glow}px hsla(${hue}, 100%, 60%, ${0.3+v*0.4})`;
+      w.el.style.opacity = alpha;
+    });
+
+    // Occasionally spawn or remove windows
+    if (Math.random() < 0.25 && db.entries.length > 0) {
+      const sample = db.entries[Math.floor(Math.random()*db.entries.length)];
+      const div = document.createElement("div");
+      div.className = "floating-window";
+      div.style.left = Math.random()*(W-200)+"px";
+      div.style.top  = Math.random()*(H-130)+"px";
+      div.style.opacity = 0;
+      div.innerHTML = `<img src="${sample.thumb}" alt="">`;
+      container.appendChild(div);
+      makeDraggableAndDrifting(div, sample);
+      setTimeout(()=>div.style.opacity=0.8,100);
+      windows.push({el:div,data:sample});
+      const img = new Image();
+      img.src = sample.thumb;
+      img.onload = ()=>thumbs.push({img,el:div,data:sample});
+    }
+    if (windows.length>24){ const old=windows.shift(); old.el.remove(); }
+
+    localStorage.setItem('rssAestheticDB', JSON.stringify(db));
+  }, 4000);
+}
+
+// === Canvas feedback ===
+function feedbackLoop() {
+  // Slight modulation of smear intensity
+  const globalPulse = 0.85 + 0.1 * Math.sin(performance.now()/2000);
+  ctx.globalAlpha = globalPulse;
+  ctx.drawImage(canvas, 0, 0, W, H);
+  ctx.fillStyle = "rgba(0,0,0,0.05)";
+  ctx.fillRect(0, 0, W, H);
+
+  thumbs.forEach(obj => {
+    const v = obj.data.value;
+    ctx.globalAlpha = 0.2 + v*0.5;
+    const tintHue = 180 + v*120;
+    ctx.filter = `hue-rotate(${tintHue}deg) blur(${v*2}px)`;
+    ctx.drawImage(obj.img, obj.el.offsetLeft, obj.el.offsetTop, obj.el.offsetWidth, obj.el.offsetHeight);
+  });
+
+  ctx.filter = "none";
+  requestAnimationFrame(feedbackLoop);
+}
+feedbackLoop();
+</script>
+</body>
+</html>
