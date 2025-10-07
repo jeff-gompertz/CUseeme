@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Database Recursion</title>
+  <style>
+    body {
+      background: black;
+      color: #0ff;
+      font-family: monospace;
+      padding: 2rem;
+      overflow-x: hidden;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      border: 1px solid #0ff;
+      padding: 1rem;
+      margin-top: 2rem;
+      background: rgba(0,255,255,0.05);
+    }
+  </style>
+</head>
+<body>
+  <h2>🌀 database_recursion.html</h2>
+  <p>Local generative database simulation. Each refresh evolves the data slightly.</p>
+
+  <pre id="output"></pre>
+
+  <script>
+    // === STEP 1: Load "database" from localStorage or create seed ===
+    let db = JSON.parse(localStorage.getItem('virtualDB')) || {
+      generation: 0,
+      entries: [
+        { title: "window_1", value: Math.random() },
+        { title: "window_2", value: Math.random() },
+        { title: "window_3", value: Math.random() }
+      ]
+    };
+
+    // === STEP 2: Mutate / generate new data ===
+    db.generation++;
+    const newEntries = db.entries.map(e => ({
+      title: e.title + "_gen" + db.generation,
+      value: (e.value + Math.random()) / 2
+    }));
+
+    // Merge new entries into database (feedback effect)
+    db.entries = db.entries.concat(newEntries);
+
+    // === STEP 3: Save the updated database back ===
+    localStorage.setItem('virtualDB', JSON.stringify(db, null, 2));
+
+    // === STEP 4: Display ===
+    document.getElementById('output').textContent = JSON.stringify(db, null, 2);
+
+    console.log("Database Recursion:", db);
+  </script>
+</body>
+</html>
