@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>thumbnail_recursion5 — full-bleed feedback canvas</title>
+<style>
+  html,body{
+    height:100%;
+    margin:0;
+    overflow:hidden;
+    background:#000; /* black backdrop for glow/additive modes */
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  }
+  canvas{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    display:block;
+    z-index:0;
+  }
+  .hud{
+    position:fixed;
+    left:10px; bottom:10px;
+    color:#a9b2bd;
+    font-size:12px;
+    line-height:1.45;
+    letter-spacing:0.2px;
+    background: rgba(0,0,0,0.35);
+    padding:8px 10px;
+    border-radius:6px;
+    user-select:none;
+    z-index:2;
+    white-space:pre;
+    mix-blend-mode:screen;
+  }
+  .hud b{ color:#cfe7ff; font-weight:600; }
+  .hud .key{ padding:1px 4px; border:1px solid #6a7; border-radius:4px; margin:0 2px; color:#cfe; }
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<div class="hud" id="hud"></div>
+
+<script>
+(function(){
+  // ===============================
+  // CONFIG "KNOBS" — tweak live
+  // ===============================
+  const FEED_URL = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+  const RSS_API  = "https://api.rss2json.com/v1/api.json?rss_url="; // simple public bridge
+  const MAX_ITEMS = 12;      // how many thumbnails to keep in rotation
+  const SWAP_EVERY_MS = 7000; // change image every N ms
+
+  // Feedback & smear
+  let MODE = {
+    additive: true,       // 'lighter' glow
+    recursiveZoom: true,  // draw previous frame slightly scaled for tunnel smear
+    wobble: true,         // subtle wet-polaroid skew/wave
+    fadeToBlack: true,    // slow decay
+    pause: false
+  };
+
+  let PARAM = {
+    fadeAlpha: 0.06,      // darkness per frame (lower = longer trails)
+    imgAlpha:  0.35,      // brightness of current image stamp
+    zoomPush:  1.006,     // >1 = pushing outward (tunnel); set 1.0 to disable zoom strength
+    zoomJitter: 2.0,      // px jitter when zooming the previous frame
+    wobbleAx:  0.018,     // skew X amplitude
+    wobbleAy:  0.012,     // skew Y amplitude
+    wobbleSpeed: 0.6      // wobble rate multiplier
+  };
+
+  // ===============================
+  // CANVAS SETUP (HiDPI aware)
+  // ===============================
+  const canvas = document.getElementById('fx');
+  const ctx = canvas.getContext('2d', { alpha: true });
+  let DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1)); // cap DPR for perf
+  function resize(){
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    canvas.width  = Math.floor(w * DPR);
+    canvas.height = Math.floor(h * DPR);
+    canvas.style.width  = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    // pre-fill black
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0,0,w,h);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ===============================
+  // UTIL: draw image cover (like CSS background-size: cover)
+  // ===============================
+  function drawImageCover(img, dx, dy, dw, dh){
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    if (!iw || !ih) return;
+
+    const r = Math.max(dw / iw, dh / ih);
+    const nw = iw * r;
+    const nh = ih * r;
+    const ox = dx + (dw - nw) / 2;
+    const oy = dy + (dh - nh) / 2;
+    ctx.drawImage(img, ox, oy, nw, nh);
+  }
+
+  // ===============================
+  // LOAD RSS → IMAGES
+  // ===============================
+  let images = [];
+  let currentIndex = 0;
+  let lastSwap = performance.now();
+
+  function loadFeed(){
+    return fetch(RSS_API + encodeURIComponent(FEED_URL))
+      .then(r => r.json())
+      .then(data => {
+        const items = (data.items || []).slice(0, MAX_ITEMS);
+        if (!items.length) throw new Error('No feed items.');
+        return Promise.all(items.map((video)=>{
+          const vid = ((video.guid || '').split(':').pop()) || '';
+          const thumb = video.thumbnail || (vid ? `https://i.ytimg.com/vi/${vid}/hqdefault.jpg` : null);
+          if (!thumb) return null;
+          return new Promise(res=>{
+            const im = new Image();
+            im.crossOrigin = 'anonymous'; // allows drawImage; we won't read pixels
+            im.onload = ()=> res(im);
+            im.onerror = ()=> res(null);
+            im.src = thumb;
+          });
+        }));
+      })
+      .then(arr=>{
+        images = arr.filter(Boolean);
+        if (!images.length) throw new Error('No images resolved.');
+      });
+  }
+
+  // Fallback pool if feed fails
+  const FALLBACK = [
+    'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?q=80&w=1600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=1600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1467269204594-9661b134dd2b?q=80&w=1600&auto=format&fit=crop'
+  ];
+  function loadFallback(){
+    return Promise.all(FALLBACK.map(src => new Promise(res=>{
+      const im = new Image();
+      im.crossOrigin = 'anonymous';
+      im.onload = ()=> res(im);
+      im.onerror = ()=> res(null);
+      im.src = src;
+    }))).then(arr => { images = arr.filter(Boolean); });
+  }
+
+  // ===============================
+  // ANIMATION LOOP
+  // ===============================
+  let t0 = performance.now();
+
+  function loop(now){
+    const W = canvas.clientWidth;
+    const H = canvas.clientHeight;
+    const time = (now - t0) * 0.001;
+
+    if (!MODE.pause){
+      // 1) Slightly fade to black (trail persistence)
+      if (MODE.fadeToBlack){
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = PARAM.fadeAlpha;      // lower alpha = longer trails
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0,0,W,H);
+      }
+
+      // 2) Recursive zoom: redraw previous frame a bit scaled/jittered
+      if (MODE.recursiveZoom){
+        ctx.globalCompositeOperation = MODE.additive ? 'lighter' : 'source-over';
+        ctx.globalAlpha = 0.92; // keep most of previous energy
+        const zx = PARAM.zoomPush;
+        const padX = (W * zx - W) * 0.5;
+        const padY = (H * zx - H) * 0.5;
+        const jx = (Math.random()*2-1) * PARAM.zoomJitter;
+        const jy = (Math.random()*2-1) * PARAM.zoomJitter;
+        // draw previous canvas into itself (tunnel feedback)
+        ctx.drawImage(canvas, -padX + jx, -padY + jy, W*zx, H*zx);
+      }
+
+      // 3) Draw the current image full-bleed with optional wobble
+      const img = images.length ? images[currentIndex] : null;
+      if (img){
+        ctx.save();
+        if (MODE.wobble){
+          // wet Polaroid skew: animate slight off-diagonal transform
+          const ax = PARAM.wobbleAx * Math.sin(time * PARAM.wobbleSpeed * 1.1);
+          const ay = PARAM.wobbleAy * Math.cos(time * PARAM.wobbleSpeed * 0.9);
+          ctx.setTransform(1, ax, ay, 1, 0, 0);
+        }
+        ctx.globalCompositeOperation = MODE.additive ? 'lighter' : 'source-over';
+        ctx.globalAlpha = PARAM.imgAlpha;
+        drawImageCover(img, 0, 0, W, H);
+        ctx.restore();
+      }
+
+      // 4) Periodically swap to next image
+      if (now - lastSwap > SWAP_EVERY_MS && images.length > 1){
+        currentIndex = (currentIndex + 1) % images.length;
+        lastSwap = now;
+      }
+    }
+
+    // HUD update ~10fps
+    if (!loop._hudTick || now - loop._hudTick > 100){
+      updateHUD();
+      loop._hudTick = now;
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  // ===============================
+  // HUD & CONTROLS
+  // ===============================
+  const hud = document.getElementById('hud');
+  function updateHUD(){
+    const lines = [
+      `YT thumbnails: ${images.length || '…loading'}`,
+      `mode: ${MODE.additive ? 'additive glow' : 'normal'} • zoom:${MODE.recursiveZoom?'on':'off'} • wobble:${MODE.wobble?'on':'off'} • fade:${MODE.fadeToBlack?'on':'off'} • ${MODE.pause?'PAUSED':''}`,
+      `α(fade)=${PARAM.fadeAlpha.toFixed(3)} | α(img)=${PARAM.imgAlpha.toFixed(2)} | zoom=${PARAM.zoomPush.toFixed(3)} | jitter=${PARAM.zoomJitter.toFixed(1)}`,
+      `wobbleAx=${PARAM.wobbleAx.toFixed(3)} wobbleAy=${PARAM.wobbleAy.toFixed(3)} speed=${PARAM.wobbleSpeed.toFixed(2)}`,
+      ``,
+      `<b>Keys</b>  <span class="key">B</span>blend  <span class="key">Z</span>zoom  <span class="key">W</span>wobble  <span class="key">F</span>fade  <span class="key">P</span>pause`,
+      `       <span class="key">[</span>/<span class="key">]</span> fade  <span class="key">-</span>/<span class="key">=</span> img α  <span class="key">,</span>/<span class="key">.</span> zoom  <span class="key">;</span>/<span class="key">'</span> jitter`,
+      `       <span class="key">1</span>/<span class="key">2</span> wobbleAx  <span class="key">3</span>/<span class="key">4</span> wobbleAy  <span class="key">5</span>/<span class="key">6</span> wobble speed`
+    ];
+    hud.innerHTML = lines.join('\n');
+  }
+
+  window.addEventListener('keydown', (e)=>{
+    switch (e.key) {
+      case 'b': case 'B': MODE.additive = !MODE.additive; break;
+      case 'z': case 'Z': MODE.recursiveZoom = !MODE.recursiveZoom; break;
+      case 'w': case 'W': MODE.wobble = !MODE.wobble; break;
+      case 'f': case 'F': MODE.fadeToBlack = !MODE.fadeToBlack; break;
+      case 'p': case 'P': MODE.pause = !MODE.pause; break;
+
+      case '[': PARAM.fadeAlpha = Math.max(0, PARAM.fadeAlpha - 0.005); break;
+      case ']': PARAM.fadeAlpha = Math.min(0.25, PARAM.fadeAlpha + 0.005); break;
+
+      case '-': PARAM.imgAlpha = Math.max(0.02, PARAM.imgAlpha - 0.02); break;
+      case '=': case '+': PARAM.imgAlpha = Math.min(1.0, PARAM.imgAlpha + 0.02); break;
+
+      case ',': PARAM.zoomPush = Math.max(1.000, PARAM.zoomPush - 0.003); break;
+      case '.': PARAM.zoomPush = Math.min(1.050, PARAM.zoomPush + 0.003); break;
+
+      case ';': PARAM.zoomJitter = Math.max(0, PARAM.zoomJitter - 0.3); break;
+      case "'": PARAM.zoomJitter = Math.min(20, PARAM.zoomJitter + 0.3); break;
+
+      case '1': PARAM.wobbleAx = Math.max(0, PARAM.wobbleAx - 0.002); break;
+      case '2': PARAM.wobbleAx = Math.min(0.08, PARAM.wobbleAx + 0.002); break;
+
+      case '3': PARAM.wobbleAy = Math.max(0, PARAM.wobbleAy - 0.002); break;
+      case '4': PARAM.wobbleAy = Math.min(0.08, PARAM.wobbleAy + 0.002); break;
+
+      case '5': PARAM.wobbleSpeed = Math.max(0.05, PARAM.wobbleSpeed - 0.05); break;
+      case '6': PARAM.wobbleSpeed = Math.min(4.0, PARAM.wobbleSpeed + 0.05); break;
+
+      default: return;
+    }
+    e.preventDefault();
+    updateHUD();
+  });
+
+  // ===============================
+  // BOOT
+  // ===============================
+  loadFeed()
+    .catch(()=> loadFallback())
+    .finally(()=>{
+      updateHUD();
+      requestAnimationFrame(loop);
+    });
+
+})();
+</script>
+</body>
+</html>
