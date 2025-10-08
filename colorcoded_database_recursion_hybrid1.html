@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Database Recursion — hybrid1 (annotated)</title>
+<style>
+  /* === 🖤 GLOBAL CANVAS BACKGROUND === */
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+
+  /* === CANVAS: the smear/feedback surface === */
+  canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+  }
+
+  /* === WINDOW STYLE === */
+  .floating-window {
+    position: absolute;
+    width: 200px;
+    height: 130px;
+    overflow: hidden;
+    opacity: 0.8;
+    box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    border: 1px solid rgba(0,255,255,0.3);
+    backdrop-filter: blur(4px);
+    border-radius: 4px;
+  }
+
+  .floating-window img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<canvas id="trail"></canvas>
+<div id="windows"></div>
+
+<script>
+/* ============================================================
+   🔴  FEED / DATABASE INITIALIZATION
+   ============================================================ */
+
+const container = document.getElementById("windows");
+const canvas = document.getElementById("trail");
+const ctx = canvas.getContext("2d");
+let W = window.innerWidth, H = window.innerHeight;
+canvas.width = W; canvas.height = H;
+
+window.addEventListener("resize", () => {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+});
+
+/* === 🔴 Local DB for evolutionary behavior === */
+let db = JSON.parse(localStorage.getItem('rssHybridDB')) || {
+  generation: 0,
+  entries: []
+};
+
+/* === 🔴 Keyword filter for titles === */
+const keyword = "ghost"; // ← change this word anytime
+
+/* === 🔴 RSS SOURCE === */
+const feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+const apiUrl  = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedUrl);
+
+/* === 🔴 FETCH + FILTER FEED === */
+fetch(apiUrl)
+  .then(res => res.json())
+  .then(data => {
+    const filtered = (data.items || []).filter(item =>
+      item.title && item.title.toLowerCase().includes(keyword.toLowerCase())
+    );
+    const items = filtered.slice(0, 6);
+    db.generation++;
+
+    items.forEach(item => {
+      const vid = (item.guid || "").split(":").pop();
+      const thumb = item.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+      const prev = db.entries.find(e => e.id === vid);
+      const value = prev ? (prev.value + Math.random()) / 2 : Math.random();
+      db.entries.push({ id: vid, title: item.title, thumb, value, gen: db.generation });
+    });
+
+    if (db.entries.length > 60) db.entries = db.entries.slice(-60);
+    localStorage.setItem('rssHybridDB', JSON.stringify(db));
+
+    renderWindows(db.entries.slice(-12));
+  })
+  .catch(err => console.error("RSS load error", err));
+
+/* ============================================================
+   🟩  WINDOW CREATION + MOVEMENT SYSTEM
+   ============================================================ */
+
+let thumbs = [];
+
+/* === 🟩 Create DOM elements for floating windows === */
+function renderWindows(entries) {
+  entries.forEach(e => {
+    const div = document.createElement("div");
+    div.className = "floating-window";
+    div.style.left = Math.random() * (W - 200) + "px";
+    div.style.top  = Math.random() * (H - 130) + "px";
+    div.innerHTML = `<img src="${e.thumb}" alt="">`;
+    container.appendChild(div);
+    makeDraggableAndDrifting(div);
+
+    const img = new Image();
+    img.src = e.thumb;
+    img.onload = () => thumbs.push({img, el: div});
+  });
+}
+
+/* ============================================================
+   🟦  MOTION + DRAG / BOUNCE CONSTRAINT LOGIC
+   ============================================================ */
+
+function makeDraggableAndDrifting(el) {
+  // 🟪  Dragging state
+  let dragging = false, offsetX=0, offsetY=0;
+
+  // 🟦  Velocity for auto drift
+  let vx = (Math.random()*2-1)*1.2;
+  let vy = (Math.random()*2-1)*1.2;
+
+  // 🟪  Pointer down → start dragging
+  el.addEventListener("pointerdown", e => {
+    dragging = true;
+    offsetX = e.clientX - el.offsetLeft;
+    offsetY = e.clientY - el.offsetTop;
+    el.setPointerCapture(e.pointerId);
+  });
+
+  // 🟪  Pointer move → follow cursor within viewport
+  el.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    let x = e.clientX - offsetX;
+    let y = e.clientY - offsetY;
+
+    // 🟩  Viewport constraint
+    x = Math.max(0, Math.min(W - el.offsetWidth, x));
+    y = Math.max(0, Math.min(H - el.offsetHeight, y));
+
+    el.style.left = x+"px";
+    el.style.top  = y+"px";
+  });
+
+  // 🟪  Pointer up → release drag
+  el.addEventListener("pointerup", e => {
+    dragging=false;
+    el.releasePointerCapture(e.pointerId);
+  });
+  el.addEventListener("pointercancel", ()=> dragging=false);
+
+  /* === 🟦 AUTO-DRIFT ANIMATION === */
+  function animate() {
+    if (!dragging) {
+      let x = el.offsetLeft + vx;
+      let y = el.offsetTop + vy;
+
+      // 🟧 Bounce logic
+      if (x <= 0 || x+el.offsetWidth >= W) vx *= -1;
+      if (y <= 0 || y+el.offsetHeight >= H) vy *= -1;
+
+      el.style.left = x+"px";
+      el.style.top  = y+"px";
+    }
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+/* ============================================================
+   🟫  CANVAS FEEDBACK LOOP (visual smear / persistence)
+   ============================================================ */
+function feedbackLoop() {
+  // copy previous frame back onto itself
+  ctx.globalAlpha = 0.92;
+  ctx.drawImage(canvas, 0, 0, W, H);
+
+  // darken slightly each frame
+  ctx.fillStyle = "rgba(0,0,0,0.06)";
+  ctx.fillRect(0, 0, W, H);
+
+  // paint ghost images of current window positions
+  thumbs.forEach(obj => {
+    const el = obj.el;
+    ctx.globalAlpha = 0.35;
+    ctx.drawImage(obj.img, el.offsetLeft, el.offsetTop, el.offsetWidth, el.offsetHeight);
+  });
+
+  requestAnimationFrame(feedbackLoop);
+}
+feedbackLoop();
+</script>
+</body>
+</html>
