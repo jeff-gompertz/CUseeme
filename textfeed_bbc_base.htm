@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BBC RSS Text Feed — Clean Scroll</title>
+<style>
+  body {
+    margin: 0;
+    background: black;
+    color: white;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    overflow: hidden;
+  }
+
+  #feed-container {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+  }
+
+  #feed-content {
+    text-align: center;
+    width: 80%;
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+
+  .item {
+    margin: 1rem 0;
+  }
+</style>
+</head>
+<body>
+
+<div id="feed-container">
+  <div id="feed-content"></div>
+</div>
+
+<script>
+// === Fetch BBC News RSS feed safely via AllOrigins ===
+const proxy = "https://api.allorigins.win/get?url=" + encodeURIComponent("https://feeds.bbci.co.uk/news/rss.xml");
+
+fetch(proxy)
+  .then(r => r.ok ? r.json() : Promise.reject(r))
+  .then(data => {
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(data.contents, "text/xml");
+    const titles = [...xml.querySelectorAll("item > title")].map(t => t.textContent);
+    buildFeed(titles);
+  })
+  .catch(err => {
+    console.warn("Feed unavailable, using fallback text", err);
+    buildFeed([
+      "Fallback headline — connection unavailable",
+      "BBC News RSS feed failed to load",
+      "This is a placeholder line for offline mode"
+    ]);
+  });
+
+function buildFeed(lines) {
+  const container = document.getElementById("feed-content");
+  lines.forEach(line => {
+    const p = document.createElement("div");
+    p.className = "item";
+    p.textContent = line;
+    container.appendChild(p);
+  });
+  startScroll();
+}
+
+// === Simple end-title style scroll ===
+function startScroll() {
+  const content = document.getElementById("feed-content");
+  let y = window.innerHeight;
+  function animate() {
+    y -= 0.5; // adjust speed here
+    content.style.transform = `translateY(${y}px)`;
+    if (y + content.offsetHeight > 0) {
+      requestAnimationFrame(animate);
+    } else {
+      y = window.innerHeight; // loop
+      requestAnimationFrame(animate);
+    }
+  }
+  animate();
+}
+</script>
+
+</body>
+</html>
