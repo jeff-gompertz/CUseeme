@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>thumbnail_fullframe_base</title>
+<style>
+  html,body{
+    margin:0;
+    height:100%;
+    overflow:hidden;
+    background:#000;
+  }
+  canvas{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    display:block;
+  }
+  .hud{
+    position:fixed;
+    left:10px;bottom:10px;
+    color:#cfe7ff;
+    font-size:13px;
+    background:rgba(0,0,0,0.4);
+    padding:6px 8px;
+    border-radius:6px;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    z-index:2;
+    mix-blend-mode:screen;
+  }
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<div class="hud" id="hud"></div>
+
+<script>
+(async()=>{
+  const FEED_URL="https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+  const RSS_API="https://api.rss2json.com/v1/api.json?rss_url=";
+  const MAX_ITEMS=12;
+
+  const canvas=document.getElementById('fx');
+  const ctx=canvas.getContext('2d');
+  const hud=document.getElementById('hud');
+  let DPR=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+
+  function resize(){
+    const w=window.innerWidth,h=window.innerHeight;
+    canvas.width=w*DPR;
+    canvas.height=h*DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize',resize);
+  resize();
+
+  function drawImageCover(img){
+    const W=canvas.width/DPR, H=canvas.height/DPR;
+    const iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height;
+    const r=Math.max(W/iw,H/ih);
+    const nw=iw*r, nh=ih*r;
+    const ox=(W-nw)/2, oy=(H-nh)/2;
+    ctx.drawImage(img,ox,oy,nw,nh);
+  }
+
+  async function loadFeed(){
+    try{
+      const res=await fetch(RSS_API+encodeURIComponent(FEED_URL));
+      const data=await res.json();
+      const items=(data.items||[]).slice(0,MAX_ITEMS);
+      const thumbs=[];
+      for(const v of items){
+        const vid=(v.guid||'').split(':').pop()||'';
+        const t=v.thumbnail||`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+        const im=new Image();
+        im.crossOrigin='anonymous';
+        await new Promise(r=>{
+          im.onload=()=>r();
+          im.onerror=()=>r();
+          im.src=t;
+        });
+        thumbs.push(im);
+      }
+      return thumbs;
+    }catch(e){return [];}
+  }
+
+  const imgs=await loadFeed();
+  if(!imgs.length){hud.textContent="No thumbnails found.";return;}
+
+  let idx=0;
+  function drawNext(){
+    ctx.fillStyle="#000";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    drawImageCover(imgs[idx]);
+    hud.textContent=`Image ${idx+1}/${imgs.length}`;
+    idx=(idx+1)%imgs.length;
+  }
+
+  drawNext();
+  // advance every 7s
+  setInterval(drawNext,7000);
+})();
+</script>
+</body>
+</html>
