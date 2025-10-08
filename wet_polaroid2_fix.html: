@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>wet_polaroid2_fix — full-bleed + draggable smear</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;} /* ← important on iPad */
+  .hud{
+    position:fixed;left:10px;bottom:10px;z-index:2;
+    color:#cfe7ff;background:rgba(0,0,0,.45);padding:8px 10px;border-radius:6px;
+    font-size:13px;line-height:1.45;white-space:pre;mix-blend-mode:screen;user-select:none
+  }
+  .key{padding:1px 4px;border:1px solid #6a7;border-radius:4px;margin:0 2px;color:#cfe}
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<div class="hud" id="hud"></div>
+
+<script>
+(async()=>{
+  const FEED_URL="https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+  const RSS_API="https://api.rss2json.com/v1/api.json?rss_url=";
+  const MAX_ITEMS=12;
+  const SWAP_MS=7000;
+
+  const canvas=document.getElementById('fx');
+  const ctx=canvas.getContext('2d',{alpha:true});
+  let DPR=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+
+  // Off-screen buffer (must match DPR + sizing consistently)
+  const off=document.createElement('canvas');
+  const offCtx=off.getContext('2d',{alpha:true});
+
+  function resize(){
+    const w=innerWidth,h=innerHeight;
+    canvas.width=Math.floor(w*DPR); canvas.height=Math.floor(h*DPR);
+    canvas.style.width=w+"px"; canvas.style.height=h+"px";
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    ctx.globalAlpha=1; ctx.fillStyle="#000"; ctx.fillRect(0,0,w,h);
+
+    off.width=canvas.width; off.height=canvas.height;
+    offCtx.setTransform(DPR,0,0,DPR,0,0);     // ← keep offscreen in the same CSS space
+  }
+  window.addEventListener('resize',resize);
+
+  function drawImageCover(img,dx,dy,dw,dh){
+    const iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height;
+    if(!iw||!ih)return;
+    const r=Math.max(dw/iw,dh/ih);
+    const nw=iw*r, nh=ih*r;
+    const ox=dx+(dw-nw)/2, oy=dy+(dh-nh)/2;
+    ctx.drawImage(img,ox,oy,nw,nh);
+  }
+
+  async function loadFeed(){
+    try{
+      const r=await fetch(RSS_API+encodeURIComponent(FEED_URL));
+      const d=await r.json();
+      const items=(d.items||[]).slice(0,MAX_ITEMS);
+      const images=[];
+      for(const it of items){
+        const vid=(it.guid||'').split(':').pop()||'';
+        const src=it.thumbnail||`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+        const im=new Image(); im.crossOrigin='anonymous';
+        await new Promise(res=>{im.onload=res;im.onerror=res;im.src=src;});
+        if(im.width) images.push(im);
+      }
+      return images;
+    }catch(e){return [];}
+  }
+
+  // Params — stronger defaults so the effect is obvious
+  let PARAM={ fadeAlpha:0.06, brushRadius:160, smearAlpha:0.35, smearShift:1.0 };
+  let MODE={ fade:false, autoAdvance:true };     // ← fade OFF for testing
+  let imgs=[], idx=0, lastSwap=performance.now();
+  let dragging=false,lastX=0,lastY=0;
+
+  const hud=document.getElementById('hud');
+  function HUD(){
+    hud.innerHTML=
+`Thumb: ${imgs.length?idx+1+'/'+imgs.length:'…loading'}
+fade=${PARAM.fadeAlpha.toFixed(2)} brush=${PARAM.brushRadius}px smearα=${PARAM.smearAlpha.toFixed(2)} shift=${PARAM.smearShift.toFixed(2)}
+mode: fade:${MODE.fade?'on':'off'} auto-advance:${MODE.autoAdvance?'on':'off'}
+Keys  [/] fade  -/= brush  ,/. α  ;/' shift   F fade  A auto  N next  C clear`;
+  }
+
+  function drawBase(){
+    const W=canvas.width/DPR,H=canvas.height/DPR;
+    ctx.globalCompositeOperation='source-over';
+    ctx.globalAlpha=1; ctx.fillStyle="#000"; ctx.fillRect(0,0,W,H);
+    if(imgs.length) drawImageCover(imgs[idx],0,0,W,H);
+    // snapshot base to offscreen (in CSS units because offCtx has DPR transform)
+    offCtx.clearRect(0,0,W,H);
+    offCtx.drawImage(canvas,0,0,W,H);
+  }
+
+  // Core smear — copy current canvas into offscreen, then stamp it back shifted inside a brush
+  function smearAt(x,y,dx,dy){
+    const W=canvas.width/DPR,H=canvas.height/DPR;
+
+    // Keep offscreen snapshot in sync with current view (use same CSS size + DPR transform)
+    offCtx.clearRect(0,0,W,H);
+    offCtx.drawImage(canvas,0,0,W,H);
+
+    const sx=-dx*PARAM.smearShift, sy=-dy*PARAM.smearShift; // drag the “emulsion” opposite motion
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, PARAM.brushRadius, 0, Math.PI*2);
+    ctx.clip();
+
+    ctx.globalCompositeOperation='source-over';
+    ctx.globalAlpha=PARAM.smearAlpha;
+    ctx.drawImage(off, sx, sy, W, H);   // ← localized shifted re-stamp
+    ctx.restore();
+  }
+
+  function loop(now){
+    const W=canvas.width/DPR,H=canvas.height/DPR;
+
+    // Optional global fade (OFF by default to keep the base image stable)
+    if(MODE.fade){
+      ctx.globalCompositeOperation='source-over';
+      ctx.globalAlpha=PARAM.fadeAlpha;
+      ctx.fillStyle='#000';
+      ctx.fillRect(0,0,W,H);
+    }
+
+    if(MODE.autoAdvance && imgs.length>1 && now-lastSwap>SWAP_MS){
+      idx=(idx+1)%imgs.length; lastSwap=now; drawBase();
+    }
+    requestAnimationFrame(loop);
+  }
+
+  function getXY(e){
+    if(e.touches && e.touches[0]) return {x:e.touches[0].clientX,y:e.touches[0].clientY};
+    return {x:e.clientX,y:e.clientY};
+  }
+
+  // Pointer events — make sure dragging updates dx,dy > 0
+  canvas.addEventListener('pointerdown',e=>{
+    const p=getXY(e);
+    dragging=true; lastX=p.x; lastY=p.y;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove',e=>{
+    if(!dragging) return;
+    const p=getXY(e);
+    const dx=p.x-lastX, dy=p.y-lastY;
+    // If movement is tiny, boost so it’s visible
+    const boost = Math.max(1, 1.5 - Math.hypot(dx,dy)*0.02);
+    const passes=3;
+    for(let i=1;i<=passes;i++){
+      smearAt(p.x - dx*(i-1)/passes, p.y - dy*(i-1)/passes, (dx*boost)/passes, (dy*boost)/passes);
+    }
+    lastX=p.x; lastY=p.y;
+  });
+  canvas.addEventListener('pointerup',e=>{dragging=false; try{canvas.releasePointerCapture(e.pointerId);}catch{}});
+  canvas.addEventListener('pointercancel',()=>{dragging=false;});
+
+  window.addEventListener('keydown',e=>{
+    switch(e.key){
+      case '[': PARAM.fadeAlpha=Math.max(0,PARAM.fadeAlpha-0.01); break;
+      case ']': PARAM.fadeAlpha=Math.min(0.3,PARAM.fadeAlpha+0.01); break;
+      case '-': PARAM.brushRadius=Math.max(20,PARAM.brushRadius-10); break;
+      case '=': case '+': PARAM.brushRadius=Math.min(600,PARAM.brushRadius+10); break;
+      case ',': PARAM.smearAlpha=Math.max(0.02,PARAM.smearAlpha-0.02); break;
+      case '.': PARAM.smearAlpha=Math.min(0.8,PARAM.smearAlpha+0.02); break;
+      case ';': PARAM.smearShift=Math.max(0.1,PARAM.smearShift-0.05); break;
+      case "'": PARAM.smearShift=Math.min(3.0,PARAM.smearShift+0.05); break;
+      case 'f': case 'F': MODE.fade=!MODE.fade; break;
+      case 'a': case 'A': MODE.autoAdvance=!MODE.autoAdvance; break;
+      case 'n': case 'N': if(imgs.length){ idx=(idx+1)%imgs.length; drawBase(); lastSwap=performance.now(); } break;
+      case 'c': case 'C': drawBase(); break;
+      default: return;
+    }
+    e.preventDefault(); HUD();
+  });
+
+  // Boot
+  resize();
+  let imgsLoaded=await loadFeed();
+  if(!imgsLoaded.length){
+    const im=new Image(); im.crossOrigin='anonymous';
+    await new Promise(r=>{im.onload=r;im.onerror=r; im.src='https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg';});
+    imgsLoaded=[im];
+  }
+  imgs=imgsLoaded;
+  drawBase();
+  HUD();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
