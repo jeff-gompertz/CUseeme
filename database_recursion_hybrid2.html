@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Database Recursion Hybrid2</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+
+  canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+  }
+
+  .floating-window {
+    position: absolute;
+    width: 200px;
+    height: 130px;
+    overflow: hidden;
+    opacity: 0.85;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    border: none; /* 🟢 removed borders */
+  }
+
+  .floating-window img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<canvas id="trail"></canvas>
+<div id="windows"></div>
+
+<script>
+const container = document.getElementById("windows");
+const canvas = document.getElementById("trail");
+const ctx = canvas.getContext("2d");
+let W = window.innerWidth, H = window.innerHeight;
+canvas.width = W; canvas.height = H;
+
+window.addEventListener("resize", () => {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+});
+
+// === Local DB for continuity ===
+let db = JSON.parse(localStorage.getItem('rssHybridDB')) || {
+  generation: 0,
+  entries: []
+};
+
+// === Keyword filter ===
+const keyword = "ghost";
+
+// === YouTube RSS feed ===
+const feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+const apiUrl  = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedUrl);
+
+fetch(apiUrl)
+  .then(res => res.json())
+  .then(data => {
+    const filtered = (data.items || []).filter(item =>
+      item.title && item.title.toLowerCase().includes(keyword.toLowerCase())
+    );
+
+    const items = filtered.slice(0, 6);
+    db.generation++;
+
+    items.forEach(item => {
+      const vid = (item.guid || "").split(":").pop();
+      const thumb = item.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+      const prev = db.entries.find(e => e.id === vid);
+      const value = prev ? (prev.value + Math.random()) / 2 : Math.random();
+      db.entries.push({ id: vid, title: item.title, thumb, value, gen: db.generation });
+    });
+
+    if (db.entries.length > 60) db.entries = db.entries.slice(-60);
+    localStorage.setItem('rssHybridDB', JSON.stringify(db));
+    renderWindows(db.entries.slice(-12));
+  })
+  .catch(err => console.error("RSS load error", err));
+
+let thumbs = [];
+
+function renderWindows(entries) {
+  const total = entries.length;
+  entries.forEach((e, i) => {
+    const div = document.createElement("div");
+    div.className = "floating-window";
+
+    // distribute vertically along viewport height
+    const yStep = H / (total + 1);
+    const y = yStep * (i + 1) - 65; // offset half height
+
+    div.style.left = Math.random() * (W - 200) + "px";
+    div.style.top  = y + "px";
+
+    div.innerHTML = `<img src="${e.thumb}" alt="">`;
+    container.appendChild(div);
+    makeDrifting(div);
+
+    const img = new Image();
+    img.src = e.thumb;
+    img.onload = () => thumbs.push({ img, el: div });
+  });
+}
+
+// === Smooth drift toward vertical center ===
+function makeDrifting(el) {
+  let vx = (Math.random() * 2 - 1) * 0.8;
+  let vy = (Math.random() * 2 - 1) * 0.8;
+
+  function animate() {
+    let x = el.offsetLeft + vx;
+    let y = el.offsetTop + vy;
+
+    // subtle attraction toward vertical center
+    const centerY = H / 2;
+    const dy = centerY - (y + el.offsetHeight / 2);
+    vy += dy * 0.0005; // gentle vertical pull
+
+    // bounce horizontally only (keep within viewport)
+    if (x <= 0 || x + el.offsetWidth >= W) vx *= -1;
+    if (y <= 0 || y + el.offsetHeight >= H) vy *= -0.5;
+
+    el.style.left = x + "px";
+    el.style.top  = y + "px";
+
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+// === Canvas recursive feedback (visual persistence) ===
+function feedbackLoop() {
+  ctx.globalAlpha = 0.92;
+  ctx.drawImage(canvas, 0, 0, W, H);
+  ctx.fillStyle = "rgba(0,0,0,0.06)";
+  ctx.fillRect(0, 0, W, H);
+
+  thumbs.forEach(obj => {
+    const el = obj.el;
+    ctx.globalAlpha = 0.35;
+    ctx.drawImage(obj.img, el.offsetLeft, el.offsetTop, el.offsetWidth, el.offsetHeight);
+  });
+
+  requestAnimationFrame(feedbackLoop);
+}
+feedbackLoop();
+</script>
+</body>
+</html>
