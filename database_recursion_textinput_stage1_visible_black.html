@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Database Recursion — Stage 1 (Visible Black)</title>
+<style>
+  html,body{
+    margin:0;padding:0;overflow:hidden;
+    background:#000;color:#fff;height:100%;
+    font-family:Helvetica,Arial,sans-serif;
+  }
+  canvas{
+    position:fixed;inset:0;width:100%;height:100%;z-index:-2;
+  }
+  #text-feed{
+    position:fixed;bottom:0;width:100%;height:100%;
+    display:flex;justify-content:center;align-items:flex-end;
+    overflow:hidden;z-index:-1;color:#fff;
+  }
+  #feed-content{
+    text-align:center;width:80%;
+    font-size:1.6rem;line-height:2.2rem;
+  }
+  .headline{margin:1rem 0;}
+</style>
+</head>
+<body>
+<canvas id="trail"></canvas>
+<div id="text-feed"><div id="feed-content"></div></div>
+
+<script>
+window.addEventListener("load", () => {
+
+  /* === high-contrast visible motion field === */
+  const canvas=document.getElementById("trail");
+  const ctx=canvas.getContext("2d");
+  let W=innerWidth,H=innerHeight;
+  canvas.width=W;canvas.height=H;
+  addEventListener("resize",()=>{W=innerWidth;H=innerHeight;canvas.width=W;canvas.height=H;});
+  let t=0;
+  function draw(){
+    t+=0.02;
+    ctx.fillStyle="rgba(0,0,0,0.2)";
+    ctx.fillRect(0,0,W,H);
+    const hue=200+150*Math.sin(t);
+    const r=80+60*Math.sin(t*2);
+    ctx.beginPath();
+    ctx.arc(W/2,H/2,r,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${hue},100%,60%,0.5)`; /* brighter pulse */
+    ctx.fill();
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  /* === always-visible local text === */
+  const localLines=[
+    "Database Recursion — confirmed visible layer",
+    "High-contrast test (white text on black)",
+    "You should see both motion and text now",
+    "Once confirmed, we’ll re-enable live RSS",
+    "This file is the final visibility baseline"
+  ];
+
+  buildFeed(localLines);
+
+  function buildFeed(lines){
+    const feed=document.getElementById("feed-content");
+    feed.innerHTML="";
+    lines.forEach(line=>{
+      const d=document.createElement("div");
+      d.className="headline";
+      d.textContent=line;
+      feed.appendChild(d);
+    });
+    startScroll();
+  }
+
+  function startScroll(){
+    const content=document.getElementById("feed-content");
+    let y=H*0.9;
+    function animate(){
+      y-=1;
+      content.style.transform=`translateY(${y}px)`;
+      if(y+content.offsetHeight>0){
+        requestAnimationFrame(animate);
+      }else{
+        y=H*0.9;
+        requestAnimationFrame(animate);
+      }
+    }
+    animate();
+  }
+
+});
+</script>
+</body>
+</html>
