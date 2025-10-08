@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Database Recursion — Visual + Text</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: black;
+  }
+  canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+</style>
+</head>
+<body>
+<canvas id="recursion"></canvas>
+
+<script>
+const canvas = document.getElementById("recursion");
+const ctx = canvas.getContext("2d");
+let W = window.innerWidth, H = window.innerHeight;
+canvas.width = W;
+canvas.height = H;
+
+window.addEventListener("resize", () => {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+});
+
+// === feedback + harmonic motion ===
+let t = 0;
+const phrases = [
+  "database recursion",
+  "feedback breathing",
+  "information dreaming",
+  "ghost data trails",
+  "synthetic memory field",
+  "signal evolving itself"
+];
+
+// random text particles
+const textParticles = phrases.map((text, i) => ({
+  text,
+  x: Math.random() * W,
+  y: Math.random() * H,
+  vx: (Math.random() - 0.5) * 1.5,
+  vy: (Math.random() - 0.5) * 1.5,
+  size: 18 + Math.random() * 22,
+  hue: Math.random() * 360
+}));
+
+function draw() {
+  t += 0.01;
+
+  // feedback smear
+  ctx.globalAlpha = 0.92;
+  ctx.drawImage(canvas, 0, 0, W, H);
+  ctx.globalAlpha = 1.0;
+
+  // slight fade to black
+  ctx.fillStyle = "rgba(0,0,0,0.05)";
+  ctx.fillRect(0, 0, W, H);
+
+  // draw and move text particles
+  textParticles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+
+    // bounce at edges
+    if (p.x < 0 || p.x > W) p.vx *= -1;
+    if (p.y < 0 || p.y > H) p.vy *= -1;
+
+    ctx.font = `${p.size}px Courier New, monospace`;
+    ctx.fillStyle = `hsla(${p.hue + t * 60}, 100%, 70%, 0.8)`;
+    ctx.fillText(p.text, p.x, p.y);
+  });
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
