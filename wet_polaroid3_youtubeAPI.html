@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>wet_polaroid — YouTube API v3 + draggable smear</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;}
+  .hud{
+    position:fixed;left:10px;bottom:10px;z-index:2;
+    color:#cfe7ff;background:rgba(0,0,0,.45);padding:8px 10px;border-radius:6px;
+    font-size:13px;line-height:1.45;white-space:pre;mix-blend-mode:screen;user-select:none
+  }
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<div class="hud" id="hud"></div>
+
+<script>
+(async()=>{
+  /* === 🔴 YouTube Data API setup === */
+  const API_KEY     = "AIzaSyDP3wFqbX2nre0f5GrrnV9yw9j09Ltp00w";              // ← paste only for local testing
+  const CHANNEL_ID  = "UCREEmHdAYvlboosrKCHe4UA";
+  const KEYWORD     = "ghost";
+  const MAX_RESULTS = 50;
+  const SWAP_MS     = 7000;
+
+  const canvas=document.getElementById('fx');
+  const ctx=canvas.getContext('2d',{alpha:true});
+  let DPR=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+
+  const off=document.createElement('canvas');
+  const offCtx=off.getContext('2d',{alpha:true});
+
+  function resize(){
+    const w=innerWidth,h=innerHeight;
+    canvas.width=Math.floor(w*DPR);canvas.height=Math.floor(h*DPR);
+    canvas.style.width=w+"px";canvas.style.height=h+"px";
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    ctx.globalAlpha=1;ctx.fillStyle="#000";ctx.fillRect(0,0,w,h);
+    off.width=canvas.width;off.height=canvas.height;
+    offCtx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize',resize);
+
+  function drawImageCover(img,dx,dy,dw,dh){
+    const iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height;
+    if(!iw||!ih)return;
+    const r=Math.max(dw/iw,dh/ih);
+    const nw=iw*r,nh=ih*r;
+    const ox=dx+(dw-nw)/2,oy=dy+(dh-nh)/2;
+    ctx.drawImage(img,ox,oy,nw,nh);
+  }
+
+  /* === 🟢 Load YouTube videos via API v3 === */
+  async function loadFeed(){
+    try{
+      const url=`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&channelId=${CHANNEL_ID}&order=date&maxResults=${MAX_RESULTS}&key=${API_KEY}`;
+      const r=await fetch(url);
+      const d=await r.json();
+      const filtered=(d.items||[]).filter(v=>
+        v.snippet.title.toLowerCase().includes(KEYWORD.toLowerCase())
+      );
+      const images=[];
+      for(const it of filtered){
+        const vid=it.id.videoId;
+        const src=`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+        const im=new Image();im.crossOrigin='anonymous';
+        await new Promise(res=>{im.onload=res;im.onerror=res;im.src=src;});
+        if(im.width)images.push(im);
+      }
+      console.log(📦 Total from API: ${d.items?.length || 0}, after filter: ${filtered.length});
+console.log("🧠 Filtered titles:", filtered.map(v => v.snippet ? v.snippet.title : v.title));
+return images;
+    }catch(e){console.warn("YouTube API error",e);return[];}
+  }
+
+  /* === Smear parameters === */
+  let PARAM={fadeAlpha:0.06,brushRadius:160,smearAlpha:0.35,smearShift:1.0};
+  let MODE={fade:false,autoAdvance:true};
+  let imgs=[],idx=0,lastSwap=performance.now();
+  let dragging=false,lastX=0,lastY=0;
+
+  const hud=document.getElementById('hud');
+  function HUD(){
+    hud.textContent=`Thumb: ${imgs.length?idx+1+'/'+imgs.length:'…loading'}
+fade=${PARAM.fadeAlpha.toFixed(2)} brush=${PARAM.brushRadius}px smearα=${PARAM.smearAlpha.toFixed(2)} shift=${PARAM.smearShift.toFixed(2)}
+mode: fade:${MODE.fade?'on':'off'} auto-advance:${MODE.autoAdvance?'on':'off'}`;
+  }
+
+  function drawBase(){
+    const W=canvas.width/DPR,H=canvas.height/DPR;
+    ctx.globalCompositeOperation='source-over';
+    ctx.globalAlpha=1;ctx.fillStyle="#000";ctx.fillRect(0,0,W,H);
+    if(imgs.length)drawImageCover(imgs[idx],0,0,W,H);
+    offCtx.clearRect(0,0,W,H);
+    offCtx.drawImage(canvas,0,0,W,H);
+  }
+
+  function smearAt(x,y,dx,dy){
+    const W=canvas.width/DPR,H=canvas.height/DPR;
+    offCtx.clearRect(0,0,W,H);
+    offCtx.drawImage(canvas,0,0,W,H);
+    const sx=-dx*PARAM.smearShift,sy=-dy*PARAM.smearShift;
+    ctx.save();ctx.beginPath();ctx.arc(x,y,PARAM.brushRadius,0,Math.PI*2);ctx.clip();
+    ctx.globalCompositeOperation='source-over';ctx.globalAlpha=PARAM.smearAlpha;
+    ctx.drawImage(off,sx,sy,W,H);ctx.restore();
+  }
+
+  function loop(now){
+    const W=canvas.width/DPR,H=canvas.height/DPR;
+    if(MODE.fade){
+      ctx.globalCompositeOperation='source-over';
+      ctx.globalAlpha=PARAM.fadeAlpha;ctx.fillStyle='#000';
+      ctx.fillRect(0,0,W,H);
+    }
+    if(MODE.autoAdvance&&imgs.length>1&&now-lastSwap>SWAP_MS){
+      idx=(idx+1)%imgs.length;lastSwap=now;drawBase();
+    }
+    requestAnimationFrame(loop);
+  }
+
+  function getXY(e){
+    if(e.touches&&e.touches[0])return{x:e.touches[0].clientX,y:e.touches[0].clientY};
+    return{x:e.clientX,y:e.clientY};
+  }
+
+  canvas.addEventListener('pointerdown',e=>{
+    const p=getXY(e);dragging=true;lastX=p.x;lastY=p.y;canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove',e=>{
+    if(!dragging)return;
+    const p=getXY(e);const dx=p.x-lastX,dy=p.y-lastY;
+    const boost=Math.max(1,1.5-Math.hypot(dx,dy)*0.02);
+    const passes=3;
+    for(let i=1;i<=passes;i++){
+      smearAt(p.x-dx*(i-1)/passes,p.y-dy*(i-1)/passes,(dx*boost)/passes,(dy*boost)/passes);
+    }
+    lastX=p.x;lastY=p.y;
+  });
+  canvas.addEventListener('pointerup',e=>{dragging=false;try{canvas.releasePointerCapture(e.pointerId);}catch{}});
+  canvas.addEventListener('pointercancel',()=>{dragging=false;});
+
+  resize();
+  let imgsLoaded=await loadFeed();
+  if(!imgsLoaded.length){
+    const im=new Image();im.crossOrigin='anonymous';
+    await new Promise(r=>{im.onload=r;im.onerror=r;im.src='https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg';});
+    imgsLoaded=[im];
+  }
+  imgs=imgsLoaded;
+  drawBase();HUD();requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
