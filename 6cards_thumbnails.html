@@ -1,1 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>6Cards × YouTube Thumbnails</title>
+<style>
+  body {margin:0;overflow:hidden;background:black;}
+  canvas {display:block;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
 
+<script>
+// === Canvas setup ===
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+let W,H;
+function resize(){ W=innerWidth; H=innerHeight; canvas.width=W; canvas.height=H; }
+addEventListener("resize",resize); resize();
+
+// === YouTube RSS loader (no API key) ===
+const FEED_URL = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+const RSS_API  = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(FEED_URL);
+
+// Load thumbnails, return array of Image()
+async function loadFeed(){
+  const r = await fetch(RSS_API);
+  const d = await r.json();
+  const items = (d.items||[]).slice(0,6); // use first 6 for cards
+  const imgs=[];
+  for(const it of items){
+    const vid=(it.guid||"").split(":").pop();
+    const src=it.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+    const im=new Image(); im.crossOrigin="anonymous";
+    await new Promise(res=>{im.onload=res;im.onerror=res;im.src=src;});
+    if(im.width) imgs.push(im);
+  }
+  return imgs;
+}
+
+// === Card system ===
+const cards=[];
+function makeCards(images){
+  const count = 6;
+  for(let i=0;i<count;i++){
+    const w=160,h=100;
+    const x=Math.random()*(W-w), y=Math.random()*(H-h);
+    const vx=(Math.random()-0.5)*2.0, vy=(Math.random()-0.5)*1.6;
+    const img = images[i % images.length];
+    cards.push({x,y,vx,vy,w,h,img});
+  }
+}
+
+function drawImageCover(img,x,y,w,h){
+  const iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height;
+  const r=Math.max(w/iw,h/ih);
+  const nw=iw*r, nh=ih*r;
+  const ox=x+(w-nw)/2, oy=y+(h-nh)/2;
+  ctx.drawImage(img,ox,oy,nw,nh);
+}
+
+// === Animation ===
+function animate(){
+  // faint feedback fade
+  ctx.fillStyle="rgba(0,0,0,0.06)";
+  ctx.fillRect(0,0,W,H);
+
+  for(const c of cards){
+    if(c.img){
+      ctx.globalAlpha=0.8;
+      drawImageCover(c.img,c.x,c.y,c.w,c.h);
+    }
+
+    c.x += c.vx;
+    c.y += c.vy;
+
+    // bounce on edges
+    if(c.x<0||c.x+c.w>W) c.vx*=-1;
+    if(c.y<0||c.y+c.h>H) c.vy*=-1;
+  }
+
+  ctx.globalAlpha=1;
+  requestAnimationFrame(animate);
+}
+
+// === Boot ===
+(async function(){
+  const imgs = await loadFeed();
+  if(!imgs.length){ console.warn("No images loaded."); }
+  makeCards(imgs.length?imgs:[new Image()]);
+  animate();
+})();
+</script>
+</body>
+</html>
