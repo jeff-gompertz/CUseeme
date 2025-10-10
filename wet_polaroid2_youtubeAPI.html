@@ -71,7 +71,7 @@
         await new Promise(res=>{im.onload=res;im.onerror=res;im.src=src;});
         if(im.width)images.push(im);
       }
-      return images;
+      console.log("🧠 Filtered videos:", filtered.map(v => v.snippet ? v.snippet.title : v.title));      return images;
     }catch(e){console.warn("YouTube API error",e);return[];}
   }
 
