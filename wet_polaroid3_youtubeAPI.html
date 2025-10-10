@@ -71,8 +71,9 @@
         await new Promise(res=>{im.onload=res;im.onerror=res;im.src=src;});
         if(im.width)images.push(im);
       }
-  console.log(`📦 Total from API: ${d.items?.length || 0}, after filter: ${filtered.length}`);
+console.log("📦 Total from API:", (d.items && d.items.length) || 0, "after filter:", filtered.length);
 console.log("🧠 Filtered titles:", filtered.map(v => v.snippet ? v.snippet.title : v.title));
+return images;
 return images;
     }catch(e){console.warn("YouTube API error",e);return[];}
   }
