@@ -42,8 +42,8 @@ async function loadThumbs(){
 
 /* === Card setup === */
 const cards = [];
-const cols = 3, rows = 2; // grid reference
-let scanSpeed = 1.8;
+const cols = 1, rows = 6; // grid reference
+let scanSpeed = 1.0;
 
 function makeCards(imgs){
   for(let i=0;i<6;i++){
@@ -80,7 +80,7 @@ function animate(){
     if(!c.img) return;
     const row = Math.floor(i / cols);
     const scanX = ((phase * scanSpeed + i * (W/cols)) % (W + c.w)) - c.w;
-    const scanY = row * rowHeight + rowHeight/3;
+    const scanY = row * rowHeight + rowHeight/8;
     drawImageCover(c.img, scanX, scanY, c.w, c.h);
   });
 
