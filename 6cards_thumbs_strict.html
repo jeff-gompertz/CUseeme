@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>6 Translucent Cards + Strong Trails (YouTube thumbs)</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* --- YouTube RSS → thumbs (no key; 15 latest) --- */
+const FEED_URL = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+const RSS_API  = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(FEED_URL);
+// Optional keyword filter (leave empty for all)
+// const KEYWORD = "ghost";
+const KEYWORD = "";
+
+/* Load up to 6 images for the cards */
+async function loadThumbs(){
+  try{
+    const r = await fetch(RSS_API);
+    const d = await r.json();
+    let items = (d.items || []);
+    if (KEYWORD) items = items.filter(it => it.title && it.title.toLowerCase().includes(KEYWORD.toLowerCase()));
+    items = items.slice(0, 6);
+    const imgs = [];
+    for (const it of items){
+      const vid = (it.guid || "").split(":").pop() || "";
+      const src = it.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+      const im = new Image(); im.crossOrigin = "anonymous";
+      await new Promise(res => { im.onload = res; im.onerror = res; im.src = src; });
+      if (im.width) imgs.push(im);
+    }
+    return imgs;
+  }catch(e){
+    console.warn("Feed error:", e);
+    return [];
+  }
+}
+
+/* --- Original 6cards state --- */
+const cards = [];
+for (let i = 0; i < 6; i++) {
+  const w = 160, h = 100;
+  cards.push({
+    x: Math.random() * (canvas.width  - w),
+    y: Math.random() * (canvas.height - h),
+    vx: (Math.random() - 0.5) * 2.5,
+    vy: (Math.random() - 0.5) * 2.0,
+    w, h,
+    img: null // will be set after thumbs load
+  });
+}
+
+/* cover-draw helper (keeps aspect like CSS background-size: cover) */
+function drawImageCover(img, x, y, w, h){
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  if (!iw || !ih) return;
+  const r  = Math.max(w/iw, h/ih);
+  const nw = iw * r, nh = ih * r;
+  const ox = x + (w - nw)/2, oy = y + (h - nh)/2;
+  ctx.drawImage(img, ox, oy, nw, nh);
+}
+
+function animate() {
+  // ultra-light fade = strong trails (unchanged)
+  ctx.fillStyle = "rgba(0,0,0,0.01)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  cards.forEach(card => {
+    // draw card content as translucent image (replacing white rect)
+    if (card.img) {
+      ctx.globalAlpha = 0.25;           // same translucency feel
+      drawImageCover(card.img, card.x, card.y, card.w, card.h);
+      ctx.globalAlpha = 1.0;
+    } else {
+      // while images load, fall back to the original white card
+      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.fillRect(card.x, card.y, card.w, card.h);
+    }
+
+    // --- original update + bounce + clamp (unchanged) ---
+    card.x += card.vx;
+    card.y += card.vy;
+
+    if (card.x < 0) { card.x = 0; card.vx *= -1; }
+    if (card.x + card.w > canvas.width)  { card.x = canvas.width  - card.w; card.vx *= -1; }
+    if (card.y < 0) { card.y = 0; card.vy *= -1; }
+    if (card.y + card.h > canvas.height) { card.y = canvas.height - card.h; card.vy *= -1; }
+  });
+
+  requestAnimationFrame(animate);
+}
+
+/* Boot: load thumbs, assign to cards, then run */
+(async function(){
+  const imgs = await loadThumbs();
+  if (imgs.length){
+    for (let i = 0; i < cards.length; i++){
+      cards[i].img = imgs[i % imgs.length];
+    }
+  }
+  animate();
+})();
+</script>
+</body>
+</html>
