@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>6Cards — Scan & Accumulate</title>
+<style>
+  body {margin:0;overflow:hidden;background:#000;}
+  canvas {display:block;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+let W = innerWidth, H = innerHeight;
+function resize(){ W=innerWidth; H=innerHeight; canvas.width=W; canvas.height=H; }
+addEventListener("resize",resize); resize();
+
+/* === YouTube RSS thumbnails (no API key) === */
+const FEED_URL = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+const RSS_API  = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(FEED_URL);
+
+async function loadThumbs(){
+  try{
+    const r = await fetch(RSS_API);
+    const d = await r.json();
+    const items = (d.items||[]).slice(0,6);
+    const imgs = [];
+    for (const it of items){
+      const vid=(it.guid||"").split(":").pop();
+      const src=it.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+      const im=new Image(); im.crossOrigin="anonymous";
+      await new Promise(res=>{im.onload=res;im.onerror=res;im.src=src;});
+      if(im.width) imgs.push(im);
+    }
+    return imgs;
+  }catch(e){console.warn("feed error",e);return [];}
+}
+
+/* === Card setup === */
+const cards = [];
+const cols = 3, rows = 2; // layout reference
+let scanSpeed = 2.2, gap = 6;
+
+function makeCards(imgs){
+  for(let i=0;i<6;i++){
+    const w = 160, h = 100;
+    const row = Math.floor(i/cols);
+    const col = i%cols;
+    const x = col*(w+gap);
+    const y = row*(h+gap);
+    cards.push({x,y,w,h,img:imgs[i%imgs.length]});
+  }
+}
+
+/* helper */
+function drawImageCover(img,x,y,w,h){
+  const iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height;
+  if(!iw||!ih) return;
+  const r=Math.max(w/iw,h/ih);
+  const nw=iw*r, nh=ih*r;
+  const ox=x+(w-nw)/2, oy=y+(h-nh)/2;
+  ctx.drawImage(img,ox,oy,nw,nh);
+}
+
+/* === Animation === */
+let phase=0; // which card is currently scanning
+function animate(){
+  // Gentle fading to keep accumulation under control
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=0.002;         // fade strength
+  ctx.fillStyle='#000';
+  ctx.fillRect(0,0,W,H);
+
+  // Additive accumulation layer
+  ctx.globalCompositeOperation='lighter';
+  ctx.globalAlpha=0.3;
+
+  cards.forEach((c,i)=>{
+    if(!c.img) return;
+    // Each card has its own scan position offset by index
+    const offset = (i*W/6);
+    const speed = scanSpeed;
+    const scanX = ((phase*speed + offset) % (W + c.w)) - c.w;
+    const scanY = ((i % rows) * (c.h + 40)) + 40;
+    drawImageCover(c.img, scanX, scanY, c.w, c.h);
+  });
+
+  phase += 1;
+
+  requestAnimationFrame(animate);
+}
+
+/* === Boot === */
+(async function(){
+  const imgs = await loadThumbs();
+  if(!imgs.length){
+    const dummy = new Image(); dummy.src="https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg";
+    await new Promise(r=>{dummy.onload=r;});
+    makeCards([dummy]);
+  } else makeCards(imgs);
+  animate();
+})();
+</script>
+</body>
+</html>
