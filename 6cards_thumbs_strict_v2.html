@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>6Cards — Strict XY Motion + Trails</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* --- YouTube RSS → thumbs (no key; 15 latest) --- */
+const FEED_URL = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
+const RSS_API  = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(FEED_URL);
+const KEYWORD = ""; // e.g. "ghost" if you want to filter titles
+
+/* Load thumbnails */
+async function loadThumbs(){
+  try{
+    const r = await fetch(RSS_API);
+    const d = await r.json();
+    let items = (d.items || []);
+    if (KEYWORD) items = items.filter(it => it.title && it.title.toLowerCase().includes(KEYWORD.toLowerCase()));
+    items = items.slice(0, 12); // more cards!
+    const imgs = [];
+    for (const it of items){
+      const vid = (it.guid || "").split(":").pop() || "";
+      const src = it.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+      const im = new Image(); im.crossOrigin = "anonymous";
+      await new Promise(res => { im.onload = res; im.onerror = res; im.src = src; });
+      if (im.width) imgs.push(im);
+    }
+    return imgs;
+  }catch(e){
+    console.warn("Feed error:", e);
+    return [];
+  }
+}
+
+/* --- Setup --- */
+const cards = [];
+const NUM_CARDS = 12;
+
+function initCards(imgs){
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const w = 180, h = 120;
+    const horizontal = Math.random() > 0.5; // decide motion axis
+
+    // if horizontal, move left-right; if vertical, move up-down
+    const vx = horizontal ? (Math.random() < 0.5 ? -1.5 : 1.5) : 0;
+    const vy = !horizontal ? (Math.random() < 0.5 ? -1.2 : 1.2) : 0;
+
+    cards.push({
+      x: Math.random() * (canvas.width  - w),
+      y: Math.random() * (canvas.height - h),
+      vx, vy,
+      w, h,
+      img: imgs.length ? imgs[i % imgs.length] : null
+    });
+  }
+}
+
+/* --- Cover draw helper --- */
+function drawImageCover(img, x, y, w, h){
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  if (!iw || !ih) return;
+  const r  = Math.max(w/iw, h/ih);
+  const nw = iw * r, nh = ih * r;
+  const ox = x + (w - nw)/2, oy = y + (h - nh)/2;
+  ctx.drawImage(img, ox, oy, nw, nh);
+}
+
+/* --- Animate --- */
+function animate() {
+  // faint fade for trail persistence
+  ctx.fillStyle = "rgba(0,0,0,0.02)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (const card of cards){
+    if (card.img) {
+      ctx.globalAlpha = 0.25;
+      drawImageCover(card.img, card.x, card.y, card.w, card.h);
+      ctx.globalAlpha = 1.0;
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.fillRect(card.x, card.y, card.w, card.h);
+    }
+
+    // update + bounce (only horizontal OR vertical)
+    card.x += card.vx;
+    card.y += card.vy;
+
+    if (card.vx !== 0) { // horizontal motion only
+      if (card.x < 0 || card.x + card.w > canvas.width) card.vx *= -1;
+    }
+    if (card.vy !== 0) { // vertical motion only
+      if (card.y < 0 || card.y + card.h > canvas.height) card.vy *= -1;
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+/* --- Boot --- */
+(async function(){
+  const imgs = await loadThumbs();
+  initCards(imgs);
+  animate();
+})();
+</script>
+</body>
+</html>
