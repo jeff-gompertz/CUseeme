@@ -65,15 +65,16 @@ function drawImageCover(img,x,y,w,h){
 /* === Animation === */
 let activeRow=0;
 function animate(){
-  // Background fade control
-  ctx.globalCompositeOperation='source-over';
-  ctx.globalAlpha=0.003;
-  ctx.fillStyle='#000';
-  ctx.fillRect(0,0,W,H)
+ // Transparent fade (no black fill)
+ctx.save();
+ctx.globalCompositeOperation = 'destination-out';
+ctx.globalAlpha = 0.02;   // controls how fast traces fade; 0 = infinite memory
+ctx.fillRect(0, 0, W, H); // clears slightly by erasing alpha, not painting black
+ctx.restore();
   
-  // Additive accumulation layer
-  ctx.globalCompositeOperation='lighter';
-  ctx.globalAlpha=0.15;
+// Additive accumulation layer
+ctx.globalCompositeOperation = 'lighter';
+ctx.globalAlpha = 0.25;   // brighter pass
 
   cards.forEach((c,i)=>{
     if(!c.img) return;
