@@ -13,7 +13,7 @@
 
 <script>
 const canvas = document.getElementById("c");
-const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext("2d", { alpha: true });
 
 let W = innerWidth, H = innerHeight;
 function resize(){ W=innerWidth; H=innerHeight; canvas.width=W; canvas.height=H; }
