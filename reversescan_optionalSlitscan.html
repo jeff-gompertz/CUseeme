@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>scanline_presenter — reverse scan + slit-scan</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#000}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .hud{position:fixed;left:10px;bottom:10px;color:#cfe;background:rgba(0,0,0,.45);
+       padding:8px 10px;border-radius:6px;font:13px/1.4 system-ui;mix-blend-mode:screen}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div class="hud" id="hud">mode: scan\nkeys: [N]ext  [S]lit-scan toggle</div>
+
+<script>
+const CV = document.getElementById('cv');
+const CTX = CV.getContext('2d');
+let DPR = Math.max(1, Math.min(2, devicePixelRatio||1));
+function resize(){ CV.width = innerWidth*DPR; CV.height = innerHeight*DPR; CTX.setTransform(DPR,0,0,DPR,0,0); }
+addEventListener('resize', resize); resize();
+
+/* --- Replace these with your YouTube thumbs later --- */
+const IMG_URLS = [
+  "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+  "https://i.ytimg.com/vi/9bZkp7q19f0/hqdefault.jpg",
+  "https://i.ytimg.com/vi/3JZ_D3ELwOQ/hqdefault.jpg"
+];
+
+function loadImages(urls){
+  return Promise.all(urls.map(u=>new Promise(res=>{
+    const im = new Image(); im.crossOrigin="anonymous";
+    im.onload = ()=>res(im); im.onerror = ()=>res(null); im.src=u;
+  }))).then(arr=>arr.filter(Boolean));
+}
+
+function drawImageCover(ctx,img,dx,dy,dw,dh){
+  const iw = img.naturalWidth||img.width, ih=img.naturalHeight||img.height;
+  const r = Math.max(dw/iw, dh/ih);
+  const nw=iw*r, nh=ih*r;
+  const ox=dx+(dw-nw)/2, oy=dy+(dh-nh)/2;
+  ctx.drawImage(img,ox,oy,nw,nh);
+}
+
+/* --- State --- */
+let IMGS=[], idx=0;
+let mode = "scan";  // "scan" or "slit"
+let t0 = performance.now();
+let slitY = 0;      // current write-line for slit-scan
+const HUD = document.getElementById('hud');
+
+function updateHUD(){
+  HUD.textContent = `mode: ${mode}\nimage ${IMGS.length? (idx+1)+'/'+IMGS.length : '…loading'}\nkeys: [N]ext  [S]lit-scan toggle`;
+}
+
+/* === Reverse-scan reveal (bands) ===
+   Draw horizontal bands of the image up to a progressive limit.
+   Add a tiny per-band x jitter for “wet film” vibe. */
+function renderScan(img, time){
+  const W = CV.width / DPR, H = CV.height / DPR;
+  CTX.globalCompositeOperation = 'source-over';
+  CTX.globalAlpha = 1;
+  CTX.fillStyle = '#000';
+  CTX.fillRect(0,0,W,H);
+
+  const bands = 120;                     // number of horizontal slices
+  const progress = Math.min(1, (time - t0)/4000); // 4s full reveal
+  const revealBands = Math.floor(progress * bands);
+
+  // source image metrics to maintain cover
+  const iw = img.naturalWidth||img.width, ih=img.naturalHeight||img.height;
+  const r = Math.max(W/iw, H/ih);
+  const nw=iw*r, nh=ih*r;
+  const ox=(W-nw)/2, oy=(H-nh)/2;
+
+  for(let b=0; b<revealBands; b++){
+    const sy = (b/bands) * ih;
+    const sh = ih / bands;
+
+    const dy = (b/bands) * H;
+    const dh = H / bands;
+
+    // subtle horizontal jitter (feel of emulsion displacement)
+    const jitter = Math.sin((b*0.21) + time*0.002) * 4;
+
+    // drawImage(source, sx, sy, sw, sh, dx, dy, dw, dh)
+    CTX.drawImage(img, 0, sy, iw, sh, ox + jitter, dy, nw, dh);
+  }
+}
+
+/* === Slit-scan over time ===
+   Each frame write a thin horizontal slice from the image to a rolling y line. */
+function renderSlit(img, time){
+  const W = CV.width / DPR, H = CV.height / DPR;
+
+  // faint feedback so old slices fade slowly (breathing surface)
+  CTX.globalAlpha = 0.08;
+  CTX.fillStyle = '#000';
+  CTX.fillRect(0,0,W,H);
+  CTX.globalAlpha = 1;
+
+  const bands = 2;            // slice thickness in px
+  const iw = img.naturalWidth||img.width, ih=img.naturalHeight||img.height;
+  const r = Math.max(W/iw, H/ih);
+  const nw=iw*r, nh=ih*r;
+  const ox=(W-nw)/2, oy=(H-nh)/2;
+
+  // pick source y based on time (slowly scroll through the source)
+  const sy = ((time*0.02) % ih);
+  const sh = Math.max(1, ih * (bands/nh)); // match 2px on destination
+
+  // write slice at current slitY, wrap around
+  CTX.save();
+  CTX.beginPath();
+  CTX.rect(0, slitY, W, bands);
+  CTX.clip();
+
+  // mild per-line offset for organic feel
+  const offset = Math.sin(time*0.005) * 8;
+  CTX.drawImage(img, 0, sy, iw, sh, ox + offset, slitY, nw, bands);
+  CTX.restore();
+
+  slitY += bands;
+  if (slitY >= H) slitY = 0;
+}
+
+/* === Main loop === */
+function loop(now){
+  if(!IMGS.length){ requestAnimationFrame(loop); return; }
+  const img = IMGS[idx];
+
+  if(mode === 'scan'){
+    renderScan(img, now);
+    // auto switch to next image once fully revealed
+    if (now - t0 > 4500) { idx = (idx+1)%IMGS.length; t0 = now; }
+  }else{
+    // slit scan keeps accumulating; swap image every few seconds
+    renderSlit(img, now);
+    if (now - t0 > 6000) { idx = (idx+1)%IMGS.length; t0 = now; }
+  }
+  requestAnimationFrame(loop);
+}
+
+/* === Input === */
+addEventListener('keydown', (e)=>{
+  if(e.key==='n' || e.key==='N'){ idx=(idx+1)%IMGS.length; t0=performance.now(); updateHUD(); }
+  if(e.key==='s' || e.key==='S'){ mode = (mode==='scan' ? 'slit' : 'scan'); t0=performance.now(); updateHUD(); }
+});
+
+(async function boot(){
+  updateHUD();
+  IMGS = await loadImages(IMG_URLS);
+  if(!IMGS.length){
+    // draw a gradient fallback if no images load
+    const g = CTX.createLinearGradient(0,0,0,innerHeight);
+    g.addColorStop(0,'#123'); g.addColorStop(.5,'#456'); g.addColorStop(1,'#012');
+    CTX.fillStyle=g; CTX.fillRect(0,0,innerWidth,innerHeight);
+  }
+  t0 = performance.now();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
