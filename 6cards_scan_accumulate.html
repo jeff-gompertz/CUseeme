@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>6Cards — Scan & Accumulate</title>
+<title>6Cards — Scan Accumulate v2</title>
 <style>
   body {margin:0;overflow:hidden;background:#000;}
   canvas {display:block;}
@@ -19,7 +19,7 @@ let W = innerWidth, H = innerHeight;
 function resize(){ W=innerWidth; H=innerHeight; canvas.width=W; canvas.height=H; }
 addEventListener("resize",resize); resize();
 
-/* === YouTube RSS thumbnails (no API key) === */
+/* === YouTube RSS thumbnails === */
 const FEED_URL = "https://www.youtube.com/feeds/videos.xml?channel_id=UCREEmHdAYvlboosrKCHe4UA";
 const RSS_API  = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(FEED_URL);
 
@@ -42,28 +42,17 @@ async function loadThumbs(){
 
 /* === Card setup === */
 const cards = [];
-const cols = 3, rows = 2;
-const rowHeight = H / rows;
-cards.forEach((c,i)=>{
-  if(!c.img) return;
-  const row = Math.floor(i / cols);
-  const scanX = ((phase * scanSpeed + i * (W/cols)) % (W + c.w)) - c.w;
-  const scanY = row * rowHeight + rowHeight/3;
-  drawImageCover(c.img, scanX, scanY, c.w, c.h);
-});
+const cols = 3, rows = 2; // grid reference
+let scanSpeed = 1.8;
 
 function makeCards(imgs){
   for(let i=0;i<6;i++){
-    const w = 160, h = 100;
-    const row = Math.floor(i/cols);
-    const col = i%cols;
-    const x = col*(w+gap);
-    const y = row*(h+gap);
-    cards.push({x,y,w,h,img:imgs[i%imgs.length]});
+    const w = 180, h = 110;
+    cards.push({w,h,img:imgs[i%imgs.length]});
   }
 }
 
-/* helper */
+/* Helper: draw image covering rect */
 function drawImageCover(img,x,y,w,h){
   const iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height;
   if(!iw||!ih) return;
@@ -74,35 +63,28 @@ function drawImageCover(img,x,y,w,h){
 }
 
 /* === Animation === */
-let phase=0; // which card is currently scanning
+let phase=0;
 function animate(){
-  // Gentle fading to keep accumulation under control
-  // Gentle fading to keep accumulation under control
-ctx.globalCompositeOperation = 'source-over';
-ctx.globalAlpha = 0.01;          // stronger fade
-ctx.fillStyle = '#000';
-ctx.fillRect(0,0,W,H);
+  // ✳️ Controlled background fade
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=0.01;      // soft fade
+  ctx.fillStyle='#000';
+  ctx.fillRect(0,0,W,H);
 
-// Additive accumulation layer — much dimmer
-ctx.globalCompositeOperation = 'lighter';
-ctx.globalAlpha = 0.05;          // was 0.3 → now 0.05
-
-  // Additive accumulation layer
+  // ✳️ Additive accumulation pass
   ctx.globalCompositeOperation='lighter';
-  ctx.globalAlpha=0.3;
+  ctx.globalAlpha=0.05;      // dim additive layer
 
+  const rowHeight = H / rows;
   cards.forEach((c,i)=>{
     if(!c.img) return;
-    // Each card has its own scan position offset by index
-    const offset = (i*W/6);
-    const speed = scanSpeed;
-    const scanX = ((phase*speed + offset) % (W + c.w)) - c.w;
-    const scanY = ((i % rows) * (c.h + 40)) + 40;
+    const row = Math.floor(i / cols);
+    const scanX = ((phase * scanSpeed + i * (W/cols)) % (W + c.w)) - c.w;
+    const scanY = row * rowHeight + rowHeight/3;
     drawImageCover(c.img, scanX, scanY, c.w, c.h);
   });
 
   phase += 1;
-
   requestAnimationFrame(animate);
 }
 
