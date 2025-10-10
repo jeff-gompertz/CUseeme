@@ -42,8 +42,15 @@ async function loadThumbs(){
 
 /* === Card setup === */
 const cards = [];
-const cols = 3, rows = 2; // layout reference
-let scanSpeed = 2.2, gap = 6;
+const cols = 3, rows = 2;
+const rowHeight = H / rows;
+cards.forEach((c,i)=>{
+  if(!c.img) return;
+  const row = Math.floor(i / cols);
+  const scanX = ((phase * scanSpeed + i * (W/cols)) % (W + c.w)) - c.w;
+  const scanY = row * rowHeight + rowHeight/3;
+  drawImageCover(c.img, scanX, scanY, c.w, c.h);
+});
 
 function makeCards(imgs){
   for(let i=0;i<6;i++){
@@ -70,10 +77,15 @@ function drawImageCover(img,x,y,w,h){
 let phase=0; // which card is currently scanning
 function animate(){
   // Gentle fading to keep accumulation under control
-  ctx.globalCompositeOperation='source-over';
-  ctx.globalAlpha=0.002;         // fade strength
-  ctx.fillStyle='#000';
-  ctx.fillRect(0,0,W,H);
+  // Gentle fading to keep accumulation under control
+ctx.globalCompositeOperation = 'source-over';
+ctx.globalAlpha = 0.01;          // stronger fade
+ctx.fillStyle = '#000';
+ctx.fillRect(0,0,W,H);
+
+// Additive accumulation layer — much dimmer
+ctx.globalCompositeOperation = 'lighter';
+ctx.globalAlpha = 0.05;          // was 0.3 → now 0.05
 
   // Additive accumulation layer
   ctx.globalCompositeOperation='lighter';
