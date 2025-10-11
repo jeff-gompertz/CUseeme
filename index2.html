@@ -2,32 +2,28 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>6Cards — iPad-Safe Video Trails</title>
+<title>6Cards — Autoplay + WP Media Videos</title>
 <style>
   body { margin: 0; overflow: hidden; background: black; }
   canvas { display: block; }
 </style>
 </head>
 <body>
-
-<!-- Invisible video holder so iOS knows the <video> tags exist -->
-<div id="hidden-videos" style="position:fixed;top:0;left:0;width:0;height:0;overflow:hidden;"></div>
-
 <canvas id="c"></canvas>
 
 <script>
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 
-function resize(){
+function resize() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 }
 window.addEventListener("resize", resize);
 resize();
 
-/* === Load WordPress Media videos === */
-async function loadMediaVideos(){
+/* === Load video files from WordPress Media Library === */
+async function loadVideos(){
   const MEDIA_API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=30";
   try{
     const r = await fetch(MEDIA_API);
@@ -39,101 +35,104 @@ async function loadMediaVideos(){
       if(m.source_url && /\.mp4$/i.test(m.source_url)){
         const v = document.createElement("video");
         v.src = m.source_url;
+        v.crossOrigin = "anonymous";
         v.loop = true;
         v.muted = true;
         v.playsInline = true;
-        v.style.display = "none";
-        document.getElementById("hidden-videos").appendChild(v);
-
         v.load();
+
         await new Promise(res=>{
           v.onloadeddata = res;
           v.onerror = res;
           setTimeout(res,1500);
         });
+
+        // attempt to autoplay immediately
+        v.play().catch(()=>{});
         vids.push(v);
       }
     }
+
     console.log("🎞 Videos ready:", vids.map(v=>v.src));
     return vids;
-  }catch(e){
-    console.warn("Video load error:", e);
+  }catch(err){
+    console.warn("Video load error:", err);
     return [];
   }
 }
 
-/* === Start playback on user gesture (tap or click) === */
-/* === Try autoplay immediately on load (no click needed) === */
+/* === Try autoplay immediately (no click/tap required) === */
 function startVideos(){
-  document.querySelectorAll("#hidden-videos video").forEach(v=>{
+  document.querySelectorAll("video").forEach(v=>{
     v.play().catch(()=>{});
   });
   console.log("▶️ Videos autoplay attempted");
 }
-
-/* Run as soon as DOM is ready */
 window.addEventListener("DOMContentLoaded", startVideos);
 
-/* === Cards setup === */
+/* === Setup cards === */
 const cards = [];
 const NUM_CARDS = 12;
 
-function initCards(media){
-  for(let i=0;i<NUM_CARDS;i++){
+function initCards(vids){
+  for (let i = 0; i < NUM_CARDS; i++) {
     const w = 380, h = 320;
     const horizontal = Math.random() > 0.5;
-    const vx = horizontal ? (Math.random()<0.5?-1.5:1.5) : 0;
-    const vy = !horizontal ? (Math.random()<0.5?-1.2:1.2) : 0;
+    const vx = horizontal ? (Math.random() < 0.5 ? -1.5 : 1.5) : 0;
+    const vy = !horizontal ? (Math.random() < 0.5 ? -1.2 : 1.2) : 0;
+
     cards.push({
-      x: Math.random()*(canvas.width - w),
-      y: Math.random()*(canvas.height - h),
-      vx, vy, w, h,
-      media: media.length ? media[i % media.length] : null
+      x: Math.random() * (canvas.width  - w),
+      y: Math.random() * (canvas.height - h),
+      vx, vy,
+      w, h,
+      vid: vids.length ? vids[i % vids.length] : null
     });
   }
 }
 
-/* === Draw helper === */
-function drawMediaCover(media,x,y,w,h){
-  const iw = media.videoWidth || media.naturalWidth || media.width;
-  const ih = media.videoHeight || media.naturalHeight || media.height;
-  if(!iw||!ih) return;
-  const r = Math.max(w/iw, h/ih);
-  const nw = iw*r, nh = ih*r;
-  const ox = x+(w-nw)/2, oy = y+(h-nh)/2;
-  ctx.drawImage(media, ox, oy, nw, nh);
+/* === Draw helper (video or image frame) === */
+function drawVideoCover(vid, x, y, w, h){
+  const iw = vid.videoWidth || vid.width;
+  const ih = vid.videoHeight || vid.height;
+  if (!iw || !ih) return;
+  const r  = Math.max(w/iw, h/ih);
+  const nw = iw * r, nh = ih * r;
+  const ox = x + (w - nw)/2, oy = y + (h - nh)/2;
+  ctx.drawImage(vid, ox, oy, nw, nh);
 }
 
-/* === Animate === */
-function animate(){
+/* === Animation === */
+function animate() {
   ctx.fillStyle = "rgba(0,0,0,0.02)";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  for(const c of cards){
-    if(c.media && c.media.readyState >= 2){
-      ctx.globalAlpha = 0.3;
-      drawMediaCover(c.media, c.x, c.y, c.w, c.h);
+  for (const card of cards){
+    if (card.vid) {
+      ctx.globalAlpha = 0.35;
+      drawVideoCover(card.vid, card.x, card.y, card.w, card.h);
       ctx.globalAlpha = 1.0;
-    }else{
-      ctx.fillStyle = "rgba(255,255,255,0.2)";
-      ctx.fillRect(c.x,c.y,c.w,c.h);
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.fillRect(card.x, card.y, card.w, card.h);
     }
 
-    c.x += c.vx; c.y += c.vy;
-    if(c.vx && (c.x<0 || c.x+c.w>canvas.width)) c.vx*=-1;
-    if(c.vy && (c.y<0 || c.y+c.h>canvas.height)) c.vy*=-1;
+    card.x += card.vx;
+    card.y += card.vy;
+    if (card.vx !== 0) {
+      if (card.x < 0 || card.x + card.w > canvas.width) card.vx *= -1;
+    }
+    if (card.vy !== 0) {
+      if (card.y < 0 || card.y + card.h > canvas.height) card.vy *= -1;
+    }
   }
 
   requestAnimationFrame(animate);
 }
 
 /* === Boot === */
-(async ()=>{
-  const vids = await loadMediaVideos();
-  if(!vids.length){
-    console.warn("⚠️ No videos found in media library!");
-    return;
-  }
+(async function(){
+  const vids = await loadVideos();
   initCards(vids);
   animate();
 })();
