@@ -63,12 +63,15 @@ async function loadMediaVideos(){
 }
 
 /* === Try autoplay immediately on load (no click needed) === */
+/* === Start playback on user gesture (tap or click) === */
 function startVideos(){
   document.querySelectorAll("#hidden-videos video").forEach(v=>{
     v.play().catch(()=>{});
   });
-  console.log("▶️ Videos autoplay attempted");
+  console.log("▶️ Videos playback triggered");
 }
+window.addEventListener("touchstart", startVideos, { once:true });
+window.addEventListener("click", startVideos, { once:true });
 
 /* Run as soon as DOM is ready */
 window.addEventListener("DOMContentLoaded", startVideos);
