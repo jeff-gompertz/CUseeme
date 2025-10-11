@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>6Cards — WP Media Library Videos + Trails</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* --- WordPress Media Library → video files --- */
+async function loadVideos(){
+  try{
+    const MEDIA_API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?media_type=video&per_page=20";
+    const r = await fetch(MEDIA_API);
+    const d = await r.json();
+
+    const vids = [];
+    for (const m of d){
+      if (m.media_type === "video" && m.source_url) {
+        const v = document.createElement("video");
+        v.src = m.source_url;
+        v.crossOrigin = "anonymous";
+        v.loop = true;
+        v.muted = true;
+        v.playsInline = true;
+        await v.play().catch(()=>{}); // autoplay quietly
+        vids.push(v);
+      }
+    }
+
+    console.log("🎞️ Loaded videos:", vids.length);
+    return vids.sort(() => Math.random() - 0.5).slice(0, 6);
+  }catch(e){
+    console.warn("Video load error:", e);
+    return [];
+  }
+}
+
+/* --- Setup --- */
+const cards = [];
+const NUM_CARDS = 6;
+
+function initCards(videos){
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const w = 320, h = 240;
+    const horizontal = Math.random() > 0.5;
+    const vx = horizontal ? (Math.random() < 0.5 ? -1.2 : 1.2) : 0;
+    const vy = !horizontal ? (Math.random() < 0.5 ? -1.0 : 1.0) : 0;
+
+    cards.push({
+      x: Math.random() * (canvas.width - w),
+      y: Math.random() * (canvas.height - h),
+      vx, vy, w, h,
+      video: videos[i % videos.length]
+    });
+  }
+}
+
+/* --- Animate --- */
+function animate() {
+  ctx.fillStyle = "rgba(0,0,0,0.02)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (const card of cards){
+    const v = card.video;
+    if (v && v.readyState >= 2) {
+      ctx.globalAlpha = 0.4;
+      ctx.drawImage(v, card.x, card.y, card.w, card.h);
+      ctx.globalAlpha = 1.0;
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.2)";
+      ctx.fillRect(card.x, card.y, card.w, card.h);
+    }
+
+    // update + bounce (horizontal OR vertical)
+    card.x += card.vx;
+    card.y += card.vy;
+
+    if (card.vx !== 0 && (card.x < 0 || card.x + card.w > canvas.width)) card.vx *= -1;
+    if (card.vy !== 0 && (card.y < 0 || card.y + card.h > canvas.height)) card.vy *= -1;
+  }
+
+  requestAnimationFrame(animate);
+}
+
+/* --- Boot --- */
+(async function(){
+  const videos = await loadVideos();
+  if (!videos.length) {
+    console.warn("No videos found, using dummy fallback");
+    const fallback = document.createElement("video");
+    fallback.src = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
+    fallback.loop = true; fallback.muted = true; fallback.play();
+    initCards([fallback]);
+  } else {
+    initCards(videos);
+  }
+  animate();
+})();
+</script>
+</body>
+</html>
