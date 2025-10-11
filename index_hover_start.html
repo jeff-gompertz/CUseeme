@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>6Cards — Hover Start + WP Media Videos</title>
+<style>
+  html,body {
+    margin: 0; overflow: hidden; background: black;
+    font-family: system-ui, sans-serif;
+  }
+  canvas { display: block; }
+  #overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.8);
+    font-size: 1.2rem;
+    letter-spacing: 0.05em;
+    background: rgba(0,0,0,0.3);
+    transition: opacity 0.6s ease;
+    pointer-events: none;
+    opacity: 0;
+  }
+  #overlay.show { opacity: 1; pointer-events: all; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="overlay" class="show">tap to activate motion</div>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const overlay = document.getElementById("overlay");
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* === Load video files from WordPress Media Library === */
+async function loadVideos(){
+  const MEDIA_API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=30";
+  try{
+    const r = await fetch(MEDIA_API);
+    const d = await r.json();
+    console.log("📦 Raw media items:", d.length);
+
+    const vids = [];
+    for(const m of d){
+      if(m.source_url && /\.mp4$/i.test(m.source_url)){
+        const v = document.createElement("video");
+        v.src = m.source_url;
+        v.crossOrigin = "anonymous";
+        v.loop = true;
+        v.muted = true;
+        v.playsInline = true;
+        v.load();
+
+        // wait for metadata so we can draw first frame
+        await new Promise(res=>{
+          v.onloadeddata = res;
+          v.onerror = res;
+          setTimeout(res,1500);
+        });
+
+        vids.push(v);
+      }
+    }
+
+    console.log("🎞 Videos ready:", vids.map(v=>v.src));
+    return vids;
+  }catch(err){
+    console.warn("Video load error:", err);
+    return [];
+  }
+}
+
+/* === Setup cards === */
+const cards = [];
+const NUM_CARDS = 12;
+
+function initCards(vids){
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const w = 380, h = 320;
+    const horizontal = Math.random() > 0.5;
+    const vx = horizontal ? (Math.random() < 0.5 ? -1.5 : 1.5) : 0;
+    const vy = !horizontal ? (Math.random() < 0.5 ? -1.2 : 1.2) : 0;
+
+    cards.push({
+      x: Math.random() * (canvas.width  - w),
+      y: Math.random() * (canvas.height - h),
+      vx, vy,
+      w, h,
+      vid: vids.length ? vids[i % vids.length] : null
+    });
+  }
+}
+
+/* === Draw helper (video frame) === */
+function drawVideoCover(vid, x, y, w, h){
+  const iw = vid.videoWidth || vid.width;
+  const ih = vid.videoHeight || vid.height;
+  if (!iw || !ih) return;
+  const r  = Math.max(w/iw, h/ih);
+  const nw = iw * r, nh = ih * r;
+  const ox = x + (w - nw)/2, oy = y + (h - nh)/2;
+  ctx.drawImage(vid, ox, oy, nw, nh);
+}
+
+/* === Animation === */
+function animate() {
+  ctx.fillStyle = "rgba(0,0,0,0.02)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (const card of cards){
+    if (card.vid) {
+      ctx.globalAlpha = 0.35;
+      drawVideoCover(card.vid, card.x, card.y, card.w, card.h);
+      ctx.globalAlpha = 1.0;
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.fillRect(card.x, card.y, card.w, card.h);
+    }
+
+    card.x += card.vx;
+    card.y += card.vy;
+    if (card.vx !== 0) {
+      if (card.x < 0 || card.x + card.w > canvas.width) card.vx *= -1;
+    }
+    if (card.vy !== 0) {
+      if (card.y < 0 || card.y + card.h > canvas.height) card.vy *= -1;
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+/* === Boot === */
+(async function(){
+  const vids = await loadVideos();
+  initCards(vids);
+
+  // show overlay hint for iPad
+  overlay.classList.add("show");
+
+  // draw static frames (first frame visible)
+  for (const card of cards){
+    if (card.vid) drawVideoCover(card.vid, card.x, card.y, card.w, card.h);
+  }
+
+  // on click/tap: play all videos and hide overlay
+  window.addEventListener("click", ()=>{
+    vids.forEach(v=>v.play().catch(()=>{}));
+    overlay.classList.remove("show");
+  }, { once:true });
+
+  animate();
+})();
+</script>
+</body>
+</html>
