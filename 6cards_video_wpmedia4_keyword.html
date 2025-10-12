@@ -28,36 +28,23 @@ const FILTER_KEYWORD = "puppet";  // ← change this word anytime
 /* === Load video files from WordPress Media Library === */
 
 async function loadVideos(){
-  const MEDIA_API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=30";
-
-  // helper: detect video reliably (MIME first, then URL fallback)
-  const isVideo = m =>
-    (m?.mime_type && m.mime_type.startsWith("video/")) ||
-    (m?.source_url && /\.mp4(\?.*)?$/i.test(m.source_url));
-
-  try{
+  const MEDIA_API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=50";
+  try {
     const r = await fetch(MEDIA_API);
     const d = await r.json();
     console.log("📦 Raw media items:", d.length);
 
-    // keyword match in caption/description only
-    const matchesKeyword = m => {
-      const caption = (m.caption?.rendered || "").replace(/<[^>]*>/g, "").toLowerCase();
-      const desc    = (m.description?.rendered || "").replace(/<[^>]*>/g, "").toLowerCase();
-      return caption.includes(FILTER_KEYWORD) || desc.includes(FILTER_KEYWORD);
-    };
+    // Filter for MP4 files only
+    const filtered = d.filter(m =>
+      (m.mime_type === "video/mp4") ||
+      (m.source_url && /\.mp4(\?.*)?$/i.test(m.source_url))
+    );
 
-    // first: filter to real videos + keyword
-    const filtered = d.filter(m => isVideo(m) && matchesKeyword(m));
-
-    console.log(`🎯 Filtered videos matching "${FILTER_KEYWORD}": ${filtered.length}`);
-    // show what exactly matched
+    console.log(`🎯 Found ${filtered.length} MP4 videos`);
     console.table(filtered.map(m => ({
       id: m.id,
-      mime: m.mime_type,
-      url: m.source_url,
-      caption: (m.caption?.rendered || "").replace(/<[^>]*>/g, "").slice(0,60),
-      desc: (m.description?.rendered || "").replace(/<[^>]*>/g, "").slice(0,60),
+      title: m.title?.rendered || "(no title)",
+      url: m.source_url
     })));
 
     const vids = [];
@@ -68,11 +55,9 @@ async function loadVideos(){
       v.muted = true;
       v.playsInline = true;
       v.preload = "auto";
-      // IMPORTANT: no crossOrigin for same-domain WP to avoid CORS
-      v.style.display = "none";        // keep in DOM for iOS readiness
+      v.style.display = "none";
       document.body.appendChild(v);
 
-      // wait until it can draw a frame (or timeout)
       await new Promise(res=>{
         const ok = ()=>res();
         v.oncanplay = ok;
@@ -81,19 +66,25 @@ async function loadVideos(){
         setTimeout(ok, 2000);
       });
 
-      try { await v.play(); console.log("▶️ Autoplay OK:", m.source_url); }
-      catch { console.warn("⚠️ Autoplay blocked (will start on tap):", m.source_url); }
+      try {
+        await v.play();
+        console.log("▶️ Autoplay OK:", m.source_url);
+      } catch {
+        console.warn("⚠️ Autoplay blocked (will start on tap):", m.source_url);
+      }
 
       vids.push(v);
     }
 
     console.log("🎞 Videos ready:", vids.map(v => v.src));
     return vids;
-  }catch(err){
+  } catch(err){
     console.warn("Video load error:", err);
     return [];
   }
 }
+
+
 
 
 
