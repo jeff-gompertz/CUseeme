@@ -33,12 +33,11 @@ async function loadVideos(){
     const d = await r.json();
     console.log("📦 Raw media items:", d.length);
 
-    // 🔍 Filter media by keyword in title / caption / description
+    // 🔍 Filter media by keyword in / caption / description
     const filtered = d.filter(m => {
       const caption = m.caption?.rendered?.replace(/<[^>]*>/g, "").toLowerCase() || "";
       const desc = m.description?.rendered?.replace(/<[^>]*>/g, "").toLowerCase() || "";
       return (
-        title.includes(FILTER_KEYWORD) ||
         caption.includes(FILTER_KEYWORD) ||
         desc.includes(FILTER_KEYWORD)
       );
