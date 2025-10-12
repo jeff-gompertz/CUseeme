@@ -34,14 +34,17 @@ async function loadVideos(){
     console.log("📦 Raw media items:", d.length);
 
     // 🔍 Filter media by keyword in / caption / description
-    const filtered = d.filter(m => {
-      const caption = m.caption?.rendered?.replace(/<[^>]*>/g, "").toLowerCase() || "";
-      const desc = m.description?.rendered?.replace(/<[^>]*>/g, "").toLowerCase() || "";
-      return (
-        caption.includes(FILTER_KEYWORD) ||
-        desc.includes(FILTER_KEYWORD)
-      );
-    });
+
+// 🔍 Filter media by keyword in caption / description only
+const filtered = d.filter(m => {
+  const caption = m.caption?.rendered?.replace(/<[^>]*>/g, "").toLowerCase() || "";
+  const desc = m.description?.rendered?.replace(/<[^>]*>/g, "").toLowerCase() || "";
+  return (
+    caption.includes(FILTER_KEYWORD) ||
+    desc.includes(FILTER_KEYWORD)
+  );
+});
+    
 
     console.log(`🎯 Filtered videos matching "${FILTER_KEYWORD}":`, filtered.length);
 
