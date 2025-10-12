@@ -49,7 +49,7 @@ async function loadVideos(){
 
     const vids = [];
     for(const m of filtered){
-      if(m.source_url && /\.mp4$/i.test(m.source_url)){
+      if (m.source_url && m.mime_type && m.mime_type.startsWith("video/")) {
         const v = document.createElement("video");
         v.src = m.source_url;
         // note: no v.crossOrigin line → prevents CORS errors
