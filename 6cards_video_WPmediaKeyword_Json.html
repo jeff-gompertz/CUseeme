@@ -146,14 +146,21 @@ function animate(){
 
 /* === Boot === */
 (async ()=>{
-  const vids = await loadMediaVideos();
+  const vids = await loadVideos(); // ✅ match your function name above
   if(!vids.length){
     console.warn("⚠️ No videos found in media library!");
     return;
   }
+
+  // add to the hidden div so iOS knows about them
+  const hidden = document.getElementById("hidden-videos");
+  vids.forEach(v => hidden.appendChild(v));
+
   initCards(vids);
   animate();
 })();
+
+  
 </script>
 </body>
 </html>
