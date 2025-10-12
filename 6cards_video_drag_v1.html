@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>6Cards — WP Media Video Filter + Drag Mode</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #000; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+function resize(){
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+addEventListener("resize", resize);
+resize();
+
+/* === Keyword(s) for filtering videos === */
+const FILTER_KEYWORDS = ["puppet","ghost"];   // add or remove words freely
+
+/* === Load videos from WordPress Media Library === */
+async function loadVideos(){
+  const MEDIA_API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=50";
+  try{
+    const r = await fetch(MEDIA_API);
+    const d = await r.json();
+    console.log("📦 Raw media items:", d.length);
+
+    const filtered = d.filter(m=>{
+      const title   = (m.title?.rendered || "").toLowerCase();
+      const caption = (m.caption?.rendered || "").replace(/<[^>]*>/g,"").toLowerCase();
+      const desc    = (m.description?.rendered || "").replace(/<[^>]*>/g,"").toLowerCase();
+      const url     = (m.source_url || "").toLowerCase();
+      const kwHit   = FILTER_KEYWORDS.some(k=>title.includes(k)||caption.includes(k)||desc.includes(k)||url.includes(k));
+      const mp4     = m.source_url && /\.mp4(\?.*)?$/i.test(m.source_url);
+      return mp4 && kwHit;
+    });
+    console.log(`🎯 Filtered videos: ${filtered.length}`);
+
+    const vids=[];
+    for(const m of filtered){
+      const v=document.createElement("video");
+      v.src=m.source_url;
+      v.loop=true; v.muted=true; v.playsInline=true; v.preload="auto";
+      v.style.display="none";
+      document.body.appendChild(v);
+      await new Promise(res=>{
+        const ok=()=>res();
+        v.oncanplay=ok; v.onerror=ok; setTimeout(ok,1500);
+      });
+      v.play().catch(()=>{});
+      vids.push(v);
+    }
+    return vids;
+  }catch(e){console.warn("Video load error:",e);return[];}
+}
+
+/* === Optional click trigger for iOS === */
+function startVideos(){
+  document.querySelectorAll("video").forEach(v=>v.play().catch(()=>{}));
+  console.log("▶️ Videos playback triggered");
+}
+addEventListener("touchstart", startVideos,{once:true});
+addEventListener("click", startVideos,{once:true});
+
+/* === Card objects === */
+const cards=[];
+const NUM_CARDS=12;
+function initCards(vids){
+  for(let i=0;i<NUM_CARDS;i++){
+    const w=380,h=320;
+    cards.push({
+      x:Math.random()*(canvas.width-w),
+      y:Math.random()*(canvas.height-h),
+      w,h,
+      vid:vids.length?vids[i%vids.length]:null,
+      dragging:false,offsetX:0,offsetY:0
+    });
+  }
+}
+
+/* === Draw helper === */
+function drawVideoCover(vid,x,y,w,h){
+  const iw=vid.videoWidth||vid.width, ih=vid.videoHeight||vid.height;
+  if(!iw||!ih) return;
+  const r=Math.max(w/iw,h/ih);
+  const nw=iw*r, nh=ih*r;
+  const ox=x+(w-nw)/2, oy=y+(h-nh)/2;
+  ctx.drawImage(vid,ox,oy,nw,nh);
+}
+
+/* === Render frame === */
+function render(){
+  ctx.fillStyle="rgba(0,0,0,0.05)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  for(const c of cards){
+    if(c.vid && c.vid.readyState>=2){
+      ctx.globalAlpha=0.35;
+      drawVideoCover(c.vid,c.x,c.y,c.w,c.h);
+      ctx.globalAlpha=1;
+    }else{
+      ctx.fillStyle="rgba(255,255,255,0.25)";
+      ctx.fillRect(c.x,c.y,c.w,c.h);
+    }
+  }
+  requestAnimationFrame(render);
+}
+
+/* === Drag behaviour === */
+let active=null;
+function pointerDown(e){
+  const rect=canvas.getBoundingClientRect();
+  const x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  const y=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+  for(let i=cards.length-1;i>=0;i--){
+    const c=cards[i];
+    if(x>c.x && x<c.x+c.w && y>c.y && y<c.y+c.h){
+      c.dragging=true;
+      c.offsetX=x-c.x; c.offsetY=y-c.y;
+      active=c;
+      break;
+    }
+  }
+}
+function pointerMove(e){
+  if(!active) return;
+  const rect=canvas.getBoundingClientRect();
+  const x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  const y=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+  active.x=x-active.offsetX;
+  active.y=y-active.offsetY;
+}
+function pointerUp(){
+  if(active){active.dragging=false;active=null;}
+}
+canvas.addEventListener("mousedown",pointerDown);
+canvas.addEventListener("mousemove",pointerMove);
+canvas.addEventListener("mouseup",pointerUp);
+canvas.addEventListener("touchstart",pointerDown);
+canvas.addEventListener("touchmove",pointerMove);
+canvas.addEventListener("touchend",pointerUp);
+
+/* === Boot === */
+(async function(){
+  const vids=await loadVideos();
+  if(!vids.length){console.warn("⚠️ No videos found");return;}
+  initCards(vids);
+  render();
+})();
+</script>
+</body>
+</html>
