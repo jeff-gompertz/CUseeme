@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>6Cards — WP Media Video Filter ("ghost")</title>
+<title>6Cards — WP Media Video Filter </title>
 <style>
   body { margin: 0; overflow: hidden; background: black; }
   canvas { display: block; }
@@ -35,7 +35,6 @@ async function loadVideos(){
 
     // 🔍 Filter media by keyword in title / caption / description
     const filtered = d.filter(m => {
-      const title = m.title?.rendered?.toLowerCase() || "";
       const caption = m.caption?.rendered?.replace(/<[^>]*>/g, "").toLowerCase() || "";
       const desc = m.description?.rendered?.replace(/<[^>]*>/g, "").toLowerCase() || "";
       return (
