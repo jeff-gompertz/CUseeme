@@ -27,40 +27,55 @@ window.addEventListener("resize", resize);
 resize();
 
 /* === Load WordPress Media videos === */
-async function loadMediaVideos(){
+
+  
+async function loadVideos(){
   const MEDIA_API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=30";
   try{
     const r = await fetch(MEDIA_API);
     const d = await r.json();
     console.log("📦 Raw media items:", d.length);
 
+    // 🔍 Log caption + description info for each media item
+    d.forEach(m => {
+      const title = m.title?.rendered || "(no title)";
+      const caption = m.caption?.rendered?.replace(/<[^>]*>/g, "") || "";
+      const desc = m.description?.rendered?.replace(/<[^>]*>/g, "") || "";
+      if (caption || desc) {
+        console.log(`🧾 ${title}\n   caption: ${caption}\n   description: ${desc}`);
+      }
+    });
+
     const vids = [];
-    for(const m of d){
-      if(m.source_url && /\.mp4$/i.test(m.source_url)){
+    for (const m of d){
+      if (m.source_url && /\.mp4$/i.test(m.source_url)){
         const v = document.createElement("video");
         v.src = m.source_url;
+        v.crossOrigin = "anonymous";
         v.loop = true;
         v.muted = true;
         v.playsInline = true;
-        v.style.display = "none";
-        document.getElementById("hidden-videos").appendChild(v);
-
         v.load();
+
         await new Promise(res=>{
           v.onloadeddata = res;
           v.onerror = res;
           setTimeout(res,1500);
         });
+
+        v.play().catch(()=>{});
         vids.push(v);
       }
     }
+
     console.log("🎞 Videos ready:", vids.map(v=>v.src));
     return vids;
-  }catch(e){
-    console.warn("Video load error:", e);
+  }catch(err){
+    console.warn("Video load error:", err);
     return [];
   }
 }
+
 
 /* === Try autoplay immediately on load (no click needed) === */
 /* === Start playback on user gesture (tap or click) === */
