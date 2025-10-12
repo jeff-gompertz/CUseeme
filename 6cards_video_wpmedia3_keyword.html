@@ -26,6 +26,7 @@ resize();
 const FILTER_KEYWORD = "puppet";  // ← change this word anytime
 
 /* === Load video files from WordPress Media Library === */
+
 async function loadVideos(){
   const MEDIA_API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=30";
   try{
@@ -33,39 +34,44 @@ async function loadVideos(){
     const d = await r.json();
     console.log("📦 Raw media items:", d.length);
 
-    // 🔍 Filter media by keyword in / caption / description
-
-// 🔍 Filter media by keyword in caption / description only
-    
-    // 🔍 Filter media by keyword in caption / description only
+    // 🔍 Filter by caption/description only
     const filtered = d.filter(m => {
       const caption = (m.caption?.rendered || "").replace(/<[^>]*>/g, "").toLowerCase();
       const desc = (m.description?.rendered || "").replace(/<[^>]*>/g, "").toLowerCase();
       return caption.includes(FILTER_KEYWORD) || desc.includes(FILTER_KEYWORD);
     });
-    
-
     console.log(`🎯 Filtered videos matching "${FILTER_KEYWORD}":`, filtered.length);
 
     const vids = [];
-    for(const m of filtered){
-      if (m.source_url && m.mime_type && m.mime_type.startsWith("video/")) {
+    for (const m of filtered){
+      if (m.source_url && m.mime_type && m.mime_type.startsWith("video/")){
         const v = document.createElement("video");
         v.src = m.source_url;
-        // note: no v.crossOrigin line → prevents CORS errors
         v.loop = true;
         v.muted = true;
         v.playsInline = true;
-        v.load();
+        v.preload = "auto";
+        v.crossOrigin = "anonymous";
 
+        // append hidden so iOS knows about it
+        document.body.appendChild(v);
+
+        // Wait for enough data to safely draw
         await new Promise(res=>{
-          v.onloadeddata = res;
-          v.onerror = res;
-          setTimeout(res,1500);
+          const ok = ()=>res();
+          v.oncanplay = ok;
+          v.onloadeddata = ok;
+          v.onerror = ok;
+          setTimeout(ok, 2000);
         });
 
-        // Try autoplay
-        v.play().catch(()=>{});
+        try {
+          await v.play();
+          console.log("▶️ Autoplay OK:", m.source_url);
+        } catch {
+          console.warn("⚠️ Autoplay blocked:", m.source_url);
+        }
+
         vids.push(v);
       }
     }
@@ -77,6 +83,12 @@ async function loadVideos(){
     return [];
   }
 }
+
+
+
+
+
+  
 
 /* === Optional click trigger (for iOS safety) === */
 function startVideos(){
