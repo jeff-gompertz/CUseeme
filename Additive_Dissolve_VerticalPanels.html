@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>6Cards — Diptych Layout + In-Place Dissolve</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
+addEventListener("resize", resize); resize();
+
+/* === Keywords for filtering videos === */
+const FILTER_KEYWORDS = ["ghost","puppet"];
+
+/* === Load videos from WordPress Media Library === */
+async function loadVideos(){
+  const MEDIA_API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=50";
+  try{
+    const r = await fetch(MEDIA_API);
+    const d = await r.json();
+    console.log("📦 Raw media items:", d.length);
+
+    const filtered = d.filter(m=>{
+      const title   = (m.title?.rendered || "").toLowerCase();
+      const caption = (m.caption?.rendered || "").replace(/<[^>]*>/g,"").toLowerCase();
+      const desc    = (m.description?.rendered || "").replace(/<[^>]*>/g,"").toLowerCase();
+      const url     = (m.source_url || "").toLowerCase();
+      const kwHit   = FILTER_KEYWORDS.some(k=>title.includes(k)||caption.includes(k)||desc.includes(k)||url.includes(k));
+      const mp4     = m.source_url && /\.mp4(\?.*)?$/i.test(m.source_url);
+      return mp4 && kwHit;
+    });
+
+    console.log(`🎯 Filtered videos: ${filtered.length}`);
+
+    const vids=[];
+    for(const m of filtered){
+      const v=document.createElement("video");
+      v.src=m.source_url;
+      v.loop=true; v.muted=true; v.playsInline=true; v.preload="auto";
+      v.style.display="none";
+      document.body.appendChild(v);
+      await new Promise(res=>{
+        const ok=()=>res();
+        v.oncanplay=ok; v.onerror=ok; setTimeout(ok,1500);
+      });
+      v.play().catch(()=>{});
+      vids.push(v);
+    }
+    return vids;
+  }catch(e){console.warn("Video load error:",e);return[];}
+}
+
+/* === iOS playback unlock === */
+function startVideos(){ document.querySelectorAll("video").forEach(v=>v.play().catch(()=>{})); }
+addEventListener("touchstart", startVideos, { once:true });
+addEventListener("click", startVideos, { once:true });
+
+/* === Card setup (diptych layout) === */
+let cards = [];
+const NUM_CARDS = 6;
+function initCards(vids){
+  const W = canvas.width, H = canvas.height;
+  const w = W / 2;
+  const h = H;
+  cards = [];
+  for(let i=0;i<NUM_CARDS;i++){
+    const side = i < NUM_CARDS/2 ? "left" : "right";
+    const xBase = side==="left" ? 0 : W/2;
+    cards.push({
+      x: xBase + Math.random()*40 - 20,
+      y: Math.random()*40 - 20,
+      w, h, side,
+      vid: vids.length ? vids[i % vids.length] : null,
+      dragging: false, offsetX:0, offsetY:0
+    });
+  }
+}
+
+/* === Draw helper === */
+function drawVideoCover(vid,x,y,w,h,alpha=1){
+  if(!vid || vid.readyState<2) return;
+  const iw=vid.videoWidth||vid.width, ih=vid.videoHeight||vid.height;
+  const r=Math.max(w/iw,h/ih);
+  const nw=iw*r, nh=ih*r;
+  const ox=x+(w-nw)/2, oy=y+(h-nh)/2;
+  ctx.globalAlpha=alpha;
+  ctx.drawImage(vid,ox,oy,nw,nh);
+  ctx.globalAlpha=1;
+}
+
+/* === Fade logic === */
+let fading=null; // {card,newVid,progress}
+function nextFade(){
+  if(!cards.length || fading) return;
+  const c = cards[Math.floor(Math.random()*cards.length)];
+  const vids = Array.from(document.querySelectorAll("video"));
+  const newVid = vids[Math.floor(Math.random()*vids.length)];
+  if(!newVid || newVid===c.vid) return;
+  fading = { card:c, oldVid:c.vid, newVid, progress:0 };
+}
+
+/* === Render loop with dissolve === */
+function render(){
+  ctx.fillStyle="rgba(0,0,0,0.05)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  for(const c of cards){
+    if(fading && fading.card===c){
+      fading.progress += 0.02;
+      const p = Math.min(1,fading.progress);
+      drawVideoCover(fading.oldVid,c.x,c.y,c.w,c.h,0.35*(1-p*0.9));
+      drawVideoCover(fading.newVid,c.x,c.y,c.w,c.h,0.35*p);
+      if(p>=1){ c.vid=fading.newVid; fading=null; }
+    }else{
+      drawVideoCover(c.vid,c.x,c.y,c.w,c.h,0.35);
+    }
+  }
+  requestAnimationFrame(render);
+}
+
+/* === Drag behavior (viewport-constrained) === */
+let active=null;
+function pointerDown(e){
+  const rect=canvas.getBoundingClientRect();
+  const x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  const y=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+  for(let i=cards.length-1;i>=0;i--){
+    const c=cards[i];
+    if(x>c.x&&x<c.x+c.w&&y>c.y&&y<c.y+c.h){
+      c.dragging=true; c.offsetX=x-c.x; c.offsetY=y-c.y; active=c; break;
+    }
+  }
+}
+function pointerMove(e){
+  if(!active) return;
+  const rect=canvas.getBoundingClientRect();
+  const x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  const y=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+  active.x=Math.max(0,Math.min(canvas.width-active.w,x-active.offsetX));
+  active.y=Math.max(0,Math.min(canvas.height-active.h,y-active.offsetY));
+}
+function pointerUp(){ if(active){active.dragging=false;active=null;} }
+canvas.addEventListener("mousedown",pointerDown);
+canvas.addEventListener("mousemove",pointerMove);
+canvas.addEventListener("mouseup",pointerUp);
+canvas.addEventListener("touchstart",pointerDown);
+canvas.addEventListener("touchmove",pointerMove);
+canvas.addEventListener("touchend",pointerUp);
+
+/* === Click to trigger fade === */
+canvas.addEventListener("click", nextFade);
+canvas.addEventListener("touchstart", nextFade);
+
+/* === Boot === */
+(async function(){
+  const vids = await loadVideos();
+  if(!vids.length){ console.warn("⚠️ No videos found"); return; }
+  initCards(vids);
+  render();
+})();
+</script>
+</body>
+</html>
