@@ -70,24 +70,33 @@ let cards = [];
 const NUM_CARDS = 6;
 
 // adjust this number to control horizontal misalignment
-const STAGGER_X = 40;  // e.g. 80px total range (±40px from center)
+
+/* === Card / Panel setup (diptych, inward overlap at center) === */
+let cards = [];
+const NUM_CARDS = 6;
+
+// tweak these two values to control overlap and randomness
+const CENTER_OVERLAP = 120;   // how far inward panels push toward center
+const STAGGER_X = 40;         // random horizontal jitter for organic feel
 
 function initCards(vids){
   const W = canvas.width, H = canvas.height;
-  const w = W / 2;  // each panel half the screen width
-  const h = H;      // full height
+  const w = W / 2;   // each panel nominally half screen width
+  const h = H;
   cards = [];
 
   for (let i = 0; i < NUM_CARDS; i++) {
     const side = i < NUM_CARDS / 2 ? "left" : "right";
-    const xBase = side === "left" ? 0 : W / 2;
     const yBase = 0;
+    const inward = (Math.random() - 0.5) * STAGGER_X; // small random wobble
 
-    // horizontal center-stagger, no vertical offset
-    const xOffset = (Math.random() - 0.5) * STAGGER_X;  // -40 to +40 if STAGGER_X=80
+    // push both sides toward the center for overlap
+    const xBase = side === "left"
+      ? 0 + CENTER_OVERLAP + inward      // move rightward from left edge
+      : (W / 2) - CENTER_OVERLAP + inward; // move leftward from right edge
 
     cards.push({
-      x: xBase + xOffset,
+      x: xBase,
       y: yBase,
       w, h,
       side,
@@ -98,6 +107,9 @@ function initCards(vids){
     });
   }
 }
+
+
+  
 
 /* === Draw helper === */
 function drawVideoCover(vid,x,y,w,h){
