@@ -64,20 +64,31 @@ addEventListener("touchstart", startVideos, { once:true });
 addEventListener("click", startVideos, { once:true });
 
 /* === Card setup (diptych layout) === */
-const cards = [];
+
+/* === Card / Panel setup (diptych with adjustable horizontal stagger) === */
+let cards = [];
 const NUM_CARDS = 6;
+
+// adjust this number to control horizontal misalignment
+const STAGGER_X = 80;  // e.g. 80px total range (±40px from center)
 
 function initCards(vids){
   const W = canvas.width, H = canvas.height;
-  const w = W / 2;           // each panel = half width
-  const h = H;               // full vertical height
-  for(let i=0;i<NUM_CARDS;i++){
-    const side = i < NUM_CARDS/2 ? "left" : "right";
-    const xBase = side==="left" ? 0 : W/2;
+  const w = W / 2;  // each panel half the screen width
+  const h = H;      // full height
+  cards = [];
+
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const side = i < NUM_CARDS / 2 ? "left" : "right";
+    const xBase = side === "left" ? 0 : W / 2;
     const yBase = 0;
+
+    // horizontal center-stagger, no vertical offset
+    const xOffset = (Math.random() - 0.5) * STAGGER_X;  // -40 to +40 if STAGGER_X=80
+
     cards.push({
-      x: xBase + Math.random()*40 - 20, // slight offset
-      y: yBase + Math.random()*40 - 20,
+      x: xBase + xOffset,
+      y: yBase,
       w, h,
       side,
       vid: vids.length ? vids[i % vids.length] : null,
