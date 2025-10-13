@@ -3,10 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <title>6Cards — Diptych Layout (Full-Height Drag Panels)</title>
+
 <style>
-  body { margin: 0; overflow: hidden; background: black; }
-  canvas { display: block; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: black; /* fallback, not visible under canvas */
+  }
+  canvas {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+  }
 </style>
+
+
+
+  
 </head>
 <body>
 <canvas id="c"></canvas>
