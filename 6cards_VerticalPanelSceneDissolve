@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>6Cards — Vertical Diptych Scene Dissolve</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+/* === Canvas setup === */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
+addEventListener("resize", resize); resize();
+
+/* === Keyword scenes === */
+const SCENE_KEYWORDS = [
+  ["ghost"],
+  ["puppet"],
+  ["mirror"],
+  ["glass"]
+];
+let currentScene = 0;
+
+/* === Load videos from WP Media === */
+async function loadVideos(){
+  const MEDIA_API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=50";
+  const FILTER_KEYWORDS = SCENE_KEYWORDS[currentScene];
+  try{
+    const r = await fetch(MEDIA_API);
+    const d = await r.json();
+    console.log(`📦 Raw media items: ${d.length}`);
+    const filtered = d.filter(m=>{
+      const title   = (m.title?.rendered || "").toLowerCase();
+      const caption = (m.caption?.rendered || "").replace(/<[^>]*>/g,"").toLowerCase();
+      const desc    = (m.description?.rendered || "").replace(/<[^>]*>/g,"").toLowerCase();
+      const url     = (m.source_url || "").toLowerCase();
+      const kwHit   = FILTER_KEYWORDS.some(k=>title.includes(k)||caption.includes(k)||desc.includes(k)||url.includes(k));
+      const mp4     = m.source_url && /\.mp4(\?.*)?$/i.test(m.source_url);
+      return mp4 && kwHit;
+    });
+    console.log(`🎯 Filtered videos for [${FILTER_KEYWORDS.join(", ")}]: ${filtered.length}`);
+
+    const vids=[];
+    for(const m of filtered){
+      const v=document.createElement("video");
+      v.src=m.source_url;
+      v.loop=true; v.muted=true; v.playsInline=true; v.preload="auto";
+      v.style.display="none";
+      document.body.appendChild(v);
+      await new Promise(res=>{
+        const ok=()=>res();
+        v.oncanplay=ok; v.onerror=ok; setTimeout(ok,1500);
+      });
+      v.play().catch(()=>{});
+      vids.push(v);
+    }
+    return vids;
+  }catch(e){
+    console.warn("Video load error:",e);
+    return [];
+  }
+}
+
+/* === Basic unlock for iOS autoplay === */
+function startVideos(){ document.querySelectorAll("video").forEach(v=>v.play().catch(()=>{})); }
+addEventListener("touchstart", startVideos, { once:true });
+addEventListener("click", startVideos, { once:true });
+
+/* === Card / Panel setup === */
+let cards=[];
+const NUM_CARDS=6;
+function initCards(vids){
+  const W=canvas.width, H=canvas.height;
+  const w=W/2, h=H;
+  cards=[];
+  for(let i=0;i<NUM_CARDS;i++){
+    const side=i<NUM_CARDS/2?"left":"right";
+    const xBase=side==="left"?0:W/2;
+    cards.push({
+      x:xBase+Math.random()*40-20,
+      y:Math.random()*40-20,
+      w,h,side,
+      vid:vids.length?vids[i%vids.length]:null,
+      dragging:false,offsetX:0,offsetY:0
+    });
+  }
+}
+
+/* === Drawing helper === */
+function drawVideoCover(vid,x,y,w,h,a=1){
+  if(!vid||vid.readyState<2) return;
+  const iw=vid.videoWidth||vid.width, ih=vid.videoHeight||vid.height;
+  const r=Math.max(w/iw,h/ih);
+  const nw=iw*r, nh=ih*r;
+  const ox=x+(w-nw)/2, oy=y+(h-nh)/2;
+  ctx.globalAlpha=a;
+  ctx.drawImage(vid,ox,oy,nw,nh);
+  ctx.globalAlpha=1;
+}
+
+/* === Global fade manager === */
+let activeFades=[]; // array of {card,oldVid,newVid,progress}
+function triggerFade(card,newVid){
+  activeFades.push({card,oldVid:card.vid,newVid,progress:0});
+}
+
+/* === Sequential replacement === */
+async function sequentialFadeReplace(newVids){
+  console.log("🎬 Starting sequential fade replace...");
+  for(const c of cards){
+    const newVid=newVids[Math.floor(Math.random()*newVids.length)];
+    triggerFade(c,newVid);
+    await new Promise(r=>setTimeout(r,700)); // 700ms between panels
+  }
+}
+
+/* === Scene changer === */
+async function nextScene(){
+  if(activeFades.length>0) return; // wait if fading
+  currentScene=(currentScene+1)%SCENE_KEYWORDS.length;
+  const newVids=await loadVideos();
+  if(newVids.length) sequentialFadeReplace(newVids);
+}
+
+/* === Drag control (viewport constrained) === */
+let active=null;
+function pointerDown(e){
+  const rect=canvas.getBoundingClientRect();
+  const x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  const y=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+  for(let i=cards.length-1;i>=0;i--){
+    const c=cards[i];
+    if(x>c.x&&x<c.x+c.w&&y>c.y&&y<c.y+c.h){
+      c.dragging=true; c.offsetX=x-c.x; c.offsetY=y-c.y; active=c; break;
+    }
+  }
+}
+function pointerMove(e){
+  if(!active) return;
+  const rect=canvas.getBoundingClientRect();
+  const x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  const y=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+  active.x=Math.max(0,Math.min(canvas.width-active.w,x-active.offsetX));
+  active.y=Math.max(0,Math.min(canvas.height-active.h,y-active.offsetY));
+}
+function pointerUp(){ if(active){active.dragging=false;active=null;} }
+canvas.addEventListener("mousedown",pointerDown);
+canvas.addEventListener("mousemove",pointerMove);
+canvas.addEventListener("mouseup",pointerUp);
+canvas.addEventListener("touchstart",pointerDown);
+canvas.addEventListener("touchmove",pointerMove);
+canvas.addEventListener("touchend",pointerUp);
+
+/* === Render loop with multiple fades === */
+function render(){
+  ctx.fillStyle="rgba(0,0,0,0.05)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  for(const c of cards){
+    const fade=activeFades.find(f=>f.card===c);
+    if(fade){
+      fade.progress+=0.02;
+      const p=Math.min(1,fade.progress);
+      drawVideoCover(fade.oldVid,c.x,c.y,c.w,c.h,0.35*(1-p*0.8));
+      drawVideoCover(fade.newVid,c.x,c.y,c.w,c.h,0.35*p);
+      if(p>=1){ c.vid=fade.newVid; activeFades=activeFades.filter(f=>f!==fade); }
+    }else{
+      drawVideoCover(c.vid,c.x,c.y,c.w,c.h,0.35);
+    }
+  }
+  requestAnimationFrame(render);
+}
+
+/* === Click → next scene === */
+canvas.addEventListener("click", nextScene);
+canvas.addEventListener("touchstart", nextScene);
+
+/* === Boot === */
+(async function(){
+  const vids=await loadVideos();
+  if(!vids.length){ console.warn("⚠️ No videos found"); return; }
+  initCards(vids);
+  render();
+})();
+</script>
+</body>
+</html>
