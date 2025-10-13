@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>6Cards — Keyword Scene Dissolve</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; touch-action: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+/* === Canvas setup === */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+let W = innerWidth, H = innerHeight;
+function resize(){ W=innerWidth; H=innerHeight; canvas.width=W; canvas.height=H; }
+window.addEventListener("resize", resize);
+resize();
+
+/* === Scene keywords === */
+const SCENE_KEYWORDS = ["ghost","puppet","mirror","water","light","window"];
+let sceneIndex = -1;
+
+/* === Globals === */
+let cards = [];
+let fadeCards = [];
+let fadeProgress = 0;
+
+/* === Load WordPress videos by keyword === */
+async function loadVideos(keyword=null){
+  const MEDIA_API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=50";
+  try {
+    const r = await fetch(MEDIA_API);
+    const d = await r.json();
+
+    let filtered = d.filter(m =>
+      m.mime_type === "video/mp4" || /\.mp4$/i.test(m.source_url)
+    );
+
+    if(keyword){
+      filtered = filtered.filter(m=>{
+        const t = (m.title?.rendered || "").toLowerCase();
+        const c = (m.caption?.rendered || "").replace(/<[^>]*>/g,"").toLowerCase();
+        const desc = (m.description?.rendered || "").replace(/<[^>]*>/g,"").toLowerCase();
+        return t.includes(keyword)||c.includes(keyword)||desc.includes(keyword);
+      });
+    }
+
+    console.log(`🎯 ${keyword ? keyword : "random"} → ${filtered.length} videos`);
+
+    const vids = filtered.map(m=>{
+      const v = document.createElement("video");
+      v.src = m.source_url;
+      v.loop = true;
+      v.muted = true;
+      v.playsInline = true;
+      v.preload = "auto";
+      v.style.display = "none";
+      document.body.appendChild(v);
+      return v;
+    });
+
+    return vids;
+  }catch(e){
+    console.warn("Media load error:", e);
+    return [];
+  }
+}
+
+/* === Init panels === */
+function initCards(vids){
+  cards = [];
+  const n = Math.min(vids.length, 5);
+  for (let i=0; i<n; i++){
+    const w = W/2 + (Math.random()*100 - 50); // slightly overlap
+    const h = H;
+    const x = i%2 ? W/2 + (Math.random()*40-20) : (Math.random()*40-20);
+    cards.push({
+      x:Math.max(0,Math.min(x,W-w)),
+      y:0,w,h,vid:vids[i%vids.length],
+      dragging:false,dx:0,dy:0
+    });
+  }
+}
+
+/* === Draw helper === */
+function drawVideoCover(vid,x,y,w,h,a=1){
+  if(!vid||vid.readyState<2)return;
+  const iw=vid.videoWidth||vid.width, ih=vid.videoHeight||vid.height;
+  const r=Math.max(w/iw,h/ih);
+  const nw=iw*r, nh=ih*r;
+  const ox=x+(w-nw)/2, oy=y+(h-nh)/2;
+  ctx.globalAlpha=a;
+  ctx.drawImage(vid,ox,oy,nw,nh);
+  ctx.globalAlpha=1;
+}
+
+/* === Dragging === */
+canvas.addEventListener("pointerdown", e=>{
+  const {x,y}=getXY(e);
+  for(const c of cards){
+    if(x>=c.x&&x<=c.x+c.w&&y>=c.y&&y<=c.y+c.h){ c.dragging=true; c.dx=x-c.x; c.dy=y-c.y; }
+  }
+});
+canvas.addEventListener("pointermove", e=>{
+  const {x,y}=getXY(e);
+  for(const c of cards){
+    if(c.dragging){
+      c.x=Math.min(Math.max(0,x-c.dx),W-c.w);
+      c.y=Math.min(Math.max(0,y-c.dy),H-c.h);
+    }
+  }
+});
+canvas.addEventListener("pointerup", ()=>cards.forEach(c=>c.dragging=false));
+canvas.addEventListener("pointercancel", ()=>cards.forEach(c=>c.dragging=false));
+function getXY(e){return e.touches?.[0]?{x:e.touches[0].clientX,y:e.touches[0].clientY}:{x:e.clientX,y:e.clientY};}
+
+/* === Dissolve to next keyword scene === */
+async function nextScene(){
+  if(fadeCards.length) return;
+  sceneIndex = (sceneIndex+1) % SCENE_KEYWORDS.length;
+  const kw = SCENE_KEYWORDS[sceneIndex];
+  const newVids = await loadVideos(kw);
+  if(!newVids.length) return;
+  const idx = Math.floor(Math.random()*cards.length);
+  const newVid = newVids[Math.floor(Math.random()*newVids.length)];
+  fadeCards = [{card:cards[idx], oldVid:cards[idx].vid, newVid}];
+  fadeProgress=0;
+}
+
+/* === Animate === */
+function animate(){
+  ctx.fillStyle="rgba(0,0,0,0.05)";
+  ctx.fillRect(0,0,W,H);
+
+  for(const c of cards){
+    const f=fadeCards.find(fc=>fc.card===c);
+    if(f){
+      fadeProgress+=0.02;
+      const oldA=1-fadeProgress*0.7;
+      const newA=fadeProgress;
+      drawVideoCover(f.oldVid,c.x,c.y,c.w,c.h,oldA);
+      drawVideoCover(f.newVid,c.x,c.y,c.w,c.h,newA);
+      if(fadeProgress>=1){
+        c.vid=f.newVid;
+        fadeCards=[];fadeProgress=0;
+      }
+    }else{
+      drawVideoCover(c.vid,c.x,c.y,c.w,c.h,1);
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+/* === Start videos on first interaction === */
+function startVideos(){
+  document.querySelectorAll("video").forEach(v=>v.play().catch(()=>{}));
+}
+window.addEventListener("touchstart", startVideos, {once:true});
+window.addEventListener("click", startVideos, {once:true});
+
+/* === Click triggers next keyword scene === */
+canvas.addEventListener("mousedown", nextScene);
+canvas.addEventListener("touchstart", nextScene);
+
+/* === Boot === */
+(async()=>{
+  const vids = await loadVideos(); // no keyword
+  if(!vids.length){console.warn("⚠️ No videos found");return;}
+  initCards(vids);
+  animate();
+})();
+</script>
+</body>
+</html>
