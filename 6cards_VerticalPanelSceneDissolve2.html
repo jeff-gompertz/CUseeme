@@ -73,24 +73,51 @@ addEventListener("touchstart", startVideos, { once:true });
 addEventListener("click", startVideos, { once:true });
 
 /* === Card / Panel setup === */
-let cards=[];
-const NUM_CARDS=6;
+
+/* === Card / Panel setup (diptych, inward overlap at center) === */
+let cards = [];
+const NUM_CARDS = 6;
+
+// tweak these two values to control overlap and randomness
+const CENTER_OVERLAP = 120;   // how far inward panels push toward center
+const STAGGER_X = 40;         // random horizontal jitter for organic feel
+
 function initCards(vids){
-  const W=canvas.width, H=canvas.height;
-  const w=W/2, h=H;
-  cards=[];
-  for(let i=0;i<NUM_CARDS;i++){
-    const side=i<NUM_CARDS/2?"left":"right";
-    const xBase=side==="left"?0:W/2;
+  const W = canvas.width, H = canvas.height;
+  const w = W / 2;   // each panel nominally half screen width
+  const h = H;
+  cards = [];
+
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const side = i < NUM_CARDS / 2 ? "left" : "right";
+    const yBase = 0;
+    const inward = (Math.random() - 0.5) * STAGGER_X; // small random wobble
+
+    // push both sides toward the center for overlap
+    const xBase = side === "left"
+      ? 0 + CENTER_OVERLAP + inward      // move rightward from left edge
+      : (W / 2) - CENTER_OVERLAP + inward; // move leftward from right edge
+
     cards.push({
-      x:xBase+Math.random()*40-20,
-      y:Math.random()*40-20,
-      w,h,side,
-      vid:vids.length?vids[i%vids.length]:null,
-      dragging:false,offsetX:0,offsetY:0
+      x: xBase,
+      y: yBase,
+      w, h,
+      side,
+      vid: vids.length ? vids[i % vids.length] : null,
+      dragging: false,
+      offsetX: 0,
+      offsetY: 0
     });
   }
 }
+
+
+
+
+
+
+
+  
 
 /* === Drawing helper === */
 function drawVideoCover(vid,x,y,w,h,a=1){
