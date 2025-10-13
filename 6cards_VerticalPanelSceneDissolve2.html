@@ -205,8 +205,19 @@ function render(){
 }
 
 /* === Click → next scene === */
-canvas.addEventListener("click", nextScene);
-canvas.addEventListener("touchstart", nextScene);
+
+let sceneAdvancing = false;
+
+function handleSceneAdvance(e){
+  if(sceneAdvancing) return;
+  sceneAdvancing = true;
+  nextScene().finally(()=>sceneAdvancing=false);
+  e.preventDefault(); // stop iOS click echo
+}
+
+canvas.addEventListener("touchstart", handleSceneAdvance, {passive:false});
+canvas.addEventListener("click", handleSceneAdvance);
+
 
 /* === Boot === */
 (async function(){
