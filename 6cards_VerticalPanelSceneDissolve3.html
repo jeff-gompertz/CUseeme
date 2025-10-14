@@ -147,13 +147,41 @@ async function sequentialFadeReplace(newVids){
   }
 }
 
+
+  /* === Double-tap / Double-click Scene Advance === */
 /* === Scene changer === */
 async function nextScene(){
   if(activeFades.length>0) return; // wait if fading
-  currentScene=(currentScene+1)%SCENE_KEYWORDS.length;
-  const newVids=await loadVideos();
+  currentScene = (currentScene + 1) % SCENE_KEYWORDS.length;
+  const newVids = await loadVideos();
   if(newVids.length) sequentialFadeReplace(newVids);
 }
+
+/* === Double-tap / Double-click Scene Advance === */
+let sceneAdvancing = false;
+let lastTapTime = 0;
+
+function handleSceneAdvance(e) {
+  const now = Date.now();
+  const timeSinceLastTap = now - lastTapTime;
+
+  // Require a second tap within 400ms
+  if (timeSinceLastTap < 400 && !sceneAdvancing) {
+    sceneAdvancing = true;
+    nextScene().finally(() => sceneAdvancing = false);
+    e.preventDefault(); // prevents iOS click echo
+  }
+
+  lastTapTime = now;
+}
+
+// Listen for both touch and click
+canvas.addEventListener("touchstart", handleSceneAdvance, { passive: false });
+canvas.addEventListener("click", handleSceneAdvance);
+
+// listen for both touch and click
+canvas.addEventListener("touchstart", handleSceneAdvance, { passive: false });
+canvas.addEventListener("click", handleSceneAdvance);
 
 /* === Drag control (viewport constrained) === */
 let active=null;
