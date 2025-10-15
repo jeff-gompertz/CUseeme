@@ -15,6 +15,9 @@
 
 <canvas id="c"></canvas>
 
+<!-- Invisible Click-to-Advance Overlay (moved OUTSIDE script!) -->
+<div id="nextPageOverlay"></div>
+
 <script>
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
@@ -124,10 +127,8 @@ function animate(){
 
   requestAnimationFrame(animate);
 }
-<!-- Invisible Click-to-Advance Overlay -->
-<div id="nextPageOverlay"></div>
-<script>
 
+// Invisible Click-to-Advance Overlay setup
 const NEXT_PAGE_URL = "https://jeff-gompertz.github.io/CUseeme/6cards_VerticalPanelSceneDissolve2.html";
 const overlay = document.getElementById("nextPageOverlay");
 Object.assign(overlay.style, {
@@ -140,9 +141,7 @@ Object.assign(overlay.style, {
 });
 overlay.addEventListener("click", ()=> window.location.href = NEXT_PAGE_URL);
 overlay.addEventListener("touchstart", ()=> window.location.href = NEXT_PAGE_URL);
-</script>
 
-  
 /* === Boot === */
 (async ()=>{
   const vids = await loadMediaVideos();
