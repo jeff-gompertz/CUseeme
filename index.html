@@ -204,6 +204,26 @@ canvas.addEventListener("touchstart",pointerDown);
 canvas.addEventListener("touchmove",pointerMove);
 canvas.addEventListener("touchend",pointerUp);
 
+<!-- Invisible Click-to-Advance Overlay -->
+
+<script>
+
+const NEXT_PAGE_URL = "6cards_VerticalPanelSceneDissolve2.html";
+const overlay = document.getElementById("nextPageOverlay");
+Object.assign(overlay.style, {
+  position: "fixed",
+  top: "0", left: "0",
+  width: "100vw", height: "100vh",
+  zIndex: "99999",
+  background: "transparent",
+  cursor: "pointer"
+});
+overlay.addEventListener("click", ()=> window.location.href = NEXT_PAGE_URL);
+overlay.addEventListener("touchstart", ()=> window.location.href = NEXT_PAGE_URL);
+</script>
+
+
+
 /* === Boot === */
 (async function(){
   const vids = await loadVideos();
