@@ -6,10 +6,21 @@
 <style>
   body { margin: 0; overflow: hidden; background: black; }
   canvas { display: block; touch-action: none; }
+  #nextPageOverlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: 99999;
+    background: transparent;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+
+<!-- Invisible Click-to-Advance Overlay -->
+<div id="nextPageOverlay"></div>
 
 <script>
 /* === Canvas setup === */
@@ -35,11 +46,7 @@ async function loadVideos(keyword=null){
   try {
     const r = await fetch(MEDIA_API);
     const d = await r.json();
-
-    let filtered = d.filter(m =>
-      m.mime_type === "video/mp4" || /\.mp4$/i.test(m.source_url)
-    );
-
+    let filtered = d.filter(m => m.mime_type === "video/mp4" || /\.mp4$/i.test(m.source_url));
     if(keyword){
       filtered = filtered.filter(m=>{
         const t = (m.title?.rendered || "").toLowerCase();
@@ -48,21 +55,15 @@ async function loadVideos(keyword=null){
         return t.includes(keyword)||c.includes(keyword)||desc.includes(keyword);
       });
     }
-
     console.log(`🎯 ${keyword ? keyword : "random"} → ${filtered.length} videos`);
-
     const vids = filtered.map(m=>{
       const v = document.createElement("video");
       v.src = m.source_url;
-      v.loop = true;
-      v.muted = true;
-      v.playsInline = true;
-      v.preload = "auto";
+      v.loop = true; v.muted = true; v.playsInline = true; v.preload = "auto";
       v.style.display = "none";
       document.body.appendChild(v);
       return v;
     });
-
     return vids;
   }catch(e){
     console.warn("Media load error:", e);
@@ -75,14 +76,11 @@ function initCards(vids){
   cards = [];
   const n = Math.min(vids.length, 5);
   for (let i=0; i<n; i++){
-    const w = W/2 + (Math.random()*100 - 50); // slightly overlap
+    const w = W/2 + (Math.random()*100 - 50);
     const h = H;
     const x = i%2 ? W/2 + (Math.random()*40-20) : (Math.random()*40-20);
-    cards.push({
-      x:Math.max(0,Math.min(x,W-w)),
-      y:0,w,h,vid:vids[i%vids.length],
-      dragging:false,dx:0,dy:0
-    });
+    cards.push({ x:Math.max(0,Math.min(x,W-w)), y:0,w,h,vid:vids[i%vids.length],
+      dragging:false,dx:0,dy:0 });
   }
 }
 
@@ -135,7 +133,6 @@ async function nextScene(){
 function animate(){
   ctx.fillStyle="rgba(0,0,0,0.05)";
   ctx.fillRect(0,0,W,H);
-
   for(const c of cards){
     const f=fadeCards.find(fc=>fc.card===c);
     if(f){
@@ -144,55 +141,30 @@ function animate(){
       const newA=fadeProgress;
       drawVideoCover(f.oldVid,c.x,c.y,c.w,c.h,oldA);
       drawVideoCover(f.newVid,c.x,c.y,c.w,c.h,newA);
-      if(fadeProgress>=1){
-        c.vid=f.newVid;
-        fadeCards=[];fadeProgress=0;
-      }
+      if(fadeProgress>=1){ c.vid=f.newVid; fadeCards=[]; fadeProgress=0; }
     }else{
       drawVideoCover(c.vid,c.x,c.y,c.w,c.h,1);
     }
   }
-
   requestAnimationFrame(animate);
 }
 
-/* === Start videos on first interaction === */
-function startVideos(){
-  document.querySelectorAll("video").forEach(v=>v.play().catch(()=>{}));
-}
-window.addEventListener("touchstart", startVideos, {once:true});
-window.addEventListener("click", startVideos, {once:true});
-
-/* === Click triggers next keyword scene === */
-canvas.addEventListener("mousedown", nextScene);
-canvas.addEventListener("touchstart", nextScene);
-
-<!-- Invisible Click-to-Advance Overlay -->
-<div id="nextPageOverlay"></div>
-<script>
-
-const NEXT_PAGE_URL = "https://jeff-gompertz.github.io/CUseeme/6cards_VerticalPanelSceneDissolve2.html";
-const overlay = document.getElementById("nextPageOverlay");
-Object.assign(overlay.style, {
-  position: "fixed",
-  top: "0", left: "0",
-  width: "100vw", height: "100vh",
-  zIndex: "99999",
-  background: "transparent",
-  cursor: "pointer"
-});
-overlay.addEventListener("click", ()=> window.location.href = NEXT_PAGE_URL);
-overlay.addEventListener("touchstart", ()=> window.location.href = NEXT_PAGE_URL);
-</script>
-  
-
 /* === Boot === */
 (async()=>{
-  const vids = await loadVideos(); // no keyword
+  const vids = await loadVideos();
   if(!vids.length){console.warn("⚠️ No videos found");return;}
   initCards(vids);
   animate();
 })();
 </script>
+
+<script>
+/* === Invisible Click-to-Advance Overlay === */
+const NEXT_PAGE_URL = "https://jeff-gompertz.github.io/CUseeme/6cards_VerticalPanelSceneDissolve2.html";
+const overlay = document.getElementById("nextPageOverlay");
+overlay.addEventListener("click", ()=> window.location.href = NEXT_PAGE_URL);
+overlay.addEventListener("touchstart", ()=> window.location.href = NEXT_PAGE_URL);
+</script>
+
 </body>
 </html>
