@@ -205,8 +205,8 @@ canvas.addEventListener("touchmove",pointerMove);
 canvas.addEventListener("touchend",pointerUp);
 
 <!-- Invisible Click-to-Advance Overlay -->
+  
 <script>
-
 const NEXT_PAGE_URL = "https://jeff-gompertz.github.io/CUseeme/6cards_VerticalPanelSceneDissolve2.html";
 const overlay = document.getElementById("nextPageOverlay");
 Object.assign(overlay.style, {
@@ -224,7 +224,7 @@ overlay.addEventListener("touchstart", ()=> window.location.href = NEXT_PAGE_URL
 /* === Boot === */
 (async function(){
   const vids = await loadVideos();
-  if(!vids.length){ console.warn("⚠️ No videos found"); return; }
+  if(!vids.length){ console.warn("No videos found"); return; }
   initCards(vids);
   render();
 })();
