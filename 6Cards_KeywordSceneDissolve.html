@@ -167,6 +167,25 @@ window.addEventListener("click", startVideos, {once:true});
 canvas.addEventListener("mousedown", nextScene);
 canvas.addEventListener("touchstart", nextScene);
 
+<!-- Invisible Click-to-Advance Overlay -->
+<div id="nextPageOverlay"></div>
+<script>
+
+const NEXT_PAGE_URL = "https://jeff-gompertz.github.io/CUseeme/6cards_VerticalPanelSceneDissolve2.html";
+const overlay = document.getElementById("nextPageOverlay");
+Object.assign(overlay.style, {
+  position: "fixed",
+  top: "0", left: "0",
+  width: "100vw", height: "100vh",
+  zIndex: "99999",
+  background: "transparent",
+  cursor: "pointer"
+});
+overlay.addEventListener("click", ()=> window.location.href = NEXT_PAGE_URL);
+overlay.addEventListener("touchstart", ()=> window.location.href = NEXT_PAGE_URL);
+</script>
+  
+
 /* === Boot === */
 (async()=>{
   const vids = await loadVideos(); // no keyword
