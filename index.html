@@ -141,14 +141,6 @@ Object.assign(overlay.style, {
 overlay.addEventListener("click", ()=> window.location.href = NEXT_PAGE_URL);
 overlay.addEventListener("touchstart", ()=> window.location.href = NEXT_PAGE_URL);
 </script>
-  
-/* --- Boot --- */
-(async function(){
-  const imgs = await loadThumbs();
-  initCards(imgs);
-  animate();
-})();
-</script>
 
   
 /* === Boot === */
