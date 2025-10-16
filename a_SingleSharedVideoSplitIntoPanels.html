@@ -70,27 +70,49 @@ const NUM_PANELS=8;
 const OVERLAP=0.12;
 const ALPHA=0.45;
 
+  /* === Card / Panel setup — inward-pushed diptych alignment === */
+let cards = [];
+const NUM_CARDS = 8;       // four per side
+const CENTER_OVERLAP = 160; // inward push (reduce for tighter join)
+const STAGGER_X = 40;       // horizontal randomness
+const STAGGER_Y = 40;       // vertical randomness
+const DEPTH_JITTER = 0.4;   // opacity variance
 
-  function initPanels(){
+function initCards(vids){
   const W = canvas.width, H = canvas.height;
-  const w = W / (NUM_PANELS/2); // each side's base width
-  panels = [];
-  const perSide = NUM_PANELS / 2;
+  const w = W / 2 + CENTER_OVERLAP;  // each panel wider to overlap at center
+  const h = H * 1.05;
+  cards = [];
+  const perSide = NUM_CARDS / 2;
 
-  for(let i=0; i<NUM_PANELS; i++){
+  for(let i = 0; i < NUM_CARDS; i++){
     const side = i < perSide ? "left" : "right";
     const idx = i % perSide;
-    const inwardShift = 80;        // how much both sides push inward toward center
-    const overlap = 40;            // pixel overlap between adjacent panels
-    const xBase = side === "left"
-      ? (W/2 - inwardShift) - (perSide - idx) * (w - overlap) // left panels march in from center-left
-      : (W/2 + inwardShift) + idx * (w - overlap);            // right panels march out from center-right
+    const inward = (Math.random() - 0.5) * STAGGER_X;
+    const vertical = (Math.random() - 0.5) * STAGGER_Y;
+    const t = idx / (perSide - 1); // 0→outer edge, 1→inner edge
+    let xBase;
 
-    panels.push({
+    if(side === "left"){
+      const edge = -100;                            // leftmost stick
+      const center = (W/2 - w/2) + CENTER_OVERLAP/2;// pull toward spine
+      xBase = edge + (center - edge) * t + inward;
+    } else {
+      const edge = W - w + 100;                     // rightmost stick
+      const center = (W/2 - w/2) - CENTER_OVERLAP/2;
+      xBase = edge + (center - edge) * t + inward;
+    }
+
+    cards.push({
       x: xBase,
-      y: 0,
-      w, h: H,
-      alpha: 0.4 + Math.random()*0.1
+      y: vertical,
+      w, h,
+      side,
+      vid: vids.length ? vids[i % vids.length] : null,
+      alpha: 0.3 + Math.random() * DEPTH_JITTER,
+      dragging: false,
+      offsetX: 0,
+      offsetY: 0
     });
   }
 }
