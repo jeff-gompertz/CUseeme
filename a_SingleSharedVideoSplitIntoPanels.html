@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Single Video Split Panels (Diptych Spine)</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+/* === Canvas setup === */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+function resize(){
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+addEventListener("resize", resize);
+resize();
+
+/* === Video source === */
+const VIDEO_URL = "https://art.jeffgompertz.site/wp-content/uploads/yourvideo.mp4"; // 🔹 set one video URL
+
+const video = document.createElement("video");
+video.src = VIDEO_URL;
+video.loop = true;
+video.muted = true;
+video.playsInline = true;
+video.preload = "auto";
+video.style.display = "none";
+document.body.appendChild(video);
+
+function startVideos(){ video.play().catch(()=>{}); }
+addEventListener("touchstart", startVideos, { once:true });
+addEventListener("click", startVideos, { once:true });
+
+/* === Panel setup === */
+let panels = [];
+const NUM_PANELS = 8;          // how many vertical glass slices
+const OVERLAP = 0.15;          // fractional overlap between slices
+const ALPHA = 0.45;            // translucency per panel
+
+function initPanels(){
+  const W = canvas.width, H = canvas.height;
+  const sliceW = W / NUM_PANELS;
+  panels = [];
+  for(let i=0;i<NUM_PANELS;i++){
+    const x = i * sliceW - sliceW * OVERLAP * i;  // slight overlap inward
+    panels.push({x, y:0, w:sliceW*(1+OVERLAP), h:H, alpha:ALPHA});
+  }
+}
+
+/* === Draw === */
+function drawVideoSlice(v, panel){
+  if(!v || v.readyState < 2) return;
+  const {x,y,w,h,alpha} = panel;
+  const iw=v.videoWidth||v.width, ih=v.videoHeight||v.height;
+  const scale = Math.max(w/iw, h/ih);
+  const nw=iw*scale, nh=ih*scale;
+  const sx = (i * iw / NUM_PANELS); // not used now — draws full frame region
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(v, 0, 0, iw, ih, x, y, w, h);
+  ctx.globalAlpha = 1;
+}
+
+/* === Animation === */
+function render(){
+  ctx.fillStyle = "rgba(0,0,0,0.05)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  for(const p of panels){
+    drawVideoSlice(video, p);
+  }
+  requestAnimationFrame(render);
+}
+
+/* === Boot === */
+initPanels();
+render();
+</script>
+</body>
+</html>
