@@ -70,13 +70,28 @@ const NUM_PANELS=8;
 const OVERLAP=0.12;
 const ALPHA=0.45;
 
-function initPanels(){
-  const W=canvas.width, H=canvas.height;
-  const sliceW=W/NUM_PANELS;
-  panels=[];
-  for(let i=0;i<NUM_PANELS;i++){
-    const x=i*sliceW - sliceW*OVERLAP*i;
-    panels.push({x, y:0, w:sliceW*(1+OVERLAP), h:H, alpha:ALPHA});
+
+  function initPanels(){
+  const W = canvas.width, H = canvas.height;
+  const w = W / (NUM_PANELS/2); // each side's base width
+  panels = [];
+  const perSide = NUM_PANELS / 2;
+
+  for(let i=0; i<NUM_PANELS; i++){
+    const side = i < perSide ? "left" : "right";
+    const idx = i % perSide;
+    const inwardShift = 80;        // how much both sides push inward toward center
+    const overlap = 40;            // pixel overlap between adjacent panels
+    const xBase = side === "left"
+      ? (W/2 - inwardShift) - (perSide - idx) * (w - overlap) // left panels march in from center-left
+      : (W/2 + inwardShift) + idx * (w - overlap);            // right panels march out from center-right
+
+    panels.push({
+      x: xBase,
+      y: 0,
+      w, h: H,
+      alpha: 0.4 + Math.random()*0.1
+    });
   }
 }
 
