@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Single Video Split Panels (Diptych Spine)</title>
+<title>Keyword Scene Dissolve — Unified Panels</title>
 <style>
   body { margin: 0; overflow: hidden; background: black; }
-  canvas { display: block; }
+  canvas { display: block; touch-action: none; }
 </style>
 </head>
 <body>
@@ -22,65 +22,145 @@ function resize(){
 addEventListener("resize", resize);
 resize();
 
-/* === Video source === */
-const VIDEO_URL = "https://art.jeffgompertz.site/wp-content/uploads/yourvideo.mp4"; // 🔹 set one video URL
+/* === Scene keywords === */
+const SCENE_KEYWORDS = [
+  ["ghost"],
+  ["zero"],
+  ["bus"],
+  ["mask"]
+];
+let currentScene = 0;
+const NEXT_PAGE_URL = "nextpage.html";
 
-const video = document.createElement("video");
-video.src = VIDEO_URL;
-video.loop = true;
-video.muted = true;
-video.playsInline = true;
-video.preload = "auto";
-video.style.display = "none";
-document.body.appendChild(video);
+/* === Load a single video from WP Media filtered by keywords === */
+async function loadVideo(){
+  const MEDIA_API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=50";
+  const FILTER_KEYWORDS = SCENE_KEYWORDS[currentScene];
+  try{
+    const r = await fetch(MEDIA_API);
+    const d = await r.json();
+    const filtered = d.filter(m=>{
+      const text=((m.title?.rendered||"")+" "+(m.caption?.rendered||"")+" "+(m.description?.rendered||"")).toLowerCase();
+      const url=(m.source_url||"").toLowerCase();
+      const kwHit=FILTER_KEYWORDS.some(k=>text.includes(k)||url.includes(k));
+      return m.mime_type?.startsWith("video/") && kwHit;
+    });
+    console.log(`🎯 Filtered videos for [${FILTER_KEYWORDS.join(", ")}]: ${filtered.length}`);
+    if(!filtered.length) return null;
+    const m = filtered[Math.floor(Math.random()*filtered.length)];
+    const v=document.createElement("video");
+    v.src=m.source_url;
+    v.loop=true; v.muted=true; v.playsInline=true; v.preload="auto";
+    v.style.display="none";
+    document.body.appendChild(v);
+    await new Promise(res=>{const ok=()=>res();v.oncanplay=ok;v.onerror=ok;setTimeout(ok,1200);});
+    v.play().catch(()=>{});
+    return v;
+  }catch(e){console.warn("Video load error:",e);return null;}
+}
 
-function startVideos(){ video.play().catch(()=>{}); }
+/* === iOS autoplay unlock === */
+function startVideos(){ document.querySelectorAll("video").forEach(v=>v.play().catch(()=>{})); }
 addEventListener("touchstart", startVideos, { once:true });
 addEventListener("click", startVideos, { once:true });
 
-/* === Panel setup === */
-let panels = [];
-const NUM_PANELS = 8;          // how many vertical glass slices
-const OVERLAP = 0.15;          // fractional overlap between slices
-const ALPHA = 0.45;            // translucency per panel
+/* === Panel layout (single video split into glass slices) === */
+let panels=[];
+const NUM_PANELS=8;
+const OVERLAP=0.12;
+const ALPHA=0.45;
 
 function initPanels(){
-  const W = canvas.width, H = canvas.height;
-  const sliceW = W / NUM_PANELS;
-  panels = [];
+  const W=canvas.width, H=canvas.height;
+  const sliceW=W/NUM_PANELS;
+  panels=[];
   for(let i=0;i<NUM_PANELS;i++){
-    const x = i * sliceW - sliceW * OVERLAP * i;  // slight overlap inward
+    const x=i*sliceW - sliceW*OVERLAP*i;
     panels.push({x, y:0, w:sliceW*(1+OVERLAP), h:H, alpha:ALPHA});
   }
 }
 
 /* === Draw === */
-function drawVideoSlice(v, panel){
-  if(!v || v.readyState < 2) return;
-  const {x,y,w,h,alpha} = panel;
+function drawVideo(v, panel){
+  if(!v||v.readyState<2)return;
+  const {x,y,w,h,alpha}=panel;
   const iw=v.videoWidth||v.width, ih=v.videoHeight||v.height;
-  const scale = Math.max(w/iw, h/ih);
-  const nw=iw*scale, nh=ih*scale;
-  const sx = (i * iw / NUM_PANELS); // not used now — draws full frame region
-  ctx.globalAlpha = alpha;
-  ctx.drawImage(v, 0, 0, iw, ih, x, y, w, h);
-  ctx.globalAlpha = 1;
+  const r=Math.max(w/iw, h/ih);
+  const nw=iw*r, nh=ih*r;
+  const ox=x+(w-nw)/2, oy=y+(h-nh)/2;
+  ctx.globalAlpha=alpha;
+  ctx.drawImage(v,ox,oy,nw,nh);
+  ctx.globalAlpha=1;
 }
 
-/* === Animation === */
+/* === Fade manager (crossfade between videos) === */
+let activeFade=null;
+
+function triggerFade(oldVid,newVid){
+  activeFade={oldVid,newVid,progress:0};
+}
+
+/* === Scene changer === */
+async function nextScene(){
+  if(activeFade) return;
+  currentScene++;
+  if(currentScene>=SCENE_KEYWORDS.length){
+    console.log("🚪 Scenes done → jump to next page");
+    window.location.href=NEXT_PAGE_URL;
+    return;
+  }
+  const newVid=await loadVideo();
+  if(newVid) triggerFade(currentVideo,newVid);
+}
+
+/* === Double-tap / Double-click trigger === */
+let sceneAdvancing=false,lastTap=0;
+function handleSceneAdvance(e){
+  const now=Date.now(),delta=now-lastTap;
+  if(delta<400 && !sceneAdvancing){
+    sceneAdvancing=true;
+    nextScene().finally(()=>sceneAdvancing=false);
+    e.preventDefault();
+  }
+  lastTap=now;
+}
+canvas.addEventListener("touchstart",handleSceneAdvance,{passive:false});
+canvas.addEventListener("click",handleSceneAdvance);
+
+/* === Render loop === */
+let currentVideo=null;
 function render(){
-  ctx.fillStyle = "rgba(0,0,0,0.05)";
+  ctx.fillStyle="rgba(0,0,0,0.05)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  for(const p of panels){
-    drawVideoSlice(video, p);
+  if(activeFade){
+    activeFade.progress+=0.02;
+    const p=Math.min(1,activeFade.progress);
+    for(const panel of panels){
+      drawVideo(activeFade.oldVid,panel,0.35*(1-p));
+      drawVideo(activeFade.newVid,panel,0.35*p);
+    }
+    if(p>=1){
+      currentVideo=activeFade.newVid;
+      activeFade=null;
+    }
+  }else if(currentVideo){
+    for(const panel of panels){
+      drawVideo(currentVideo,panel,0.35);
+    }
   }
+
   requestAnimationFrame(render);
 }
 
 /* === Boot === */
-initPanels();
-render();
+(async()=>{
+  const firstVid=await loadVideo();
+  if(!firstVid){console.warn("⚠️ No video found");return;}
+  currentVideo=firstVid;
+  initPanels();
+  render();
+})();
 </script>
 </body>
 </html>
