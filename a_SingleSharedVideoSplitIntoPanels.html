@@ -175,12 +175,17 @@ function render(){
 
 /* === Boot === */
 (async()=>{
-  const firstVid=await loadVideo();
-  if(!firstVid){console.warn("⚠️ No video found");return;}
-  currentVideo=firstVid;
-  initCards(firstVid);
+  const firstVid = await loadVideo();
+  if(!firstVid){
+    console.warn("⚠️ No video found");
+    return;
+  }
+  currentVideo = firstVid;
+  initCards(firstVid);  // ✅ this replaces initPanels()
   render();
 })();
+  
+
 </script>
 </body>
 </html>
