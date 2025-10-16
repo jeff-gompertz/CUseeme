@@ -225,7 +225,7 @@ function render(){
       drawVideoCover(fade.newVid,c.x,c.y,c.w,c.h,0.35*p);
       if(p>=1){ c.vid=fade.newVid; activeFades=activeFades.filter(f=>f!==fade); }
     }else{
-      drawVideoCover(c.vid,c.x,c.y,c.w,c.h,0.35);
+      drawVideoCover(c.vid, c.x, c.y, c.w, c.h, 0.35 * (c.alpha || 1));
     }
   }
   requestAnimationFrame(render);
