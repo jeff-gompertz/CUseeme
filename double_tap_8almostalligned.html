@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>8Cards — Perfect Center Diptych</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+/* === Canvas setup === */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+function resize(){
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+addEventListener("resize", resize);
+resize();
+
+/* === Scene keywords === */
+const SCENE_KEYWORDS = [["ghost"],["zero"],["bus"],["mask"]];
+let currentScene = 0;
+const NEXT_PAGE_URL = "nextpage.html";
+
+/* === Load videos === */
+async function loadVideos(){
+  const MEDIA_API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=50";
+  const FILTER_KEYWORDS = SCENE_KEYWORDS[currentScene];
+  try {
+    const r = await fetch(MEDIA_API);
+    const d = await r.json();
+    const filtered = d.filter(m=>{
+      const text=((m.title?.rendered||"")+" "+(m.caption?.rendered||"")+" "+(m.description?.rendered||"")).toLowerCase();
+      const url=(m.source_url||"").toLowerCase();
+      const kwHit=FILTER_KEYWORDS.some(k=>text.includes(k)||url.includes(k));
+      return m.mime_type?.startsWith("video/") && kwHit;
+    });
+    console.log(`🎯 Filtered videos for [${FILTER_KEYWORDS.join(", ")}]: ${filtered.length}`);
+    const vids=[];
+    for(const m of filtered){
+      const v=document.createElement("video");
+      v.src=m.source_url;
+      v.loop=true; v.muted=true; v.playsInline=true; v.preload="auto";
+      v.style.display="none";
+      document.body.appendChild(v);
+      await new Promise(res=>{
+        const ok=()=>res();
+        v.oncanplay=ok; v.onerror=ok; setTimeout(ok,1200);
+      });
+      v.play().catch(()=>{});
+      vids.push(v);
+    }
+    return vids;
+  }catch(e){console.warn("Video load error:",e);return[];}
+}
+
+/* === Autoplay unlock === */
+function startVideos(){
+  document.querySelectorAll("video").forEach(v=>v.play().catch(()=>{}));
+}
+addEventListener("touchstart", startVideos, { once:true });
+addEventListener("click", startVideos, { once:true });
+
+/* === Card / Panel setup — perfectly symmetrical diptych === */
+let cards = [];
+const NUM_CARDS = 8;          // 4 per side
+const CENTER_PUSH = 0;        // no separation
+const DEPTH_JITTER = 0.4;     // subtle alpha depth
+
+function initCards(vids){
+  const W = canvas.width, H = canvas.height;
+  const w = W / 2;            // exactly half the viewport
+  const h = H;
+  cards = [];
+  const perSide = NUM_CARDS / 2;
+
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const side = i < perSide ? "left" : "right";
+    const idx = i % perSide;
+
+    // Panels are aligned vertically; only difference is side
+    const xBase = (side === "left") ? 0 : W / 2;
+    const yBase = 0;
+
+    cards.push({
+      x: xBase,
+      y: yBase,
+      w, h,
+      side,
+      vid: vids.length ? vids[i % vids.length] : null,
+      alpha: 0.25 + Math.random() * DEPTH_JITTER
+    });
+  }
+}
+
+/* === Drawing helper === */
+function drawVideoCover(v,x,y,w,h,a=1){
+  if(!v || v.readyState < 2) return;
+  const iw = v.videoWidth || v.width, ih = v.videoHeight || v.height;
+  const r = Math.max(w/iw, h/ih);
+  const nw = iw * r, nh = ih * r;
+  const ox = x + (w - nw) / 2, oy = y + (h - nh) / 2;
+  ctx.globalAlpha = a;
+  ctx.drawImage(v, ox, oy, nw, nh);
+  ctx.globalAlpha = 1;
+}
+
+/* === Fade system === */
+let activeFades = [];
+function triggerFade(card, newVid){
+  activeFades.push({ card, oldVid: card.vid, newVid, progress: 0 });
+}
+async function sequentialFadeReplace(newVids){
+  for(const c of cards){
+    const newVid = newVids[Math.floor(Math.random()*newVids.length)];
+    triggerFade(c, newVid);
+    await new Promise(r => setTimeout(r, 500));
+  }
+}
+
+/* === Scene advance and page jump === */
+async function nextScene(){
+  if(activeFades.length > 0) return;
+  currentScene++;
+  if(currentScene >= SCENE_KEYWORDS.length){
+    console.log("🚪 Scenes done → jump to next page");
+    window.location.href = NEXT_PAGE_URL;
+    return;
+  }
+  const newVids = await loadVideos();
+  if(newVids.length) sequentialFadeReplace(newVids);
+}
+
+/* === Double-tap / Double-click trigger === */
+let sceneAdvancing = false, lastTapTime = 0;
+function handleSceneAdvance(e){
+  const now = Date.now(), delta = now - lastTapTime;
+  if(delta < 400 && !sceneAdvancing){
+    sceneAdvancing = true;
+    nextScene().finally(() => sceneAdvancing = false);
+    e.preventDefault();
+  }
+  lastTapTime = now;
+}
+canvas.addEventListener("touchstart", handleSceneAdvance, { passive: false });
+canvas.addEventListener("click", handleSceneAdvance);
+
+/* === Render loop === */
+function render(){
+  ctx.fillStyle = "rgba(0,0,0,0.05)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  for(const c of cards){
+    const f = activeFades.find(ff=>ff.card===c);
+    if(f){
+      f.progress += 0.02;
+      const p = Math.min(1,f.progress);
+      drawVideoCover(f.oldVid,c.x,c.y,c.w,c.h,0.35*(1-p*0.8)*(c.alpha||1));
+      drawVideoCover(f.newVid,c.x,c.y,c.w,c.h,0.35*p*(c.alpha||1));
+      if(p>=1){c.vid=f.newVid;activeFades=activeFades.filter(ff=>ff!==f);}
+    }else{
+      drawVideoCover(c.vid,c.x,c.y,c.w,c.h,0.35*(c.alpha||1));
+    }
+  }
+  requestAnimationFrame(render);
+}
+
+/* === Boot === */
+(async ()=>{
+  const vids = await loadVideos();
+  if(!vids.length){ console.warn("⚠️ No videos found"); return; }
+  initCards(vids);
+  render();
+})();
+</script>
+</body>
+</html>
