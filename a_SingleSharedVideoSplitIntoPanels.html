@@ -64,78 +64,63 @@ function startVideos(){ document.querySelectorAll("video").forEach(v=>v.play().c
 addEventListener("touchstart", startVideos, { once:true });
 addEventListener("click", startVideos, { once:true });
 
-/* === Panel layout (single video split into glass slices) === */
-let panels=[];
-const NUM_PANELS=8;
-const OVERLAP=0.12;
-const ALPHA=0.45;
+/* === Panel layout — inward-pushed diptych alignment === */
+let cards=[];
+const NUM_CARDS=8;        // four per side
+const CENTER_OVERLAP=160; // inward push
+const STAGGER_X=40;       // horizontal randomness
+const STAGGER_Y=40;       // vertical randomness
+const DEPTH_JITTER=0.4;   // opacity variance
 
-  /* === Card / Panel setup — inward-pushed diptych alignment === */
-let cards = [];
-const NUM_CARDS = 8;       // four per side
-const CENTER_OVERLAP = 160; // inward push (reduce for tighter join)
-const STAGGER_X = 40;       // horizontal randomness
-const STAGGER_Y = 40;       // vertical randomness
-const DEPTH_JITTER = 0.4;   // opacity variance
+function initCards(vid){
+  const W=canvas.width, H=canvas.height;
+  const w=W/2+CENTER_OVERLAP;
+  const h=H*1.05;
+  cards=[];
+  const perSide=NUM_CARDS/2;
 
-function initCards(vids){
-  const W = canvas.width, H = canvas.height;
-  const w = W / 2 + CENTER_OVERLAP;  // each panel wider to overlap at center
-  const h = H * 1.05;
-  cards = [];
-  const perSide = NUM_CARDS / 2;
-
-  for(let i = 0; i < NUM_CARDS; i++){
-    const side = i < perSide ? "left" : "right";
-    const idx = i % perSide;
-    const inward = (Math.random() - 0.5) * STAGGER_X;
-    const vertical = (Math.random() - 0.5) * STAGGER_Y;
-    const t = idx / (perSide - 1); // 0→outer edge, 1→inner edge
+  for(let i=0;i<NUM_CARDS;i++){
+    const side=i<perSide?"left":"right";
+    const idx=i%perSide;
+    const inward=(Math.random()-0.5)*STAGGER_X;
+    const vertical=(Math.random()-0.5)*STAGGER_Y;
+    const t=idx/(perSide-1);
     let xBase;
 
-    if(side === "left"){
-      const edge = -100;                            // leftmost stick
-      const center = (W/2 - w/2) + CENTER_OVERLAP/2;// pull toward spine
-      xBase = edge + (center - edge) * t + inward;
-    } else {
-      const edge = W - w + 100;                     // rightmost stick
-      const center = (W/2 - w/2) - CENTER_OVERLAP/2;
-      xBase = edge + (center - edge) * t + inward;
+    if(side==="left"){
+      const edge=-100;
+      const center=(W/2 - w/2)+CENTER_OVERLAP/2;
+      xBase=edge+(center-edge)*t+inward;
+    }else{
+      const edge=W - w +100;
+      const center=(W/2 - w/2)-CENTER_OVERLAP/2;
+      xBase=edge+(center-edge)*t+inward;
     }
 
     cards.push({
-      x: xBase,
-      y: vertical,
-      w, h,
-      side,
-      vid: vids.length ? vids[i % vids.length] : null,
-      alpha: 0.3 + Math.random() * DEPTH_JITTER,
-      dragging: false,
-      offsetX: 0,
-      offsetY: 0
+      x:xBase, y:vertical, w,h, side,
+      vid:vid,
+      alpha:0.3+Math.random()*DEPTH_JITTER
     });
   }
 }
 
-/* === Draw === */
-function drawVideo(v, panel){
+/* === Draw helper === */
+function drawVideo(v,card,a){
   if(!v||v.readyState<2)return;
-  const {x,y,w,h,alpha}=panel;
+  const {x,y,w,h,alpha}=card;
   const iw=v.videoWidth||v.width, ih=v.videoHeight||v.height;
-  const r=Math.max(w/iw, h/ih);
+  const r=Math.max(w/iw,h/ih);
   const nw=iw*r, nh=ih*r;
   const ox=x+(w-nw)/2, oy=y+(h-nh)/2;
-  ctx.globalAlpha=alpha;
+  ctx.globalAlpha=(a!==undefined?a:1)*alpha;
   ctx.drawImage(v,ox,oy,nw,nh);
   ctx.globalAlpha=1;
 }
 
-/* === Fade manager (crossfade between videos) === */
+/* === Fade manager === */
 let activeFade=null;
-
-function triggerFade(oldVid,newVid){
-  activeFade={oldVid,newVid,progress:0};
-}
+function triggerFade(oldVid,newVid){ activeFade={oldVid,newVid,progress:0}; }
 
 /* === Scene changer === */
 async function nextScene(){
@@ -173,18 +158,16 @@ function render(){
   if(activeFade){
     activeFade.progress+=0.02;
     const p=Math.min(1,activeFade.progress);
-    for(const panel of panels){
-      drawVideo(activeFade.oldVid,panel,0.35*(1-p));
-      drawVideo(activeFade.newVid,panel,0.35*p);
+    for(const card of cards){
+      drawVideo(activeFade.oldVid,card,1-p);
+      drawVideo(activeFade.newVid,card,p);
     }
     if(p>=1){
       currentVideo=activeFade.newVid;
       activeFade=null;
     }
   }else if(currentVideo){
-    for(const panel of panels){
-      drawVideo(currentVideo,panel,0.35);
-    }
+    for(const card of cards) drawVideo(currentVideo,card,1);
   }
 
   requestAnimationFrame(render);
@@ -195,7 +178,7 @@ function render(){
   const firstVid=await loadVideo();
   if(!firstVid){console.warn("⚠️ No video found");return;}
   currentVideo=firstVid;
-  initPanels();
+  initCards(firstVid);
   render();
 })();
 </script>
