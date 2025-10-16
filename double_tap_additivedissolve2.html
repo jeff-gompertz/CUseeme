@@ -83,28 +83,48 @@ addEventListener("touchstart", startVideos, { once:true });
 addEventListener("click", startVideos, { once:true });
 
 /* === Card / Panel setup === */
+
+/* === Card / Panel setup (staggered glass layout) === */
 let cards = [];
 const NUM_CARDS = 6;
-const CENTER_OVERLAP = 120;
-const STAGGER_X = 40;
+const CENTER_OVERLAP = 180;   // how far both sides push toward center (increase for more overlap)
+const STAGGER_X = 80;         // horizontal jitter
+const STAGGER_Y = 60;         // small vertical misalignment
+const DEPTH_JITTER = 0.25;    // opacity variance between panels
 
-function initCards(vids){
+function initCards(vids) {
   const W = canvas.width, H = canvas.height;
-  const w = W/2, h = H;
+  const w = W / 2 + 120;  // slightly wider than half screen for overlap
+  const h = H * 1.05;     // small bleed past viewport edges
   cards = [];
-  for(let i=0;i<NUM_CARDS;i++){
-    const side = i < NUM_CARDS/2 ? "left" : "right";
+
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const side = i < NUM_CARDS / 2 ? "left" : "right";
+
+    // inward stagger toward center
     const inward = (Math.random() - 0.5) * STAGGER_X;
+    const vertical = (Math.random() - 0.5) * STAGGER_Y;
+
+    // base position: both sides lean toward center
     const xBase = side === "left"
-      ? CENTER_OVERLAP + inward
-      : (W/2) - CENTER_OVERLAP + inward;
+      ? (W / 2 - w) - CENTER_OVERLAP / 2 + inward   // shift rightward
+      : (W / 2) - CENTER_OVERLAP / 2 + inward;      // shift leftward
+
     cards.push({
-      x:xBase, y:0, w,h, side,
+      x: xBase,
+      y: vertical,
+      w, h,
+      side,
       vid: vids.length ? vids[i % vids.length] : null,
-      dragging:false, offsetX:0, offsetY:0
+      dragging: false,
+      offsetX: 0,
+      offsetY: 0,
+      alpha: 0.25 + Math.random() * DEPTH_JITTER   // subtle alpha depth per card
     });
   }
 }
+
+    
 
 /* === Draw helper === */
 function drawVideoCover(vid,x,y,w,h,a=1){
