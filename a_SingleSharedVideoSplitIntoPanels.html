@@ -64,46 +64,56 @@ function startVideos(){ document.querySelectorAll("video").forEach(v=>v.play().c
 addEventListener("touchstart", startVideos, { once:true });
 addEventListener("click", startVideos, { once:true });
 
-/* === Panel layout — inward-pushed diptych alignment === */
-let cards=[];
-const NUM_CARDS=8;        // four per side
-const CENTER_OVERLAP=160; // inward push
-const STAGGER_X=40;       // horizontal randomness
-const STAGGER_Y=40;       // vertical randomness
-const DEPTH_JITTER=0.4;   // opacity variance
+/* === Card / Panel setup — unified spine overlap === */
+let cards = [];
+const NUM_CARDS = 8;           // total panels (4 per side)
+const CENTER_OVERLAP = 280;    // how tightly panels press toward center
+const EDGE_OFFSET = 60;        // how close to left/right edge outer panels sit
+const SPINE_ALIGNMENT = 0.92;  // 1 = perfect seam; lower = small center offset
+const DEPTH_JITTER = 0.4;      // subtle alpha variance
 
-function initCards(vid){
-  const W=canvas.width, H=canvas.height;
-  const w=W/2+CENTER_OVERLAP;
-  const h=H*1.05;
-  cards=[];
-  const perSide=NUM_CARDS/2;
+function initCards(vids){
+  const W = canvas.width, H = canvas.height;
+  const perSide = NUM_CARDS / 2;
+  const w = W / 2 + CENTER_OVERLAP; // panels stretch beyond midline
+  const h = H * 1.05;
+  cards = [];
 
-  for(let i=0;i<NUM_CARDS;i++){
-    const side=i<perSide?"left":"right";
-    const idx=i%perSide;
-    const inward=(Math.random()-0.5)*STAGGER_X;
-    const vertical=(Math.random()-0.5)*STAGGER_Y;
-    const t=idx/(perSide-1);
+  for(let i = 0; i < NUM_CARDS; i++){
+    const side = i < perSide ? "left" : "right";
+    const idx = i % perSide;
+    const t = idx / (perSide - 1); // 0 → edge, 1 → near center
     let xBase;
 
-    if(side==="left"){
-      const edge=-100;
-      const center=(W/2 - w/2)+CENTER_OVERLAP/2;
-      xBase=edge+(center-edge)*t+inward;
-    }else{
-      const edge=W - w +100;
-      const center=(W/2 - w/2)-CENTER_OVERLAP/2;
-      xBase=edge+(center-edge)*t+inward;
+    if(side === "left"){
+      // outermost: stick to left edge, innermost: align exactly at spine
+      const edge = -EDGE_OFFSET;
+      const center = (W / 2 - w * SPINE_ALIGNMENT);
+      xBase = edge + (center - edge) * t;
+    } else {
+      // outermost: stick to right edge, innermost: align at spine
+      const edge = W - w + EDGE_OFFSET;
+      const center = (W / 2 - w * (1 - SPINE_ALIGNMENT));
+      xBase = edge + (center - edge) * t;
     }
 
     cards.push({
-      x:xBase, y:vertical, w,h, side,
-      vid:vid,
-      alpha:0.3+Math.random()*DEPTH_JITTER
+      x: xBase,
+      y: 0,
+      w, h,
+      side,
+      vid: vids.length ? vids[i % vids.length] : null,
+      alpha: 0.35 + Math.random() * DEPTH_JITTER,
+      dragging: false,
+      offsetX: 0,
+      offsetY: 0
     });
   }
 }
+
+
+
+  
 
 /* === Draw helper === */
 function drawVideo(v,card,a){
