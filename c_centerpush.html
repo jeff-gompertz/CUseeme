@@ -114,10 +114,6 @@ function initCards(vids){
   }
 }
 
-
-
-  
-
 /* === Draw helper === */
 function drawVideo(v,card,a){
   if(!v||v.readyState<2)return;
@@ -198,7 +194,39 @@ function render(){
   render();
 })();
   
-
 </script>
+<!-- === On-screen tweak panel === -->
+<div id="controls"></div>
+<script>
+const ui = document.getElementById("controls");
+Object.assign(ui.style,{
+  position:"fixed", top:"10px", left:"10px", zIndex:"9999",
+  background:"rgba(0,0,0,0.5)", color:"#fff",
+  font:"12px/1.4 monospace", padding:"10px", borderRadius:"6px"
+});
+
+function makeSlider(label, min, max, step, value, onInput){
+  const wrap=document.createElement("div");
+  wrap.style.marginBottom="6px";
+  const lab=document.createElement("label");
+  lab.textContent=`${label}: `;
+  const val=document.createElement("span");
+  val.textContent=value;
+  const input=document.createElement("input");
+  input.type="range"; input.min=min; input.max=max; input.step=step; input.value=value;
+  input.oninput=()=>{ val.textContent=input.value; onInput(parseFloat(input.value)); };
+  wrap.append(lab,input,val);
+  ui.append(wrap);
+}
+
+/* === Live tunable parameters === */
+makeSlider("CENTER_OVERLAP",100,400,10,CENTER_OVERLAP,v=>{CENTER_OVERLAP=v;initCards(cards.map(c=>c.vid));});
+makeSlider("EDGE_PADDING",0,100,5,EDGE_PADDING,v=>{EDGE_PADDING=v;initCards(cards.map(c=>c.vid));});
+makeSlider("NUM_CARDS",4,12,2,NUM_CARDS,v=>{NUM_CARDS=v;initCards(cards.map(c=>c.vid));});
+makeSlider("Alpha base",0.1,1,0.05,0.35,v=>{
+  cards.forEach(c=>c.alpha=v+Math.random()*DEPTH_JITTER);
+});
+</script>
+
 </body>
 </html>
