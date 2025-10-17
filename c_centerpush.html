@@ -1,1 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Keyword Scene Dissolve — Unified Panels</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; touch-action: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
 
+<script>
+/* === Canvas setup === */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+function resize(){
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+addEventListener("resize", resize);
+resize();
+
+/* === Scene keywords === */
+const SCENE_KEYWORDS = [
+  ["ghost"],
+  ["zero"],
+  ["bus"],
+  ["mask"]
+];
+let currentScene = 0;
+const NEXT_PAGE_URL = "nextpage.html";
+
+/* === Load a single video from WP Media filtered by keywords === */
+async function loadVideo(){
+  const MEDIA_API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=50";
+  const FILTER_KEYWORDS = SCENE_KEYWORDS[currentScene];
+  try{
+    const r = await fetch(MEDIA_API);
+    const d = await r.json();
+    const filtered = d.filter(m=>{
+      const text=((m.title?.rendered||"")+" "+(m.caption?.rendered||"")+" "+(m.description?.rendered||"")).toLowerCase();
+      const url=(m.source_url||"").toLowerCase();
+      const kwHit=FILTER_KEYWORDS.some(k=>text.includes(k)||url.includes(k));
+      return m.mime_type?.startsWith("video/") && kwHit;
+    });
+    console.log(`🎯 Filtered videos for [${FILTER_KEYWORDS.join(", ")}]: ${filtered.length}`);
+    if(!filtered.length) return null;
+    const m = filtered[Math.floor(Math.random()*filtered.length)];
+    const v=document.createElement("video");
+    v.src=m.source_url;
+    v.loop=true; v.muted=true; v.playsInline=true; v.preload="auto";
+    v.style.display="none";
+    document.body.appendChild(v);
+    await new Promise(res=>{const ok=()=>res();v.oncanplay=ok;v.onerror=ok;setTimeout(ok,1200);});
+    v.play().catch(()=>{});
+    return v;
+  }catch(e){console.warn("Video load error:",e);return null;}
+}
+
+/* === iOS autoplay unlock === */
+function startVideos(){ document.querySelectorAll("video").forEach(v=>v.play().catch(()=>{})); }
+addEventListener("touchstart", startVideos, { once:true });
+addEventListener("click", startVideos, { once:true });
+
+/* === Card / Panel setup — unified spine overlap === */
+
+/* === Card / Panel setup — CENTER PUSH (true spine alignment) === */
+let cards = [];
+const NUM_CARDS = 8;        // total panels (4 per side)
+const CENTER_OVERLAP = 220; // inward push toward spine
+const EDGE_PADDING = 40;    // keeps outer panels visible to viewport edge
+const STAGGER_X = 20;       // small horizontal randomness
+const STAGGER_Y = 15;       // small vertical randomness
+const DEPTH_JITTER = 0.4;   // alpha variance
+
+function initCards(vids){
+  const W = canvas.width, H = canvas.height;
+  const perSide = NUM_CARDS / 2;
+  const w = W / 2 + CENTER_OVERLAP; // each panel crosses slightly into the center
+  const h = H * 1.05;
+  cards = [];
+
+  for(let i = 0; i < NUM_CARDS; i++){
+    const side = i < perSide ? "left" : "right";
+    const idx = i % perSide;
+    const t = idx / (perSide - 1); // 0 = outer edge, 1 = inner (spine)
+    const inward = (Math.random() - 0.5) * STAGGER_X;
+    const vertical = (Math.random() - 0.5) * STAGGER_Y;
+    let xBase;
+
+    if(side === "left"){
+      const outer = -EDGE_PADDING;                     // leftmost panel hugs edge
+      const spine = (W/2 - w/2) + CENTER_OVERLAP/2;    // push toward center
+      xBase = outer + (spine - outer) * t + inward;
+    } else {
+      const outer = W - w + EDGE_PADDING;              // rightmost panel hugs edge
+      const spine = (W/2 - w/2) - CENTER_OVERLAP/2;    // push toward center
+      xBase = outer + (spine - outer) * t + inward;
+    }
+
+    cards.push({
+      x: xBase,
+      y: vertical,
+      w, h,
+      side,
+      vid: vids.length ? vids[i % vids.length] : null,
+      alpha: 0.35 + Math.random() * DEPTH_JITTER,
+      dragging: false,
+      offsetX: 0,
+      offsetY: 0
+    });
+  }
+}
+
+
+
+  
+
+/* === Draw helper === */
+function drawVideo(v,card,a){
+  if(!v||v.readyState<2)return;
+  const {x,y,w,h,alpha}=card;
+  const iw=v.videoWidth||v.width, ih=v.videoHeight||v.height;
+  const r=Math.max(w/iw,h/ih);
+  const nw=iw*r, nh=ih*r;
+  const ox=x+(w-nw)/2, oy=y+(h-nh)/2;
+  ctx.globalAlpha=(a!==undefined?a:1)*alpha;
+  ctx.drawImage(v,ox,oy,nw,nh);
+  ctx.globalAlpha=1;
+}
+
+/* === Fade manager === */
+let activeFade=null;
+function triggerFade(oldVid,newVid){ activeFade={oldVid,newVid,progress:0}; }
+
+/* === Scene changer === */
+async function nextScene(){
+  if(activeFade) return;
+  currentScene++;
+  if(currentScene>=SCENE_KEYWORDS.length){
+    console.log("🚪 Scenes done → jump to next page");
+    window.location.href=NEXT_PAGE_URL;
+    return;
+  }
+  const newVid=await loadVideo();
+  if(newVid) triggerFade(currentVideo,newVid);
+}
+
+/* === Double-tap / Double-click trigger === */
+let sceneAdvancing=false,lastTap=0;
+function handleSceneAdvance(e){
+  const now=Date.now(),delta=now-lastTap;
+  if(delta<400 && !sceneAdvancing){
+    sceneAdvancing=true;
+    nextScene().finally(()=>sceneAdvancing=false);
+    e.preventDefault();
+  }
+  lastTap=now;
+}
+canvas.addEventListener("touchstart",handleSceneAdvance,{passive:false});
+canvas.addEventListener("click",handleSceneAdvance);
+
+/* === Render loop === */
+let currentVideo=null;
+function render(){
+  ctx.fillStyle="rgba(0,0,0,0.05)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  if(activeFade){
+    activeFade.progress+=0.02;
+    const p=Math.min(1,activeFade.progress);
+    for(const card of cards){
+      drawVideo(activeFade.oldVid,card,1-p);
+      drawVideo(activeFade.newVid,card,p);
+    }
+    if(p>=1){
+      currentVideo=activeFade.newVid;
+      activeFade=null;
+    }
+  }else if(currentVideo){
+    for(const card of cards) drawVideo(currentVideo,card,1);
+  }
+
+  requestAnimationFrame(render);
+}
+
+/* === Boot === */
+(async()=>{
+  const firstVid = await loadVideo();
+  if(!firstVid){
+    console.warn("⚠️ No video found");
+    return;
+  }
+  currentVideo = firstVid;
+  initCards(firstVid);  // ✅ this replaces initPanels()
+  render();
+})();
+  
+
+</script>
+</body>
+</html>
