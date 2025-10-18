@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>a_SingleSharedVideoSplitIntoPanels — Random Advance</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --hud-bg: rgba(10,10,10,0.45);
+    --hud-fg: #e6f3ff;
+    --hud-ac: #98d5ff;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+  }
+  canvas {
+    display: block;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    touch-action: none;
+  }
+  /* === Minimal fixed HUD (top-left) === */
+  .hud {
+    position: fixed; top: 10px; left: 10px; z-index: 10;
+    padding: 10px 12px; border-radius: 8px;
+    background: var(--hud-bg); color: var(--hud-fg);
+    font: 12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    user-select: none;
+    backdrop-filter: blur(6px);
+  }
+  .hud h1 {
+    margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--hud-ac);
+  }
+  .row { display: flex; justify-content: space-between; margin: 4px 0; }
+  .btnline { margin-top: 8px; display: flex; gap: 8px; }
+  .btn {
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16);
+    padding: 4px 8px; border-radius: 6px; cursor: pointer; color: var(--hud-fg);
+    font-size: 12px;
+  }
+  .btn:hover { background: rgba(255,255,255,0.12); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="hud" id="hud">
+  <h1>HUD Parameters</h1>
+  <div class="row"><span>NUM_CARDS:</span><span id="hud_cards">8</span></div>
+  <div class="row"><span>CENTER_OVERLAP:</span><span id="hud_overlap">220</span></div>
+  <div class="row"><span>ALPHA:</span><span id="hud_alpha">0.35</span></div>
+  <div class="btnline">
+    <div class="btn" id="toggleTheme">Light/Dark</div>
+    <div class="btn" id="nextVid">Next Random</div>
+  </div>
+</div>
+
+<script>
+/* === Canvas setup === */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
+window.addEventListener("resize", resize);
+resize();
+
+/* === Parameters === */
+const NUM_CARDS = 8;
+let CENTER_OVERLAP = 220;
+let BASE_ALPHA = 0.35;
+let currentVideo = null;
+let activeFade = null;
+let cards = [];
+
+/* === Load random WP video === */
+async function loadRandomVideo(){
+  const API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=100";
+  try{
+    const r = await fetch(API);
+    const d = await r.json();
+    const vids = d.filter(m=>m.mime_type?.startsWith("video/") || /\.mp4$/i.test(m.source_url));
+    if(!vids.length) return null;
+    const m = vids[Math.floor(Math.random()*vids.length)];
+    const v = document.createElement("video");
+    v.src = m.source_url;
+    v.loop = true; v.muted = true; v.playsInline = true; v.preload = "auto";
+    v.style.display = "none";
+    document.body.appendChild(v);
+    await new Promise(res=>{const ok=()=>res();v.oncanplay=ok;v.onerror=ok;setTimeout(ok,1000);});
+    v.play().catch(()=>{});
+    return v;
+  }catch(e){
+    console.warn("Video load error:",e);
+    return null;
+  }
+}
+
+/* === Card / Panel setup — spine-centered === */
+function initCards(vid){
+  const W = canvas.width, H = canvas.height;
+  const w = W/2 + CENTER_OVERLAP;
+  const h = H;
+  cards = [];
+  const perSide = NUM_CARDS / 2;
+  for(let i=0; i<NUM_CARDS; i++){
+    const side = i < perSide ? "left" : "right";
+    const idx = i % perSide;
+    const t = idx / (perSide-1);
+    let xBase;
+    if(side === "left"){
+      const edge = -60;
+      const center = (W/2 - w/2) + CENTER_OVERLAP/2;
+      xBase = edge + (center - edge)*t;
+    } else {
+      const edge = W - w + 60;
+      const center = (W/2 - w/2) - CENTER_OVERLAP/2;
+      xBase = edge + (center - edge)*t;
+    }
+    cards.push({
+      x:xBase, y:0, w, h, side,
+      vid: vid, alpha: BASE_ALPHA
+    });
+  }
+}
+
+/* === Draw helper with object-fit: cover logic === */
+function drawVideo(v, card, a=1){
+  if(!v || v.readyState < 2) return;
+  const {x,y,w,h} = card;
+  const iw=v.videoWidth||v.width, ih=v.videoHeight||v.height;
+  const r = Math.max(w/iw, h/ih);  // cover logic
+  const nw = iw*r, nh = ih*r;
+  const ox = x+(w-nw)/2, oy = y+(h-nh)/2;
+  ctx.globalAlpha = a * card.alpha;
+  ctx.drawImage(v, ox, oy, nw, nh);
+  ctx.globalAlpha = 1;
+}
+
+/* === Fade transition === */
+function triggerFade(oldVid, newVid){
+  activeFade = { oldVid, newVid, progress: 0 };
+}
+
+/* === Click or double-tap to next random === */
+let sceneAdvancing = false;
+let lastTap = 0;
+async function handleAdvance(e){
+  const now = Date.now();
+  const delta = now - lastTap;
+  if(delta < 400 && !sceneAdvancing){
+    sceneAdvancing = true;
+    const newVid = await loadRandomVideo();
+    if(newVid) triggerFade(currentVideo, newVid);
+    sceneAdvancing = false;
+    e.preventDefault();
+  }
+  lastTap = now;
+}
+canvas.addEventListener("touchstart", handleAdvance, { passive: false });
+canvas.addEventListener("click", handleAdvance);
+
+/* === HUD theme toggle === */
+let darkTheme = true;
+document.getElementById("toggleTheme").onclick = ()=>{
+  darkTheme = !darkTheme;
+  document.documentElement.style.setProperty("--hud-bg", darkTheme ? "rgba(10,10,10,0.45)" : "rgba(250,250,250,0.4)");
+  document.documentElement.style.setProperty("--hud-fg", darkTheme ? "#e6f3ff" : "#000");
+  document.documentElement.style.setProperty("--hud-ac", darkTheme ? "#98d5ff" : "#0066cc");
+};
+
+/* === Manual “Next Random” button === */
+document.getElementById("nextVid").onclick = async ()=>{
+  const newVid = await loadRandomVideo();
+  if(newVid) triggerFade(currentVideo, newVid);
+};
+
+/* === Render loop === */
+function render(){
+  ctx.fillStyle = "rgba(0,0,0,0.08)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  if(activeFade){
+    activeFade.progress += 0.02;
+    const p = Math.min(1, activeFade.progress);
+    for(const c of cards){
+      drawVideo(activeFade.oldVid, c, (1-p));
+      drawVideo(activeFade.newVid, c, p);
+    }
+    if(p>=1){
+      currentVideo = activeFade.newVid;
+      activeFade = null;
+    }
+  } else if(currentVideo){
+    for(const c of cards) drawVideo(currentVideo, c, 1);
+  }
+  requestAnimationFrame(render);
+}
+
+/* === Boot === */
+(async()=>{
+  const v = await loadRandomVideo();
+  if(!v){ console.warn("⚠️ No video found"); return; }
+  currentVideo = v;
+  initCards(v);
+  render();
+})();
+</script>
+</body>
+</html>
