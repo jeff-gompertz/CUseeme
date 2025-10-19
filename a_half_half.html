@@ -117,21 +117,46 @@ let CENTER_OVERLAP=0, EDGE_PADDING=300, NUM_CARDS=8, ALPHA=0.35,
 let currentVideoA = null, currentVideoB = null, activeFade=null, cards=[], autoMode=false;
 
 /* ========== Video loading ==========\ */
+
+/* ========== Video loading (CORS-safe via proxy) ========== */
 async function loadRandomVideo(){
   const API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=100";
+  const PROXY = "https://cors.isomorphic-git.org/";  // temporary CORS bypass
   try{
-    const r = await fetch(API); const d = await r.json();
+    const r = await fetch(API);
+    const d = await r.json();
     const vids = d.filter(m => m.mime_type?.startsWith("video/") || /\.mp4$/i.test(m.source_url));
     if(!vids.length) return null;
     const m = vids[Math.floor(Math.random()*vids.length)];
+
     const v = document.createElement('video');
-    v.src = m.source_url; v.loop = true; v.muted = true; v.playsInline = true; v.preload = 'auto'; v.style.display='none';
+    v.crossOrigin = "anonymous";              // critical
+    v.src = PROXY + m.source_url;             // load through proxy
+    v.loop = true; v.muted = true;
+    v.playsInline = true; v.preload = 'auto';
+    v.style.display = 'none';
     document.body.appendChild(v);
-    await new Promise(res => { const ok=()=>res(); v.oncanplay=ok; v.onerror=ok; setTimeout(ok,1200); });
+
+    // wait for video to become playable
+    await new Promise(res=>{
+      const ok=()=>res();
+      v.oncanplay = ok; v.onerror = ok;
+      setTimeout(ok,1500);
+    });
+
     v.play().catch(()=>{});
     return v;
-  }catch(e){ console.warn('Video load error', e); return null; }
+
+  }catch(e){
+    console.warn("Video load error:", e);
+    return null;
+  }
 }
+
+
+
+  
+
 
 /* ========== Panels (center push) ========== */
 function initCards(){
