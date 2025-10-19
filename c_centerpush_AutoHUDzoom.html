@@ -280,59 +280,7 @@ function resetHUD() {
   // reinitialize with these parameters
   initCards(currentVideo);
 }
-/* === HUD Toggle & Reset (touch-friendly) === */
-const hud = document.getElementById("hud");
-const toggleBtn = document.getElementById("toggleHUD");
-const resetBtn = document.getElementById("resetHUD");
 
-let hudVisible = true;
-
-// --- toggle visibility (tap only) ---
-toggleBtn.addEventListener("click", toggleHUD);
-toggleBtn.addEventListener("touchstart", toggleHUD, {passive:true});
-
-function toggleHUD() {
-  hudVisible = !hudVisible;
-  if (hudVisible) {
-    hud.classList.remove("hidden");
-    hud.style.pointerEvents = "auto";
-    hud.style.opacity = "1";
-  } else {
-    hud.classList.add("hidden");
-    hud.style.pointerEvents = "none";
-    hud.style.opacity = "0.15"; // faint ghost HUD
-  }
-}
-
-// --- reset to baseline values (touch + visual feedback) ---
-resetBtn.addEventListener("click", resetHUD);
-resetBtn.addEventListener("touchstart", resetHUD, {passive:true});
-
-function resetHUD() {
-  // quick flash feedback
-  hud.style.transition = "background 0.3s";
-  hud.style.background = "rgba(255,255,255,0.4)";
-  setTimeout(() => hud.style.background = "var(--hud-bg)", 250);
-
-  // apply baseline defaults
-  CENTER_OVERLAP = 0;
-  EDGE_PADDING = 300;
-  NUM_CARDS = 8;
-  ALPHA = 0.35;
-  STAGGER_X = 20;
-  SPINE_SHIFT = 26;
-  DEPTH_RANGE = 0.76;
-  VIDEO_SCALE = 1.5;
-
-  // sync sliders + labels
-  [r1.value, r2.value, r3.value, r4.value, r5.value, r6.value, r7.value, r8.value] =
-    [CENTER_OVERLAP, EDGE_PADDING, NUM_CARDS, ALPHA, STAGGER_X, SPINE_SHIFT, DEPTH_RANGE, VIDEO_SCALE];
-  [o1.value, o2.value, o3.value, o4.value, o5.value, o6.value, o7.value, o8.value] =
-    [CENTER_OVERLAP, EDGE_PADDING, NUM_CARDS, ALPHA, STAGGER_X, SPINE_SHIFT, DEPTH_RANGE, VIDEO_SCALE];
-
-  // reinitialize with these parameters
-  initCards(currentVideo);
-}
 
 /* === Boot === */
 (async()=>{
