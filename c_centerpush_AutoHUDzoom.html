@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>c_centerpush_loadrandom2_FullAutoHUD</title>
+<title>c_centerpush_loadrandom2_FullAutoHUD_dimmed</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   :root{
@@ -12,6 +12,8 @@
   }
   html,body{margin:0;height:100%;background:#000;overflow:hidden;}
   canvas{display:block;touch-action:none}
+
+  /* === HUD container === */
   #hud{
     position:fixed;top:10px;left:10px;z-index:10;
     padding:12px 14px;border-radius:8px;
@@ -19,17 +21,45 @@
     font:12px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
     backdrop-filter: blur(6px);
     user-select:none;width:320px;
-    transition:opacity .4s ease,background .6s ease;
+    transition:opacity 0.6s ease,background 0.6s ease;
   }
-  #hud.hidden{opacity:0.15;pointer-events:none;}
-  #hud h1{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--hud-ac)}
-  .row{display:grid;grid-template-columns:115px 1fr 46px;gap:8px;align-items:center;margin:5px 0}
-  .row label{opacity:.9}
-  .row input[type="range"]{width:100%}
-  .readout{
+
+  /* === HUD dimmed state === */
+  #hud.dimmed {
+    opacity: 0.12;
+  }
+
+  /* Keep toggle button bright and clickable even when dimmed */
+  #hud.dimmed #toggleHUD {
+    opacity: 1 !important;
+    background: rgba(255,255,255,0.12) !important;
+    border-color: rgba(255,255,255,0.35) !important;
+    pointer-events: auto !important;
+  }
+
+  #hud h1 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--hud-ac);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 115px 1fr 46px;
+    gap: 8px;
+    align-items: center;
+    margin: 5px 0;
+  }
+
+  .row label { opacity: 0.9; }
+  .row input[type="range"]{ width:100%; }
+
+  .readout {
     margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);
     font-size:11px;line-height:1.5;opacity:.8;white-space:pre;
   }
+
   .btnline{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
   .btn{
     background:rgba(255,255,255,.08);color:var(--hud-fg);
@@ -38,6 +68,7 @@
     font-size:12px;letter-spacing:.03em;
   }
   .btn:hover{background:rgba(255,255,255,.14);}
+
   #flash{
     position:fixed;inset:0;background:rgba(255,255,255,0);
     pointer-events:none;z-index:5;transition:background .5s ease;
@@ -51,17 +82,15 @@
 <div id="hud">
   <h1>HUD Controls</h1>
 
-<div class="row"><label>CENTER_OVERLAP</label><input id="r1" type="range" min="0" max="400" value="0"/><output id="o1">0</output></div>
-<div class="row"><label>EDGE_PADDING</label><input id="r2" type="range" min="0" max="300" value="300"/><output id="o2">300</output></div>
-<div class="row"><label>NUM_CARDS</label><input id="r3" type="range" min="2" max="16" step="2" value="8"/><output id="o3">8</output></div>
-<div class="row"><label>ALPHA</label><input id="r4" type="range" min="0" max="1" step="0.01" value="0.35"/><output id="o4">0.35</output></div>
-<div class="row"><label>STAGGER_X</label><input id="r5" type="range" min="0" max="120" value="20"/><output id="o5">20</output></div>
-<div class="row"><label>SPINE_SHIFT</label><input id="r6" type="range" min="-100" max="100" value="26"/><output id="o6">26</output></div>
-<div class="row"><label>DEPTH_RANGE</label><input id="r7" type="range" min="0" max="1" step="0.01" value="0.76"/><output id="o7">0.76</output></div>
-<div class="row"><label>VIDEO_SCALE</label><input id="r8" type="range" min="0.8" max="1.5" step="0.01" value="1.5"/><output id="o8">1.5</output></div>
+  <div class="row"><label>CENTER_OVERLAP</label><input id="r1" type="range" min="0" max="400" value="0"/><output id="o1">0</output></div>
+  <div class="row"><label>EDGE_PADDING</label><input id="r2" type="range" min="0" max="300" value="300"/><output id="o2">300</output></div>
+  <div class="row"><label>NUM_CARDS</label><input id="r3" type="range" min="2" max="16" step="2" value="8"/><output id="o3">8</output></div>
+  <div class="row"><label>ALPHA</label><input id="r4" type="range" min="0" max="1" step="0.01" value="0.35"/><output id="o4">0.35</output></div>
+  <div class="row"><label>STAGGER_X</label><input id="r5" type="range" min="0" max="120" value="20"/><output id="o5">20</output></div>
+  <div class="row"><label>SPINE_SHIFT</label><input id="r6" type="range" min="-100" max="100" value="26"/><output id="o6">26</output></div>
+  <div class="row"><label>DEPTH_RANGE</label><input id="r7" type="range" min="0" max="1" step="0.01" value="0.76"/><output id="o7">0.76</output></div>
+  <div class="row"><label>VIDEO_SCALE</label><input id="r8" type="range" min="0.8" max="1.5" step="0.01" value="1.5"/><output id="o8">1.5</output></div>
 
-
-  
   <div class="btnline">
     <button class="btn" id="toggleHUD">HUD</button>
     <button class="btn" id="autoHUD">AUTO</button>
@@ -78,7 +107,7 @@ function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
 window.addEventListener("resize",resize);resize();
 
 /* === Parameters === */
-let CENTER_OVERLAP=220,EDGE_PADDING=80,NUM_CARDS=8,ALPHA=0.35,STAGGER_X=40,SPINE_SHIFT=0,DEPTH_RANGE=0.4,VIDEO_SCALE=1.0;
+let CENTER_OVERLAP=0,EDGE_PADDING=300,NUM_CARDS=8,ALPHA=0.35,STAGGER_X=20,SPINE_SHIFT=26,DEPTH_RANGE=0.76,VIDEO_SCALE=1.5;
 let currentVideo=null,activeFade=null,cards=[],autoMode=false;
 
 /* === Auto modulation settings === */
@@ -95,7 +124,7 @@ async function loadRandomVideo(){
   try{
     const r=await fetch(API);
     const d=await r.json();
-    const vids=d.filter(m=>m.mime_type?.startsWith("video/")||/\.mp4$/i.test(m.source_url));
+    const vids=d.filter(m=>m.mime_type?.startsWith("video/")||/\\.mp4$/i.test(m.source_url));
     if(!vids.length)return null;
     const m=vids[Math.floor(Math.random()*vids.length)];
     const v=document.createElement("video");
@@ -110,7 +139,7 @@ async function loadRandomVideo(){
 /* === Init cards === */
 function initCards(vid){
   const W=canvas.width,H=canvas.height;
-  const w=W/2+CENTER_OVERLAP, h=H;
+  const w=W/2+CENTER_OVERLAP,h=H;
   cards=[];
   const perSide=NUM_CARDS/2;
   for(let i=0;i<NUM_CARDS;i++){
@@ -165,47 +194,80 @@ async function handleAdvance(e){
 canvas.addEventListener("touchstart",handleAdvance,{passive:false});
 canvas.addEventListener("click",handleAdvance);
 
-/* === HUD === */
+/* === HUD unified setup === */
 const sliders=[r1,r2,r3,r4,r5,r6,r7,r8];
 const outs=[o1,o2,o3,o4,o5,o6,o7,o8];
+const hud=document.getElementById("hud");
+const flash=document.getElementById("flash");
+const toggleBtn=document.getElementById("toggleHUD");
+const resetBtn=document.getElementById("resetHUD");
+const autoBtn=document.getElementById("autoHUD");
+const readout=document.getElementById("readout");
+
 for(let i=0;i<sliders.length;i++){
   sliders[i].oninput=()=>{
     outs[i].value=sliders[i].value;
-    [CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,ALPHA,STAGGER_X,SPINE_SHIFT,DEPTH_RANGE,VIDEO_SCALE]=sliders.map(s=>parseFloat(s.value));
+    [CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,ALPHA,STAGGER_X,SPINE_SHIFT,DEPTH_RANGE,VIDEO_SCALE] =
+      sliders.map(s=>parseFloat(s.value));
     initCards(currentVideo);
   };
 }
-const hud=document.getElementById("hud");
-const flash=document.getElementById("flash");
-document.getElementById("toggleHUD").onclick=()=>hud.classList.toggle("hidden");
-document.getElementById("resetHUD").onclick=()=>{
-  CENTER_OVERLAP=220;EDGE_PADDING=80;NUM_CARDS=8;ALPHA=0.35;STAGGER_X=40;SPINE_SHIFT=0;DEPTH_RANGE=0.4;VIDEO_SCALE=1.0;
-  sliders.forEach((s,i)=>{s.value=[CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,ALPHA,STAGGER_X,SPINE_SHIFT,DEPTH_RANGE,VIDEO_SCALE][i];
-                          outs[i].value=s.value;});
+
+/* === HUD Toggle (mobile-safe) === */
+let hudVisible = true;
+function toggleHUD(){
+  hudVisible = !hudVisible;
+  if (hudVisible) {
+    hud.classList.remove("dimmed");
+    hud.style.opacity = "1";
+  } else {
+    hud.classList.add("dimmed");
+    hud.style.opacity = "0.12";
+  }
+}
+toggleBtn.addEventListener("click", toggleHUD);
+toggleBtn.addEventListener("touchstart", toggleHUD, { passive: true });
+
+/* === Reset HUD === */
+function resetHUD(){
+  hud.style.transition="background 0.3s";
+  hud.style.background="rgba(255,255,255,0.4)";
+  setTimeout(()=>hud.style.background="var(--hud-bg)",250);
+
+  CENTER_OVERLAP=0; EDGE_PADDING=300; NUM_CARDS=8; ALPHA=0.35;
+  STAGGER_X=20; SPINE_SHIFT=26; DEPTH_RANGE=0.76; VIDEO_SCALE=1.5;
+
+  [r1.value,r2.value,r3.value,r4.value,r5.value,r6.value,r7.value,r8.value] =
+    [CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,ALPHA,STAGGER_X,SPINE_SHIFT,DEPTH_RANGE,VIDEO_SCALE];
+  [o1.value,o2.value,o3.value,o4.value,o5.value,o6.value,o7.value,o8.value] =
+    [CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,ALPHA,STAGGER_X,SPINE_SHIFT,DEPTH_RANGE,VIDEO_SCALE];
+
+  initCards(currentVideo);
   flash.style.background="rgba(255,255,255,0.3)";
   setTimeout(()=>flash.style.background="rgba(255,255,255,0)",200);
-  initCards(currentVideo);
-};
-document.getElementById("autoHUD").onclick=()=>{
+}
+
+/* === AUTO button === */
+autoBtn.addEventListener("click",()=>{
   autoMode=!autoMode;
-  document.getElementById("autoHUD").style.background=autoMode?"rgba(150,200,255,.25)":"rgba(255,255,255,.08)";
-};
-const readout=document.getElementById("readout");
+  autoBtn.style.background=autoMode?"rgba(150,200,255,.25)":"rgba(255,255,255,.08)";
+});
+
+/* === Render === */
 function updateHUD(){
-  readout.textContent=
+  readout.textContent =
   `CENTER_OVERLAP:${CENTER_OVERLAP.toFixed(1)} EDGE_PADDING:${EDGE_PADDING.toFixed(1)} STAGGER_X:${STAGGER_X.toFixed(1)} SPINE_SHIFT:${SPINE_SHIFT.toFixed(1)}
 NUM_CARDS:${NUM_CARDS} ALPHA:${ALPHA.toFixed(2)} DEPTH_RANGE:${DEPTH_RANGE.toFixed(2)} VIDEO_SCALE:${VIDEO_SCALE.toFixed(2)}
 AUTO:${autoMode?"ON":"OFF"}`;
 }
 
-/* === Render === */
 function render(){
   const t=performance.now();
   if(autoMode){
     CENTER_OVERLAP=autoMod.CENTER_OVERLAP.base+Math.sin(t*autoMod.CENTER_OVERLAP.speed+autoMod.CENTER_OVERLAP.offset)*autoMod.CENTER_OVERLAP.range;
-    EDGE_PADDING  =autoMod.EDGE_PADDING.base  +Math.sin(t*autoMod.EDGE_PADDING.speed+autoMod.EDGE_PADDING.offset)*autoMod.EDGE_PADDING.range;
-    STAGGER_X     =autoMod.STAGGER_X.base     +Math.sin(t*autoMod.STAGGER_X.speed+autoMod.STAGGER_X.offset)*autoMod.STAGGER_X.range;
-    SPINE_SHIFT   =autoMod.SPINE_SHIFT.base   +Math.sin(t*autoMod.SPINE_SHIFT.speed+autoMod.SPINE_SHIFT.offset)*autoMod.SPINE_SHIFT.range;
+    EDGE_PADDING=autoMod.EDGE_PADDING.base+Math.sin(t*autoMod.EDGE_PADDING.speed+autoMod.EDGE_PADDING.offset)*autoMod.EDGE_PADDING.range;
+    STAGGER_X=autoMod.STAGGER_X.base+Math.sin(t*autoMod.STAGGER_X.speed+autoMod.STAGGER_X.offset)*autoMod.STAGGER_X.range;
+    SPINE_SHIFT=autoMod.SPINE_SHIFT.base+Math.sin(t*autoMod.SPINE_SHIFT.speed+autoMod.SPINE_SHIFT.offset)*autoMod.SPINE_SHIFT.range;
     initCards(currentVideo);
   }
 
@@ -222,65 +284,9 @@ function render(){
   }else if(currentVideo){
     for(const c of cards)drawVideo(currentVideo,c,1);
   }
-
   updateHUD();
   requestAnimationFrame(render);
 }
-
-/* === HUD Toggle & Reset (touch-friendly) === */
-const hud = document.getElementById("hud");
-const toggleBtn = document.getElementById("toggleHUD");
-const resetBtn = document.getElementById("resetHUD");
-
-let hudVisible = true;
-
-// --- toggle visibility (tap only) ---
-toggleBtn.addEventListener("click", toggleHUD);
-toggleBtn.addEventListener("touchstart", toggleHUD, {passive:true});
-
-function toggleHUD() {
-  hudVisible = !hudVisible;
-  if (hudVisible) {
-    hud.classList.remove("hidden");
-    hud.style.pointerEvents = "auto";
-    hud.style.opacity = "1";
-  } else {
-    hud.classList.add("hidden");
-    hud.style.pointerEvents = "none";
-    hud.style.opacity = "0.15"; // faint ghost HUD
-  }
-}
-
-// --- reset to baseline values (touch + visual feedback) ---
-resetBtn.addEventListener("click", resetHUD);
-resetBtn.addEventListener("touchstart", resetHUD, {passive:true});
-
-function resetHUD() {
-  // quick flash feedback
-  hud.style.transition = "background 0.3s";
-  hud.style.background = "rgba(255,255,255,0.4)";
-  setTimeout(() => hud.style.background = "var(--hud-bg)", 250);
-
-  // apply baseline defaults
-  CENTER_OVERLAP = 0;
-  EDGE_PADDING = 300;
-  NUM_CARDS = 8;
-  ALPHA = 0.35;
-  STAGGER_X = 20;
-  SPINE_SHIFT = 26;
-  DEPTH_RANGE = 0.76;
-  VIDEO_SCALE = 1.5;
-
-  // sync sliders + labels
-  [r1.value, r2.value, r3.value, r4.value, r5.value, r6.value, r7.value, r8.value] =
-    [CENTER_OVERLAP, EDGE_PADDING, NUM_CARDS, ALPHA, STAGGER_X, SPINE_SHIFT, DEPTH_RANGE, VIDEO_SCALE];
-  [o1.value, o2.value, o3.value, o4.value, o5.value, o6.value, o7.value, o8.value] =
-    [CENTER_OVERLAP, EDGE_PADDING, NUM_CARDS, ALPHA, STAGGER_X, SPINE_SHIFT, DEPTH_RANGE, VIDEO_SCALE];
-
-  // reinitialize with these parameters
-  initCards(currentVideo);
-}
-
 
 /* === Boot === */
 (async()=>{
@@ -293,5 +299,3 @@ function resetHUD() {
 </script>
 </body>
 </html>
-  
-
