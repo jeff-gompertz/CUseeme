@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>c_centerpush_twoSourceCollage_centerHUD</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{
+    --hud-bg: rgba(10,10,10,.42);
+    --hud-fg: #e6f3ff;
+    --hud-ac: #98d5ff;
+  }
+  html,body{margin:0;height:100%;background:#000;overflow:hidden}
+  canvas{display:block;touch-action:none}
+
+  /* === HUD === */
+  #hud{
+    position:fixed;top:10px;left:10px;z-index:10;width:340px;
+    padding:12px 14px;border-radius:10px;
+    background:var(--hud-bg);color:var(--hud-fg);
+    font:12px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    backdrop-filter: blur(6px);
+    user-select:none;
+    transition:opacity .6s ease, background .6s ease, filter .3s ease;
+  }
+  #hud.dimmed{opacity:.12}
+  #hud h1{margin:0 0 8px;font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--hud-ac)}
+  .row{display:grid;grid-template-columns:120px 1fr 52px;gap:8px;align-items:center;margin:6px 0}
+  .row label{opacity:.9}
+  .row input[type="range"], .row select{width:100%}
+  .row select{
+    background:rgba(255,255,255,.06); color:var(--hud-fg); border:1px solid rgba(255,255,255,.18);
+    border-radius:6px; padding:4px 6px;
+  }
+  .readout{
+    margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12);
+    font-size:11px;line-height:1.55;opacity:.85;white-space:pre-wrap;word-break:break-word;
+  }
+  .btnline{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .btn{
+    background:rgba(255,255,255,.10);color:var(--hud-fg);
+    border:1px solid rgba(255,255,255,.25);
+    padding:6px 10px;border-radius:7px;cursor:pointer;
+    font-size:12px;letter-spacing:.02em;
+  }
+  .btn:hover{background:rgba(255,255,255,.16)}
+  /* keep toggle tappable when dimmed */
+  #hud.dimmed #toggleHUD{
+    opacity:1 !important;background:rgba(255,255,255,.18)!important;border-color:rgba(255,255,255,.4)!important;
+    pointer-events:auto !important;
+  }
+
+  /* flash overlay */
+  #flash{position:fixed;inset:0;background:rgba(255,255,255,0);pointer-events:none;z-index:5;transition:background .45s ease}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="flash"></div>
+
+<!-- === HUD === -->
+<div id="hud">
+  <h1>HUD — Center Push + Two-Source Collage</h1>
+
+  <!-- Collage controls -->
+  <div class="row"><label>MODE</label>
+    <select id="mode">
+      <option value="rows">rows (scanlines)</option>
+      <option value="cols">columns</option>
+      <option value="tiles" selected>tiles (blocks)</option>
+      <option value="luma">luma key mix</option>
+    </select>
+    <output> </output>
+  </div>
+  <div class="row"><label>SIZE</label><input id="size" type="range" min="1" max="96" value="28"/><output id="sizeOut">28</output></div>
+  <div class="row"><label>NOISE</label><input id="noise" type="range" min="0" max="1" step="0.01" value="0.18"/><output id="noiseOut">0.18</output></div>
+  <div class="row"><label>MIX_BIAS (→B)</label><input id="mix" type="range" min="0" max="1" step="0.01" value="0.50"/><output id="mixOut">0.50</output></div>
+  <div class="row"><label>FEEDBACK</label><input id="fb" type="range" min="0" max="0.9" step="0.01" value="0.10"/><output id="fbOut">0.10</output></div>
+
+  <!-- Layout / panel controls (your familiar set) -->
+  <div class="row"><label>CENTER_OVERLAP</label><input id="r1" type="range" min="0" max="400" value="0"/><output id="o1">0</output></div>
+  <div class="row"><label>EDGE_PADDING</label><input id="r2" type="range" min="0" max="300" value="300"/><output id="o2">300</output></div>
+  <div class="row"><label>NUM_CARDS</label><input id="r3" type="range" min="2" max="16" step="2" value="8"/><output id="o3">8</output></div>
+  <div class="row"><label>ALPHA</label><input id="r4" type="range" min="0" max="1" step="0.01" value="0.35"/><output id="o4">0.35</output></div>
+  <div class="row"><label>STAGGER_X</label><input id="r5" type="range" min="0" max="120" value="20"/><output id="o5">20</output></div>
+  <div class="row"><label>SPINE_SHIFT</label><input id="r6" type="range" min="-120" max="120" value="26"/><output id="o6">26</output></div>
+  <div class="row"><label>DEPTH_RANGE</label><input id="r7" type="range" min="0" max="1" step="0.01" value="0.76"/><output id="o7">0.76</output></div>
+  <div class="row"><label>VIDEO_SCALE</label><input id="r8" type="range" min="0.8" max="1.8" step="0.01" value="1.5"/><output id="o8">1.5</output></div>
+
+  <div class="btnline">
+    <button class="btn" id="toggleHUD">HUD</button>
+    <button class="btn" id="autoHUD">AUTO</button>
+    <button class="btn" id="resetHUD">RESET</button>
+    <button class="btn" id="nextVideo">NEXT SOURCE</button>
+  </div>
+
+  <div class="readout" id="readout"></div>
+</div>
+
+<script>
+/* ========== Canvas ==========\ */
+const canvas = document.getElementById('c');
+const ctx     = canvas.getContext('2d');
+function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
+addEventListener('resize', resize); resize();
+
+/* ========== Parameters ==========\ */
+let MODE = 'tiles';        // rows | cols | tiles | luma
+let SIZE = 28;             // stripe/tile size
+let NOISE = 0.18;          // 0..1
+let MIX_BIAS = 0.50;       // 0..1 (toward B)
+let FEEDBACK = 0.10;       // 0..0.9
+
+let CENTER_OVERLAP=0, EDGE_PADDING=300, NUM_CARDS=8, ALPHA=0.35,
+    STAGGER_X=20, SPINE_SHIFT=26, DEPTH_RANGE=0.76, VIDEO_SCALE=1.5;
+
+let currentVideoA = null, currentVideoB = null, activeFade=null, cards=[], autoMode=false;
+
+/* ========== Video loading ==========\ */
+async function loadRandomVideo(){
+  const API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=100";
+  try{
+    const r = await fetch(API); const d = await r.json();
+    const vids = d.filter(m => m.mime_type?.startsWith("video/") || /\.mp4$/i.test(m.source_url));
+    if(!vids.length) return null;
+    const m = vids[Math.floor(Math.random()*vids.length)];
+    const v = document.createElement('video');
+    v.src = m.source_url; v.loop = true; v.muted = true; v.playsInline = true; v.preload = 'auto'; v.style.display='none';
+    document.body.appendChild(v);
+    await new Promise(res => { const ok=()=>res(); v.oncanplay=ok; v.onerror=ok; setTimeout(ok,1200); });
+    v.play().catch(()=>{});
+    return v;
+  }catch(e){ console.warn('Video load error', e); return null; }
+}
+
+/* ========== Panels (center push) ========== */
+function initCards(){
+  const W=canvas.width,H=canvas.height;
+  const w=W/2 + CENTER_OVERLAP, h=H;
+  cards=[];
+  const perSide = Math.max(2, Math.floor(NUM_CARDS/2));
+  for(let i=0;i<NUM_CARDS;i++){
+    const side = i<perSide ? 'left' : 'right';
+    const idx  = i%perSide;
+    const t    = perSide===1 ? 1 : idx/(perSide-1); // 0→edge,1→near-spine
+    const inward = (Math.random()-0.5)*STAGGER_X;
+    const yOff   = (Math.random()-0.5)*40;
+    let xBase;
+    if(side==='left'){
+      const edge = 0 - EDGE_PADDING;
+      const center = (W/2 - w/2) + CENTER_OVERLAP/2 + SPINE_SHIFT;
+      xBase = edge + (center-edge)*t + inward;
+    }else{
+      const edge = W - w + EDGE_PADDING;
+      const center = (W/2 - w/2) - CENTER_OVERLAP/2 + SPINE_SHIFT;
+      xBase = edge + (center-edge)*t + inward;
+    }
+    cards.push({ x:xBase, y:yOff, w, h, side, alpha: ALPHA - Math.random()*DEPTH_RANGE });
+  }
+}
+
+/* ========== Offscreen compositing ==========
+   We composite A & B into offscreen 'mixCan' each frame,
+   then draw that single image into each panel (unified spine image).
+================================================ */
+const mixCan  = document.createElement('canvas');
+const mixCtx  = mixCan.getContext('2d', { willReadFrequently:true });
+const aCan    = document.createElement('canvas');
+const aCtx    = aCan.getContext('2d');
+const bCan    = document.createElement('canvas');
+const bCtx    = bCan.getContext('2d');
+
+function coverDraw(ctx, v, W, H, scale=1.0){
+  if(!v || v.readyState < 2) return;
+  const iw = v.videoWidth || v.width, ih = v.videoHeight || v.height;
+  const r = Math.max((W/iw)*scale, (H/ih)*scale);
+  const nw = iw*r, nh = ih*r;
+  const ox = (W - nw)/2, oy = (H - nh)/2;
+  ctx.drawImage(v, ox, oy, nw, nh);
+}
+
+/* Small downsample for per-pixel mixing, scaled back up to canvas. */
+const MIX_BASE_W = 640; // performance sweet spot
+function compositeFrame(){
+  if(!currentVideoA || !currentVideoB) return;
+
+  // Decide mix buffer size (keep aspect)
+  const W = canvas.width, H = canvas.height;
+  const mW = Math.min(MIX_BASE_W, W);
+  const mH = Math.round(H * (mW/W));
+
+  // Prepare offscreens
+  [mixCan.width, mixCan.height, aCan.width, aCan.height, bCan.width, bCan.height] = [mW, mH, mW, mH, mW, mH];
+
+  // Draw sources scaled to cover
+  aCtx.clearRect(0,0,mW,mH); bCtx.clearRect(0,0,mW,mH);
+  coverDraw(aCtx, currentVideoA, mW, mH, VIDEO_SCALE);
+  coverDraw(bCtx, currentVideoB, mW, mH, VIDEO_SCALE);
+
+  const imgA = aCtx.getImageData(0,0,mW,mH);
+  const imgB = bCtx.getImageData(0,0,mW,mH);
+  const out  = mixCtx.createImageData(mW, mH);
+
+  const dataA = imgA.data, dataB = imgB.data, dst = out.data;
+
+  // Generate pattern map
+  const tile = Math.max(1, Math.round(SIZE));
+  const time = performance.now()*0.001;
+  const noiseAmt = NOISE;
+
+  for(let y=0; y<mH; y++){
+    for(let x=0; x<mW; x++){
+      let useB = false;
+
+      if(MODE==='rows'){
+        // per scanline switch (with gentle time wobble)
+        const stripe = Math.floor( (y + Math.sin(time*0.8)*2) / tile );
+        useB = (stripe % 2) === 1;
+      }else if(MODE==='cols'){
+        const stripe = Math.floor( (x + Math.cos(time*0.7)*2) / tile );
+        useB = (stripe % 2) === 1;
+      }else if(MODE==='tiles'){
+        const tx = Math.floor(x/tile), ty = Math.floor(y/tile);
+        useB = ((tx + ty) % 2) === 1;
+      }else if(MODE==='luma'){
+        // luma of A decides mixing (classic key)
+        const iA = (y*mW + x)*4;
+        const l = 0.299*dataA[iA] + 0.587*dataA[iA+1] + 0.114*dataA[iA+2];
+        useB = (l/255) < MIX_BIAS; // darker A lets B through
+      }
+
+      // noise perturbation: flip decision with probability
+      if(noiseAmt>0){
+        const rnd = (Math.sin(x*12.9898 + y*78.233 + time*37.719)*43758.5453)%1; // cheap hash
+        if(Math.abs(rnd) < noiseAmt*0.5) useB = !useB;
+      }
+
+      // blend: either hard switch or a bias mix
+      const i = (y*mW + x)*4;
+      if(MODE==='luma'){
+        // luma mode: do continuous mix based on luma + bias
+        const iA=i;
+        const iB=i;
+        const l = 0.299*dataA[iA] + 0.587*dataA[iA+1] + 0.114*dataA[iA+2];
+        const t = Math.min(1, Math.max(0, MIX_BIAS + (0.5 - l/255)*0.5)); // bias + counter-luma
+        dst[i  ] = dataA[i]*(1-t) + dataB[i]*t;
+        dst[i+1] = dataA[i+1]*(1-t) + dataB[i+1]*t;
+        dst[i+2] = dataA[i+2]*(1-t) + dataB[i+2]*t;
+        dst[i+3] = 255;
+      }else{
+        const s = useB ? dataB : dataA;
+        dst[i  ] = s[i  ];
+        dst[i+1] = s[i+1];
+        dst[i+2] = s[i+2];
+        dst[i+3] = 255;
+      }
+    }
+  }
+
+  // write mixed image
+  mixCtx.putImageData(out, 0, 0);
+
+  // mild feedback: draw previous result back onto itself
+  if(FEEDBACK>0){
+    mixCtx.globalAlpha = FEEDBACK;
+    mixCtx.drawImage(mixCan, 1, 0, mW, mH, 0, 0, mW, mH);
+    mixCtx.globalAlpha = 1;
+  }
+}
+
+/* ========== Draw panels with the mixed image ========== */
+function drawMixedIntoPanel(panel, a=1){
+  if(mixCan.width===0 || mixCan.height===0) return;
+  const {x,y,w,h,alpha} = panel;
+  const iw = mixCan.width, ih = mixCan.height;
+  const r  = Math.max((w/iw), (h/ih));
+  const nw = iw*r, nh = ih*r;
+  const ox = x + (w - nw)/2;
+  const oy = y + (h - nh)/2;
+  ctx.globalAlpha = a*alpha;
+  ctx.drawImage(mixCan, 0,0, iw,ih,  ox,oy, nw,nh);
+  ctx.globalAlpha = 1;
+}
+
+/* ========== Interaction: next source (double-tap/click) ========== */
+let sceneAdvancing=false, lastTap=0;
+async function handleAdvance(e){
+  const now=Date.now(), d=now-lastTap;
+  if(d<400 && !sceneAdvancing){
+    sceneAdvancing=true;
+    const v = await loadRandomVideo();
+    if(v){
+      // Move current B to A, load new into B (keeps continuity)
+      if(currentVideoB) currentVideoA = currentVideoB;
+      currentVideoB = v;
+      flash();
+    }
+    sceneAdvancing=false;
+    e.preventDefault();
+  }
+  lastTap=now;
+}
+canvas.addEventListener("touchstart",handleAdvance,{passive:false});
+canvas.addEventListener("click",handleAdvance);
+
+/* ========== HUD wiring ========== */
+const hud = document.getElementById('hud');
+const flashDiv = document.getElementById('flash');
+const modeSel = document.getElementById('mode');
+const sizeR = document.getElementById('size'), sizeOut = document.getElementById('sizeOut');
+const noiseR = document.getElementById('noise'), noiseOut = document.getElementById('noiseOut');
+const mixR = document.getElementById('mix'), mixOut = document.getElementById('mixOut');
+const fbR = document.getElementById('fb'), fbOut = document.getElementById('fbOut');
+const nextBtn = document.getElementById('nextVideo');
+
+modeSel.oninput = () => { MODE = modeSel.value; };
+sizeR.oninput  = () => { SIZE = parseFloat(sizeR.value); sizeOut.value = SIZE; };
+noiseR.oninput = () => { NOISE = parseFloat(noiseR.value); noiseOut.value = NOISE.toFixed(2); };
+mixR.oninput   = () => { MIX_BIAS = parseFloat(mixR.value); mixOut.value = MIX_BIAS.toFixed(2); };
+fbR.oninput    = () => { FEEDBACK = parseFloat(fbR.value); fbOut.value = FEEDBACK.toFixed(2); };
+
+nextBtn.onclick = async () => {
+  const v = await loadRandomVideo();
+  if(v){ if(currentVideoB) currentVideoA = currentVideoB; currentVideoB = v; flash(); }
+};
+
+/* familiar panel sliders */
+const sliders=[r1,r2,r3,r4,r5,r6,r7,r8];
+const outs=[o1,o2,o3,o4,o5,o6,o7,o8];
+for(let i=0;i<sliders.length;i++){
+  sliders[i].oninput=()=>{
+    outs[i].value=sliders[i].value;
+    [CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,ALPHA,STAGGER_X,SPINE_SHIFT,DEPTH_RANGE,VIDEO_SCALE] =
+      sliders.map(s=>parseFloat(s.value));
+    initCards();
+  };
+}
+
+/* HUD buttons */
+const toggleBtn = document.getElementById('toggleHUD');
+const resetBtn  = document.getElementById('resetHUD');
+const autoBtn   = document.getElementById('autoHUD');
+let hudVisible = true;
+
+toggleBtn.addEventListener('click', () => {
+  hudVisible = !hudVisible;
+  hud.classList.toggle('dimmed', !hudVisible);
+});
+toggleBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); toggleBtn.click(); }, {passive:false});
+
+resetBtn.addEventListener('click', resetHUD);
+resetBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); resetHUD(); }, {passive:false});
+
+autoBtn.addEventListener('click', ()=>{
+  autoMode = !autoMode;
+  autoBtn.style.background = autoMode ? 'rgba(150,200,255,.25)' : 'rgba(255,255,255,.10)';
+});
+
+function resetHUD(){
+  // flash HUD + screen
+  hud.style.transition='background .25s';
+  hud.style.background='rgba(255,255,255,0.35)';
+  setTimeout(()=>hud.style.background='var(--hud-bg)', 220);
+  flash();
+
+  // collage defaults
+  MODE='tiles'; modeSel.value='tiles';
+  SIZE=28; sizeR.value=28; sizeOut.value=28;
+  NOISE=0.18; noiseR.value=0.18; noiseOut.value='0.18';
+  MIX_BIAS=0.50; mixR.value=0.50; mixOut.value='0.50';
+  FEEDBACK=0.10; fbR.value=0.10; fbOut.value='0.10';
+
+  // panel defaults you asked
+  CENTER_OVERLAP=0; EDGE_PADDING=300; NUM_CARDS=8; ALPHA=0.35;
+  STAGGER_X=20; SPINE_SHIFT=26; DEPTH_RANGE=0.76; VIDEO_SCALE=1.5;
+  [r1.value,r2.value,r3.value,r4.value,r5.value,r6.value,r7.value,r8.value] =
+    [CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,ALPHA,STAGGER_X,SPINE_SHIFT,DEPTH_RANGE,VIDEO_SCALE];
+  [o1.value,o2.value,o3.value,o4.value,o5.value,o6.value,o7.value,o8.value] =
+    [CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,ALPHA,STAGGER_X,SPINE_SHIFT,DEPTH_RANGE,VIDEO_SCALE];
+  initCards();
+}
+
+function flash(){
+  flashDiv.style.background='rgba(255,255,255,0.28)';
+  setTimeout(()=>flashDiv.style.background='rgba(255,255,255,0)', 220);
+}
+
+const readout = document.getElementById('readout');
+function updateHUD(){
+  readout.textContent =
+`MODE:${MODE}  SIZE:${SIZE}  NOISE:${NOISE.toFixed(2)}  MIX_BIAS:${MIX_BIAS.toFixed(2)}  FEEDBACK:${FEEDBACK.toFixed(2)}
+CENTER_OVERLAP:${CENTER_OVERLAP.toFixed(1)}  EDGE_PADDING:${EDGE_PADDING.toFixed(1)}  NUM_CARDS:${NUM_CARDS}
+ALPHA:${ALPHA.toFixed(2)}  STAGGER_X:${STAGGER_X.toFixed(1)}  SPINE_SHIFT:${SPINE_SHIFT.toFixed(1)}
+DEPTH_RANGE:${DEPTH_RANGE.toFixed(2)}  VIDEO_SCALE:${VIDEO_SCALE.toFixed(2)}  AUTO:${autoMode?'ON':'OFF'}`;
+}
+
+/* ========== AUTO drift (optional – gentle) ========== */
+const autoMod = {
+  SIZE:{base:28, range:16, speed:0.25},
+  MIX :{base:0.50, range:0.3, speed:0.18},
+  NOISE:{base:0.18, range:0.15, speed:0.22},
+  SPINE:{base:26, range:10, speed:0.12}
+};
+
+/* ========== Render loop ========== */
+function render(){
+  const t = performance.now()*0.001;
+  if(autoMode){
+    SIZE = autoMod.SIZE.base + Math.sin(t*autoMod.SIZE.speed)*autoMod.SIZE.range;
+    sizeR.value = Math.max(1, Math.round(SIZE)); sizeOut.value = sizeR.value;
+    MIX_BIAS = autoMod.MIX.base + Math.sin(t*autoMod.MIX.speed)*autoMod.MIX.range;
+    mixR.value = MIX_BIAS; mixOut.value = MIX_BIAS.toFixed(2);
+    NOISE = Math.max(0, Math.min(1, autoMod.NOISE.base + Math.sin(t*autoMod.NOISE.speed)*autoMod.NOISE.range));
+    noiseR.value = NOISE; noiseOut.value = NOISE.toFixed(2);
+    SPINE_SHIFT = autoMod.SPINE.base + Math.sin(t*autoMod.SPINE.speed)*autoMod.SPINE.range;
+    r6.value = SPINE_SHIFT; o6.value = SPINE_SHIFT.toFixed(1);
+    initCards(); // keep spine tight while drifting
+  }
+
+  // Composite sources into offscreen
+  compositeFrame();
+
+  // slight canvas trail to soften
+  ctx.fillStyle = "rgba(0,0,0,0.06)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // draw panels with mixed image
+  for(const p of cards) drawMixedIntoPanel(p, 1);
+
+  updateHUD();
+  requestAnimationFrame(render);
+}
+
+/* ========== Boot ========== */
+(async()=>{
+  const a = await loadRandomVideo();
+  const b = await loadRandomVideo();
+  if(!a || !b){ console.warn("⚠️ Couldn’t load two videos"); return; }
+  currentVideoA = a; currentVideoB = b;
+  initCards();
+  render();
+})();
+</script>
+</body>
+</html>
