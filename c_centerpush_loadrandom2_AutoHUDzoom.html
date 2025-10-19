@@ -240,11 +240,19 @@ autoBtn.addEventListener("click",()=>{autoMode=!autoMode;
 });
 
 function toggleHUD(){
-  hudVisible=!hudVisible;
-  hud.style.opacity=hudVisible?"1":"0.15";
-  hud.style.pointerEvents=hudVisible?"auto":"none";
-  hud.classList.toggle("hidden",!hudVisible);
-}
+  hudVisible = !hudVisible;
+
+  if (hudVisible) {
+    hud.classList.remove("hidden");
+    hud.style.opacity = "1";
+    hud.style.pointerEvents = "auto";
+  } else {
+    hud.classList.add("hidden");
+    hud.style.opacity = "0.15";
+    // ✅ Keep HUD button clickable when hidden
+    document.getElementById("toggleHUD").style.pointerEvents = "auto";
+  }
+
 
 function resetHUD(){
   hud.style.transition="background 0.3s";
