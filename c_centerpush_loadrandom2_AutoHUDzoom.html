@@ -21,15 +21,55 @@
     user-select:none;width:320px;
     transition:opacity .4s ease,background .6s ease;
   }
-  #hud.hidden{opacity:0.15;pointer-events:none;}
-  #hud h1{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--hud-ac)}
-  .row{display:grid;grid-template-columns:115px 1fr 46px;gap:8px;align-items:center;margin:5px 0}
-  .row label{opacity:.9}
-  .row input[type="range"]{width:100%}
-  .readout{
-    margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);
-    font-size:11px;line-height:1.5;opacity:.8;white-space:pre;
+
+    /* When HUD is dimmed/hidden */
+  #hud.hidden {
+    opacity: 0.15;
   }
+
+  /* Keep the HUD toggle button bright and clickable even when dimmed */
+  #hud.hidden #toggleHUD {
+    opacity: 1 !important;
+    background: rgba(255,255,255,0.12) !important;
+    border-color: rgba(255,255,255,0.35) !important;
+  }
+
+  #hud h1 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--hud-ac);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 115px 1fr 46px;
+    gap: 8px;
+    align-items: center;
+    margin: 5px 0;
+  }
+
+  .row label {
+    opacity: 0.9;
+  }
+
+  .row input[type="range"] {
+    width: 100%;
+  }
+
+  .readout {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    font-size: 11px;
+    line-height: 1.5;
+    opacity: 0.8;
+    white-space: pre;
+  }
+  
+
+
+  
   .btnline{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
   .btn{
     background:rgba(255,255,255,.08);color:var(--hud-fg);
