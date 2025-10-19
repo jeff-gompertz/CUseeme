@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>c_centerpush_loadrandom2_AutoHUD</title>
+<title>c_centerpush_loadrandom2_FullAutoHUD</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   :root{
@@ -50,6 +50,7 @@
 
 <div id="hud">
   <h1>HUD Controls</h1>
+
   <div class="row"><label>CENTER_OVERLAP</label><input id="r1" type="range" min="0" max="400" value="220"/><output id="o1">220</output></div>
   <div class="row"><label>EDGE_PADDING</label><input id="r2" type="range" min="0" max="300" value="80"/><output id="o2">80</output></div>
   <div class="row"><label>NUM_CARDS</label><input id="r3" type="range" min="2" max="16" step="2" value="8"/><output id="o3">8</output></div>
@@ -58,16 +59,19 @@
   <div class="row"><label>SPINE_SHIFT</label><input id="r6" type="range" min="-100" max="100" value="0"/><output id="o6">0</output></div>
   <div class="row"><label>DEPTH_RANGE</label><input id="r7" type="range" min="0" max="1" step="0.01" value="0.4"/><output id="o7">0.4</output></div>
   <div class="row"><label>VIDEO_SCALE</label><input id="r8" type="range" min="0.8" max="1.5" step="0.01" value="1.0"/><output id="o8">1.0</output></div>
+
   <div class="btnline">
     <button class="btn" id="toggleHUD">HUD</button>
     <button class="btn" id="autoHUD">AUTO</button>
     <button class="btn" id="resetHUD">RESET</button>
   </div>
+
   <div class="readout" id="readout"></div>
 </div>
 
 <script>
-const canvas=document.getElementById("c"),ctx=canvas.getContext("2d");
+const canvas=document.getElementById("c");
+const ctx=canvas.getContext("2d");
 function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
 window.addEventListener("resize",resize);resize();
 
@@ -75,19 +79,20 @@ window.addEventListener("resize",resize);resize();
 let CENTER_OVERLAP=220,EDGE_PADDING=80,NUM_CARDS=8,ALPHA=0.35,STAGGER_X=40,SPINE_SHIFT=0,DEPTH_RANGE=0.4,VIDEO_SCALE=1.0;
 let currentVideo=null,activeFade=null,cards=[],autoMode=false;
 
-/* === Modulation setup === */
-const auto={
-  CENTER_OVERLAP:{base:220,range:80,speed:0.0008,offset:0},
-  EDGE_PADDING:{base:80,range:40,speed:0.0006,offset:500},
-  STAGGER_X:{base:40,range:30,speed:0.0011,offset:1000},
-  SPINE_SHIFT:{base:0,range:70,speed:0.0009,offset:2000}
+/* === Auto modulation settings === */
+const autoMod={
+  CENTER_OVERLAP:{base:220,range:70,speed:0.001,offset:0},
+  EDGE_PADDING:{base:80,range:50,speed:0.0008,offset:1000},
+  STAGGER_X:{base:40,range:30,speed:0.0012,offset:2000},
+  SPINE_SHIFT:{base:0,range:60,speed:0.001,offset:3000}
 };
 
 /* === Load random WP video === */
 async function loadRandomVideo(){
   const API="https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=100";
   try{
-    const r=await fetch(API);const d=await r.json();
+    const r=await fetch(API);
+    const d=await r.json();
     const vids=d.filter(m=>m.mime_type?.startsWith("video/")||/\.mp4$/i.test(m.source_url));
     if(!vids.length)return null;
     const m=vids[Math.floor(Math.random()*vids.length)];
@@ -103,7 +108,7 @@ async function loadRandomVideo(){
 /* === Init cards === */
 function initCards(vid){
   const W=canvas.width,H=canvas.height;
-  const w=W/2+CENTER_OVERLAP,h=H;
+  const w=W/2+CENTER_OVERLAP, h=H;
   cards=[];
   const perSide=NUM_CARDS/2;
   for(let i=0;i<NUM_CARDS;i++){
@@ -115,17 +120,14 @@ function initCards(vid){
     let xBase;
     if(side==="left"){
       const edge=0-EDGE_PADDING;
-      const center=(W/2 - w/2)+CENTER_OVERLAP/2+SPINE_SHIFT;
-      xBase=edge+(center-edge)*t+inward;
+      const center=(W/2 - w/2)+CENTER_OVERLAP/2 + SPINE_SHIFT;
+      xBase=edge+(center-edge)*t + inward;
     }else{
       const edge=W - w + EDGE_PADDING;
-      const center=(W/2 - w/2)-CENTER_OVERLAP/2+SPINE_SHIFT;
-      xBase=edge+(center-edge)*t+inward;
+      const center=(W/2 - w/2) - CENTER_OVERLAP/2 + SPINE_SHIFT;
+      xBase=edge+(center-edge)*t + inward;
     }
-    cards.push({
-      x:xBase,y:yOff,w,h,side,vid:vid,
-      alpha:ALPHA - Math.random()*DEPTH_RANGE
-    });
+    cards.push({x:xBase,y:yOff,w,h,side,vid:vid,alpha:ALPHA - Math.random()*DEPTH_RANGE});
   }
 }
 
@@ -133,10 +135,10 @@ function initCards(vid){
 function drawVideo(v,c,a=1){
   if(!v||v.readyState<2)return;
   const {x,y,w,h,alpha}=c;
-  const iw=v.videoWidth||v.width,ih=v.videoHeight||v.height;
+  const iw=v.videoWidth||v.width, ih=v.videoHeight||v.height;
   const r=Math.max((w/iw)*VIDEO_SCALE,(h/ih)*VIDEO_SCALE);
-  const nw=iw*r,nh=ih*r;
-  const ox=x+(w-nw)/2,oy=y+(h-nh)/2;
+  const nw=iw*r, nh=ih*r;
+  const ox=x+(w-nw)/2, oy=y+(h-nh)/2;
   ctx.globalAlpha=a*alpha;
   ctx.drawImage(v,ox,oy,nw,nh);
   ctx.globalAlpha=1;
@@ -145,7 +147,7 @@ function drawVideo(v,c,a=1){
 /* === Fade === */
 function triggerFade(oldVid,newVid){activeFade={oldVid,newVid,progress:0};}
 
-/* === Advance on click / double-tap === */
+/* === Double-tap → next video === */
 let sceneAdvancing=false,lastTap=0;
 async function handleAdvance(e){
   const now=Date.now(),d=now-lastTap;
@@ -161,18 +163,16 @@ async function handleAdvance(e){
 canvas.addEventListener("touchstart",handleAdvance,{passive:false});
 canvas.addEventListener("click",handleAdvance);
 
-/* === HUD Linkages === */
-const sliders=[r1,r2,r3,r4,r5,r6,r7,r8],outs=[o1,o2,o3,o4,o5,o6,o7,o8];
+/* === HUD === */
+const sliders=[r1,r2,r3,r4,r5,r6,r7,r8];
+const outs=[o1,o2,o3,o4,o5,o6,o7,o8];
 for(let i=0;i<sliders.length;i++){
   sliders[i].oninput=()=>{
     outs[i].value=sliders[i].value;
-    [CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,ALPHA,STAGGER_X,SPINE_SHIFT,DEPTH_RANGE,VIDEO_SCALE]=
-      sliders.map(s=>parseFloat(s.value));
+    [CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,ALPHA,STAGGER_X,SPINE_SHIFT,DEPTH_RANGE,VIDEO_SCALE]=sliders.map(s=>parseFloat(s.value));
     initCards(currentVideo);
   };
 }
-
-/* === HUD Buttons === */
 const hud=document.getElementById("hud");
 const flash=document.getElementById("flash");
 document.getElementById("toggleHUD").onclick=()=>hud.classList.toggle("hidden");
@@ -188,8 +188,6 @@ document.getElementById("autoHUD").onclick=()=>{
   autoMode=!autoMode;
   document.getElementById("autoHUD").style.background=autoMode?"rgba(150,200,255,.25)":"rgba(255,255,255,.08)";
 };
-
-/* === HUD updates === */
 const readout=document.getElementById("readout");
 function updateHUD(){
   readout.textContent=
@@ -198,27 +196,19 @@ NUM_CARDS:${NUM_CARDS} ALPHA:${ALPHA.toFixed(2)} DEPTH_RANGE:${DEPTH_RANGE.toFix
 AUTO:${autoMode?"ON":"OFF"}`;
 }
 
-/* === Adaptive HUD transparency === */
-function adaptHUD(){
-  const frame=ctx.getImageData(canvas.width/2,canvas.height/2,1,1).data;
-  const lum=(0.299*frame[0]+0.587*frame[1]+0.114*frame[2])/255;
-  hud.style.background=lum<0.4?"rgba(25,25,25,.65)":"rgba(5,5,5,.3)";
-}
-
 /* === Render === */
 function render(){
   const t=performance.now();
   if(autoMode){
-    CENTER_OVERLAP=auto.CENTER_OVERLAP.base+Math.sin(t*auto.CENTER_OVERLAP.speed+auto.CENTER_OVERLAP.offset)*auto.CENTER_OVERLAP.range;
-    EDGE_PADDING  =auto.EDGE_PADDING.base  +Math.sin(t*auto.EDGE_PADDING.speed+auto.EDGE_PADDING.offset)*auto.EDGE_PADDING.range;
-    STAGGER_X     =auto.STAGGER_X.base     +Math.sin(t*auto.STAGGER_X.speed+auto.STAGGER_X.offset)*auto.STAGGER_X.range;
-    SPINE_SHIFT   =auto.SPINE_SHIFT.base   +Math.sin(t*auto.SPINE_SHIFT.speed+auto.SPINE_SHIFT.offset)*auto.SPINE_SHIFT.range;
+    CENTER_OVERLAP=autoMod.CENTER_OVERLAP.base+Math.sin(t*autoMod.CENTER_OVERLAP.speed+autoMod.CENTER_OVERLAP.offset)*autoMod.CENTER_OVERLAP.range;
+    EDGE_PADDING  =autoMod.EDGE_PADDING.base  +Math.sin(t*autoMod.EDGE_PADDING.speed+autoMod.EDGE_PADDING.offset)*autoMod.EDGE_PADDING.range;
+    STAGGER_X     =autoMod.STAGGER_X.base     +Math.sin(t*autoMod.STAGGER_X.speed+autoMod.STAGGER_X.offset)*autoMod.STAGGER_X.range;
+    SPINE_SHIFT   =autoMod.SPINE_SHIFT.base   +Math.sin(t*autoMod.SPINE_SHIFT.speed+autoMod.SPINE_SHIFT.offset)*autoMod.SPINE_SHIFT.range;
     initCards(currentVideo);
   }
 
   ctx.fillStyle="rgba(0,0,0,0.08)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
-
   if(activeFade){
     activeFade.progress+=0.02;
     const p=Math.min(1,activeFade.progress);
@@ -231,7 +221,7 @@ function render(){
     for(const c of cards)drawVideo(currentVideo,c,1);
   }
 
-  updateHUD();adaptHUD();
+  updateHUD();
   requestAnimationFrame(render);
 }
 
@@ -239,7 +229,9 @@ function render(){
 (async()=>{
   const v=await loadRandomVideo();
   if(!v){console.warn("⚠️ No video found");return;}
-  currentVideo=v;initCards(v);render();
+  currentVideo=v;
+  initCards(v);
+  render();
 })();
 </script>
 </body>
