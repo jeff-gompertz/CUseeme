@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>c_centerpush_CompositorLite</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{
+    --hud-bg: rgba(10,10,10,.45);
+    --hud-fg: #e6f3ff;
+    --hud-ac: #98d5ff;
+  }
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;}
+  canvas{display:block;touch-action:none}
+  #hud{
+    position:fixed;top:10px;left:10px;z-index:10;
+    padding:12px 14px;border-radius:8px;
+    background:var(--hud-bg);color:var(--hud-fg);
+    font:12px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    backdrop-filter: blur(6px);
+    user-select:none;width:340px;
+    transition:opacity .4s ease;
+  }
+  #hud h1{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--hud-ac)}
+  .row{display:grid;grid-template-columns:115px 1fr 46px;gap:8px;align-items:center;margin:5px 0}
+  .row label{opacity:.9}
+  .row input[type="range"]{width:100%}
+  select{background:rgba(255,255,255,.08);color:var(--hud-fg);border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:4px;width:100%;}
+  .btnline{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+  .btn{
+    background:rgba(255,255,255,.08);color:var(--hud-fg);
+    border:1px solid rgba(255,255,255,.16);
+    padding:5px 10px;border-radius:6px;cursor:pointer;
+    font-size:12px;letter-spacing:.03em;
+  }
+  .btn:hover{background:rgba(255,255,255,.14);}
+  .readout{
+    margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);
+    font-size:11px;line-height:1.5;opacity:.8;white-space:pre;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <h1>HUD Controls</h1>
+
+  <div class="row"><label>CENTER_OVERLAP</label><input id="r1" type="range" min="0" max="400" value="100"/><output id="o1">100</output></div>
+  <div class="row"><label>EDGE_PADDING</label><input id="r2" type="range" min="0" max="300" value="160"/><output id="o2">160</output></div>
+  <div class="row"><label>NUM_CARDS</label><input id="r3" type="range" min="2" max="14" step="2" value="8"/><output id="o3">8</output></div>
+  <div class="row"><label>STAGGER_X</label><input id="r4" type="range" min="0" max="120" value="40"/><output id="o4">40</output></div>
+  <div class="row"><label>SPINE_SHIFT</label><input id="r5" type="range" min="-100" max="100" value="0"/><output id="o5">0</output></div>
+  <div class="row"><label>ALPHA</label><input id="r6" type="range" min="0" max="1" step="0.01" value="0.45"/><output id="o6">0.45</output></div>
+
+  <div class="row">
+    <label>BLEND_MODE</label>
+    <select id="blendMode">
+      <option>normal</option>
+      <option>screen</option>
+      <option>overlay</option>
+      <option>difference</option>
+      <option>lighten</option>
+      <option>xor</option>
+    </select>
+  </div>
+
+  <div class="btnline">
+    <button class="btn" id="autoHUD">AUTO</button>
+    <button class="btn" id="resetHUD">RESET</button>
+  </div>
+
+  <div class="readout" id="readout"></div>
+</div>
+
+<script>
+const canvas=document.getElementById("c");
+const ctx=canvas.getContext("2d");
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
+window.addEventListener("resize",resize);resize();
+
+/* === Parameters === */
+let CENTER_OVERLAP=100,EDGE_PADDING=160,NUM_CARDS=8,STAGGER_X=40,SPINE_SHIFT=0,ALPHA=0.45;
+let blendMode="difference",autoMode=false;
+let vids=[],currentPair=[];
+
+/* === WordPress video feed === */
+async function loadRandomVideo(){
+  const API="https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=100";
+  const r=await fetch(API);const d=await r.json();
+  const vids=d.filter(m=>m.mime_type?.startsWith("video/")||/\\.mp4$/i.test(m.source_url));
+  const m=vids[Math.floor(Math.random()*vids.length)];
+  const v=document.createElement("video");
+  v.src=m.source_url;v.loop=true;v.muted=true;v.playsInline=true;v.preload="auto";v.style.display="none";
+  document.body.appendChild(v);
+  await new Promise(res=>{const ok=()=>res();v.oncanplay=ok;v.onerror=ok;setTimeout(ok,1200);});
+  v.play().catch(()=>{});
+  return v;
+}
+
+/* === Layout === */
+function buildCards(){
+  const W=canvas.width,H=canvas.height;
+  const w=W/2+CENTER_OVERLAP,h=H;
+  const cards=[];const perSide=NUM_CARDS/2;
+  for(let i=0;i<NUM_CARDS;i++){
+    const side=i<perSide?"left":"right";
+    const idx=i%perSide;
+    const t=idx/(perSide-1);
+    const inward=(Math.random()-0.5)*STAGGER_X;
+    const yOff=(Math.random()-0.5)*40;
+    let xBase;
+    if(side==="left"){
+      const edge=0-EDGE_PADDING;
+      const center=(W/2 - w/2)+CENTER_OVERLAP/2 + SPINE_SHIFT;
+      xBase=edge+(center-edge)*t + inward;
+    }else{
+      const edge=W - w + EDGE_PADDING;
+      const center=(W/2 - w/2) - CENTER_OVERLAP/2 + SPINE_SHIFT;
+      xBase=edge+(center-edge)*t + inward;
+    }
+    cards.push({x:xBase,y:yOff,w,h,side,alpha:ALPHA - Math.random()*0.3});
+  }
+  return cards;
+}
+let cards=buildCards();
+
+/* === HUD === */
+const sliders=[r1,r2,r3,r4,r5,r6];
+const outs=[o1,o2,o3,o4,o5,o6];
+const autoBtn=document.getElementById("autoHUD");
+const resetBtn=document.getElementById("resetHUD");
+const blendSelect=document.getElementById("blendMode");
+const readout=document.getElementById("readout");
+
+for(let i=0;i<sliders.length;i++){
+  sliders[i].oninput=()=>{
+    outs[i].value=sliders[i].value;
+    [CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,STAGGER_X,SPINE_SHIFT,ALPHA]=
+      sliders.map(s=>parseFloat(s.value));
+    cards=buildCards();
+  };
+}
+blendSelect.onchange=()=>blendMode=blendSelect.value;
+
+autoBtn.onclick=()=>{
+  autoMode=!autoMode;
+  autoBtn.style.background=autoMode?"rgba(150,200,255,.25)":"rgba(255,255,255,.08)";
+};
+resetBtn.onclick=()=>{
+  CENTER_OVERLAP=100;EDGE_PADDING=160;NUM_CARDS=8;STAGGER_X=40;SPINE_SHIFT=0;ALPHA=0.45;
+  [r1.value,r2.value,r3.value,r4.value,r5.value,r6.value]=
+  [CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,STAGGER_X,SPINE_SHIFT,ALPHA];
+  [o1.value,o2.value,o3.value,o4.value,o5.value,o6.value]=
+  [CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,STAGGER_X,SPINE_SHIFT,ALPHA];
+  cards=buildCards();
+};
+
+/* === Renderer === */
+function drawLayer(v,cards,a){
+  if(!v||v.readyState<2)return;
+  const iw=v.videoWidth||640,ih=v.videoHeight||480;
+  for(const c of cards){
+    const r=Math.max((c.w/iw),(c.h/ih));
+    const nw=iw*r,nh=ih*r;
+    const ox=c.x+(c.w-nw)/2,oy=c.y+(c.h-nh)/2;
+    ctx.globalAlpha=c.alpha*a;
+    ctx.drawImage(v,ox,oy,nw,nh);
+  }
+  ctx.globalAlpha=1;
+}
+
+/* === Composite render === */
+function render(){
+  const t=performance.now()*0.001;
+  if(autoMode){
+    CENTER_OVERLAP=180+Math.sin(t*0.5)*60;
+    EDGE_PADDING=100+Math.cos(t*0.3)*40;
+    cards=buildCards();
+  }
+
+  ctx.fillStyle="rgba(0,0,0,0.12)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  if(currentPair.length===2){
+    ctx.save();
+    drawLayer(currentPair[0],cards,1);
+    ctx.globalCompositeOperation=blendMode;
+    drawLayer(currentPair[1],cards,1);
+    ctx.restore();
+  }
+
+  readout.textContent=`BLEND_MODE:${blendMode}\nAUTO:${autoMode?"ON":"OFF"}`;
+  requestAnimationFrame(render);
+}
+
+/* === Boot === */
+(async()=>{
+  const v1=await loadRandomVideo();
+  const v2=await loadRandomVideo();
+  currentPair=[v1,v2];
+  render();
+})();
+</script>
+</body>
+</html>
