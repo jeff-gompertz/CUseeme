@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>a_faultline_databender</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;}
+  canvas{display:block}
+  /* HUD */
+  #hud{
+    position:fixed;top:10px;left:10px;z-index:10;
+    padding:10px 12px;border-radius:8px;
+    background:rgba(10,10,10,.55);color:#e6f3ff;
+    font:12px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    backdrop-filter: blur(6px);
+    user-select:none; width:300px;
+  }
+  #hud h1{margin:0 0 8px;font-size:12px;font-weight:600;color:#98d5ff}
+  .row{display:grid;grid-template-columns:115px 1fr 50px;gap:8px;align-items:center;margin:6px 0}
+  .row input[type="range"]{width:100%}
+  .btnline{display:flex;gap:8px;margin-top:6px}
+  .btn{padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#e6f3ff;cursor:pointer}
+  .btn:hover{background:rgba(255,255,255,.14)}
+  select{width:100%}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <h1>Faultline Databender</h1>
+
+  <div class="row">
+    <label>SLICE_SIZE</label>
+    <input id="slice" type="range" min="4" max="120" value="32">
+    <output id="sliceOut">32</output>
+  </div>
+
+  <div class="row">
+    <label>FEEDBACK</label>
+    <input id="fb" type="range" min="0" max="0.95" step="0.01" value="0.18">
+    <output id="fbOut">0.18</output>
+  </div>
+
+  <div class="row">
+    <label>DRIFT_SPEED</label>
+    <input id="drift" type="range" min="0" max="4" step="0.05" value="1.2">
+    <
