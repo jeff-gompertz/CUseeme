@@ -48,7 +48,8 @@
   var BUCKETS=[["bus","mask","gen2"],["zero","ghost"],["street","night","cutup"]];
 
   function loadVideos(bucket, cb){
-    var origin=window.location.origin||(window.location.protocol+"//"+window.location.host);
+
+    var origin = "https://art.jeffgompertz.site";
     var API=origin+"/wp-json/wp/v2/media?per_page=50";
     fetch(API).then(function(r){return r.json();}).then(function(d){
       var filtered=[], i, m, title, caption, desc, url, k, kw, hit;
