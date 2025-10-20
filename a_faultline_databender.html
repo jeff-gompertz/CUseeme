@@ -1,49 +1,135 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>a_faultline_databender</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-  html,body{margin:0;height:100%;background:#000;overflow:hidden;}
-  canvas{display:block}
-  /* HUD */
-  #hud{
-    position:fixed;top:10px;left:10px;z-index:10;
-    padding:10px 12px;border-radius:8px;
-    background:rgba(10,10,10,.55);color:#e6f3ff;
-    font:12px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-    backdrop-filter: blur(6px);
-    user-select:none; width:300px;
+<!-- Faultline Databender (WP-safe) -->
+<canvas id="faultline" style="width:100vw;height:100vh;display:block;background:black"></canvas>
+
+<div id="hud-fault" style="position:fixed;top:10px;left:10px;z-index:10;padding:10px 12px;border-radius:8px;background:rgba(10,10,10,.55);color:#e6f3ff;font:12px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;backdrop-filter:blur(6px);width:300px">
+  <div style="margin:0 0 8px;font-weight:600;color:#98d5ff">Faultline Databender</div>
+  <div style="display:grid;grid-template-columns:115px 1fr 50px;gap:8px;align-items:center;margin:6px 0"><label>SLICE_SIZE</label><input id="fl-slice" type="range" min="4" max="120" value="32"><output id="fl-slice-o">32</output></div>
+  <div style="display:grid;grid-template-columns:115px 1fr 50px;gap:8px;align-items:center;margin:6px 0"><label>FEEDBACK</label><input id="fl-fb" type="range" min="0" max="0.95" step="0.01" value="0.18"><output id="fl-fb-o">0.18</output></div>
+  <div style="display:grid;grid-template-columns:115px 1fr 50px;gap:8px;align-items:center;margin:6px 0"><label>DRIFT_SPEED</label><input id="fl-drift" type="range" min="0" max="4" step="0.05" value="1.2"><output id="fl-drift-o">1.2</output></div>
+  <div style="display:grid;grid-template-columns:115px 1fr 50px;gap:8px;align-items:center;margin:6px 0">
+    <label>BLEND_MODE</label>
+    <select id="fl-blend">
+      <option value="source-over">normal</option><option value="lighter">lighter</option>
+      <option value="difference">difference</option><option value="multiply">multiply</option>
+      <option value="screen">screen</option><option value="xor">xor</option>
+    </select><span></span>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button id="fl-toggle" style="padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#e6f3ff;cursor:pointer">HUD</button>
+    <button id="fl-shuf" style="padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#e6f3ff;cursor:pointer">Shuffle</button>
+  </div>
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+(function(){
+  var cv=document.getElementById('faultline'); if(!cv) return;
+  var ctx=cv.getContext('2d');
+  function rs(){ cv.width=window.innerWidth||document.documentElement.clientWidth||document.body.clientWidth;
+                 cv.height=window.innerHeight||document.documentElement.clientHeight||document.body.clientHeight; }
+  window.addEventListener('resize',rs,false); rs();
+
+  // HUD wires
+  var sEl=document.getElementById('fl-slice'), sOut=document.getElementById('fl-slice-o');
+  var fEl=document.getElementById('fl-fb'), fOut=document.getElementById('fl-fb-o');
+  var dEl=document.getElementById('fl-drift'), dOut=document.getElementById('fl-drift-o');
+  var bEl=document.getElementById('fl-blend');
+  var hud=document.getElementById('hud-fault');
+  var tBtn=document.getElementById('fl-toggle');
+  var shBtn=document.getElementById('fl-shuf');
+
+  var SLICE_SIZE=parseInt(sEl.value,10), FEEDBACK=parseFloat(fEl.value), DRIFT_SPEED=parseFloat(dEl.value), BLEND_MODE=bEl.value;
+  sEl.oninput=function(){ SLICE_SIZE=parseInt(sEl.value,10); sOut.value=SLICE_SIZE; };
+  fEl.oninput=function(){ FEEDBACK=parseFloat(fEl.value); fOut.value=FEEDBACK.toFixed(2); };
+  dEl.oninput=function(){ DRIFT_SPEED=parseFloat(dEl.value); dOut.value=DRIFT_SPEED.toFixed(2); };
+  bEl.onchange=function(){ BLEND_MODE=bEl.value; };
+  tBtn.onclick=function(){ hud.style.display=(hud.style.display==='none'?'block':'none'); };
+
+  var BUCKETS=[["bus","mask","gen2"],["zero","ghost"],["street","night","cutup"]];
+
+  function loadVideos(bucket, cb){
+    var origin=window.location.origin||(window.location.protocol+"//"+window.location.host);
+    var API=origin+"/wp-json/wp/v2/media?per_page=50";
+    fetch(API).then(function(r){return r.json();}).then(function(d){
+      var filtered=[], i, m, title, caption, desc, url, k, kw, hit;
+      for(i=0;i<d.length;i++){
+        m=d[i]; if(!m||!m.mime_type||m.mime_type.indexOf("video/")!==0) continue;
+        title=(m.title&&m.title.rendered?m.title.rendered:"").toLowerCase();
+        caption=(m.caption&&m.caption.rendered?m.caption.rendered.replace(/<[^>]*>/g,""):"").toLowerCase();
+        desc=(m.description&&m.description.rendered?m.description.rendered.replace(/<[^>]*>/g,""):"").toLowerCase();
+        url=(m.source_url?m.source_url:"").toLowerCase();
+        hit=false; for(k=0;k<bucket.length;k++){ kw=bucket[k];
+          if(title.indexOf(kw)>-1||caption.indexOf(kw)>-1||desc.indexOf(kw)>-1||url.indexOf(kw)>-1){hit=true;break;}
+        }
+        if(hit) filtered.push(m);
+      }
+      var vids=[];
+      (function next(i){
+        if(i>=filtered.length){ cb(vids); return; }
+        var v=document.createElement('video'); v.src=filtered[i].source_url||"";
+        v.loop=true; v.muted=true; v.playsInline=true; v.preload="auto"; v.style.display="none";
+        document.body.appendChild(v);
+        var done=false; function ok(){ if(done)return; done=true; try{v.play();}catch(e){} vids.push(v); next(i+1); }
+        v.oncanplay=ok; v.onloadeddata=ok; v.onerror=ok; setTimeout(ok,1500);
+      })(0);
+    }).catch(function(){ cb([]); });
   }
-  #hud h1{margin:0 0 8px;font-size:12px;font-weight:600;color:#98d5ff}
-  .row{display:grid;grid-template-columns:115px 1fr 50px;gap:8px;align-items:center;margin:6px 0}
-  .row input[type="range"]{width:100%}
-  .btnline{display:flex;gap:8px;margin-top:6px}
-  .btn{padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#e6f3ff;cursor:pointer}
-  .btn:hover{background:rgba(255,255,255,.14)}
-  select{width:100%}
-</style>
-</head>
-<body>
-<canvas id="c"></canvas>
 
-<div id="hud">
-  <h1>Faultline Databender</h1>
+  function unlock(){ var L=document.getElementsByTagName('video'); for(var i=0;i<L.length;i++){ try{L[i].play();}catch(e){} } }
+  window.addEventListener('touchstart',unlock,{once:true});
+  window.addEventListener('click',unlock,{once:true});
 
-  <div class="row">
-    <label>SLICE_SIZE</label>
-    <input id="slice" type="range" min="4" max="120" value="32">
-    <output id="sliceOut">32</output>
-  </div>
+  var sources=[], A=null, B=null;
+  function pickPair(){
+    if(sources.length===0){A=B=null;return;}
+    if(sources.length===1){A=sources[0];B=sources[0];return;}
+    var a=Math.floor(Math.random()*sources.length), b=a; while(b===a){ b=Math.floor(Math.random()*sources.length); }
+    A=sources[a]; B=sources[b];
+  }
+  shBtn.onclick=pickPair;
 
-  <div class="row">
-    <label>FEEDBACK</label>
-    <input id="fb" type="range" min="0" max="0.95" step="0.01" value="0.18">
-    <output id="fbOut">0.18</output>
-  </div>
+  function drawCover(v,x,y,w,h){
+    if(!v||v.readyState<2) return;
+    var iw=v.videoWidth||v.width||0, ih=v.videoHeight||v.height||0; if(!iw||!ih)return;
+    var r=Math.max(w/iw,h/ih), nw=iw*r, nh=ih*r, ox=x+(w-nw)/2, oy=y+(h-nh)/2;
+    ctx.drawImage(v,ox,oy,nw,nh);
+  }
 
-  <div class="row">
-    <label>DRIFT_SPEED</label>
-    <input id="drift" type="range" min="0" max="4" step="0.05" value="1.2">
-    <
+  var t=0;
+  function loop(){
+    t+=1/60;
+    if(FEEDBACK>0){
+      ctx.save(); ctx.globalAlpha=FEEDBACK; ctx.setTransform(1,0,0,1,0.15,0.1); ctx.drawImage(cv,0,0); ctx.restore();
+    }else{
+      ctx.fillStyle="rgba(0,0,0,0.05)"; ctx.fillRect(0,0,cv.width,cv.height);
+    }
+
+    if(A&&B&&A.readyState>=2){
+      var W=cv.width,H=cv.height, stripes=Math.max(1,Math.floor(H/SLICE_SIZE));
+      var driftPx=(Math.sin(t*DRIFT_SPEED)*0.5+0.5)*SLICE_SIZE;
+
+      ctx.globalCompositeOperation='source-over';
+      drawCover(A,0,0,W,H);
+
+      ctx.globalCompositeOperation=document.getElementById('fl-blend').value;
+      for(var i=0;i<stripes;i++){
+        if(i%2===0) continue;
+        var y=(Math.floor(i*SLICE_SIZE + driftPx)) % H;
+        ctx.save(); ctx.beginPath(); ctx.rect(0,y,W,SLICE_SIZE); ctx.clip(); drawCover(B,0,0,W,H); ctx.restore();
+      }
+
+      var hSize=SLICE_SIZE*2, cols=Math.max(1,Math.floor(W/hSize));
+      for(var j=0;j<cols;j++){
+        if(((j+(t*0.3)|0)%4)!==0) continue;
+        var xx=(j*hSize + (driftPx*0.6)) % W;
+        ctx.save(); ctx.beginPath(); ctx.rect(xx,0,hSize*0.6,H); ctx.clip(); drawCover(B,0,0,W,H); ctx.restore();
+      }
+      ctx.globalCompositeOperation='source-over';
+    }
+    requestAnimationFrame(loop);
+  }
+
+  loadVideos(BUCKETS[0], function(vs){ sources=vs; pickPair(); loop(); });
+})();
+//]]>
+</script>
