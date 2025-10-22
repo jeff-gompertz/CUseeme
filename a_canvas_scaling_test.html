@@ -45,30 +45,46 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 let video;
 
-// 🧱 Resize canvas to viewport
 function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
-// ✅ Use an open MP4 (NASA) – totally unrestricted
-const videoSrc = "https://cdn.pixabay.com/vimeo/275411902/earth-1538.mp4?width=1280&hash=63e5b3e0d9489a661cb86d4e63e59552a80f90cf";
+const videoSrc =
+  "https://cdn.pixabay.com/vimeo/275411902/earth-1538.mp4?width=1280&hash=63e5b3e0d9489a661cb86d4e63e59552a80f90cf";
 
 video = document.createElement('video');
 video.src = videoSrc;
 video.crossOrigin = "anonymous";
-video.autoplay = true;
 video.loop = true;
 video.muted = true;
 video.playsInline = true;
-video.play();
+video.style.display = "none";
+document.body.appendChild(video);
 
-// 🔁 Draw video frames on canvas, scaling perfectly
+async function startVideo() {
+  try {
+    await video.play();
+    draw();
+  } catch (e) {
+    console.log("Autoplay blocked, waiting for user tap");
+    const tapText = document.createElement('div');
+    tapText.textContent = "▶️ Tap to start video";
+    tapText.style.cssText =
+      "color:white;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:sans-serif;font-size:1.2rem;";
+    document.body.appendChild(tapText);
+    document.body.addEventListener("click", () => {
+      tapText.remove();
+      video.play();
+      draw();
+    }, { once: true });
+  }
+}
+
 function draw() {
   if (video.readyState >= 2) {
-    // cover-style scaling (like CSS background-size: cover)
     const canvasRatio = canvas.width / canvas.height;
     const videoRatio = video.videoWidth / video.videoHeight;
     let drawWidth, drawHeight, offsetX, offsetY;
@@ -84,12 +100,14 @@ function draw() {
       offsetX = 0;
       offsetY = (canvas.height - drawHeight) / 2;
     }
-
     ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
   }
   requestAnimationFrame(draw);
 }
-draw();
+
+startVideo();
 </script>
+
+  
 </body>
 </html>
