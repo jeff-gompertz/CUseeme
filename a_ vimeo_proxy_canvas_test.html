@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vimeo Proxy Canvas Test</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: black;
+    overflow: hidden;
+  }
+  video, canvas {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+</style>
+</head>
+<body>
+  <video id="v" autoplay loop playsinline muted></video>
+  <canvas id="c"></canvas>
+
+  <script>
+  const v = document.getElementById('v');
+  const c = document.getElementById('c');
+  const ctx = c.getContext('2d');
+
+  c.width = window.innerWidth;
+  c.height = window.innerHeight;
+
+  // ✅ Vimeo via your Netlify proxy
+  v.src = "https://meek-blancmange-803ac1.netlify.app/.netlify/functions/proxy?url=https://player.vimeo.com/video/76979871";
+
+  // ✅ Draw each video frame to canvas
+  v.addEventListener('play', () => {
+    function draw() {
+      if (!v.paused && !v.ended) {
+        ctx.drawImage(v, 0, 0, c.width, c.height);
+        requestAnimationFrame(draw);
+      }
+    }
+    draw();
+  });
+  </script>
+</body>
+</html>
