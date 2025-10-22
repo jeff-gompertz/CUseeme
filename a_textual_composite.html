@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>textual_composite</title>
+<style>
+html, body {
+margin: 0;
+padding: 0;
+overflow: hidden;
+background: black;
+height: 100%;
+width: 100%;
+font-family: Arial, Helvetica, sans-serif;
+}
+
+/* === Vimeo background === */
+#bg {
+position: fixed;
+top: 0; left: 0;
+width: 100vw;
+height: 100vh;
+overflow: hidden;
+z-index: 0;
+}
+#bg iframe {
+position: absolute;
+top: 0; left: 0;
+width: 100%;
+height: 100%;
+border: 0;
+object-fit: cover;
+}
+
+/* === Text scroller === */
+#ecran {
+position: relative;
+z-index: 2;
+width: 80%;
+height: 100vh;
+margin: 0 auto;
+color: white;
+font-size: 10rem;
+font-weight: bold;
+line-height: 1.2;
+text-align: center;
+opacity: 0.9;
+overflow: hidden;
+}
+#ecran-inner {
+height: 100%;
+width: 100%;
+overflow-y: scroll;
+scrollbar-width: none;
+-ms-overflow-style: none;
+}
+#ecran-inner::-webkit-scrollbar { display: none; }
+
+/* Smooth fade-in on load */
+body {
+animation: fadein 2s ease forwards;
+opacity: 0;
+}
+@keyframes fadein {
+to { opacity: 1; }
+}
+</style>
+</head>
+<body>
+
+<!-- === Vimeo Background === -->
+<div id="bg">
+<!-- Replace VIDEO_ID below with any Vimeo video ID you prefer -->
+<iframe
+src="https://player.vimeo.com/video/808080808?autoplay=1&muted=1&loop=1&background=1"
+allow="autoplay; fullscreen"
+allowfullscreen>
+</iframe>
+</div>
+
+<!-- === NYT RSS Text Overlay === -->
+<div id="ecran">
+<div id="ecran-inner">
+<script src="//rss.bloople.net/?url=https%3A%2F%2Frss.nytimes.com%2Fservices%2Fxml%2Frss%2Fnyt%2FHomePage.xml&showtitle=false&type=js"></script>
+</div>
+</div>
+
+<script>
+/* === Auto Scroll === */
+function ScrollDiv() {
+const inner = document.getElementById('ecran-inner');
+if (inner.scrollTop < inner.scrollHeight - inner.offsetHeight) {
+inner.scrollTop += 1;
+} else {
+inner.scrollTop = 0;
+}
+}
+setInterval(ScrollDiv, 15);
+</script>
+
+</body>
+</html>
