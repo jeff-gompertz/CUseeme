@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canvas Scaling Test</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+  }
+
+  canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    background: black;
+  }
+
+  #info {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    color: white;
+    font-family: monospace;
+    font-size: 1rem;
+    background: rgba(0,0,0,0.5);
+    padding: 0.25rem 0.5rem;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="info">🎥 Canvas Scaling Test (Open MP4)</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let video;
+
+// 🧱 Resize canvas to viewport
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// ✅ Use an open MP4 (NASA) – totally unrestricted
+const videoSrc = "https://cdn.pixabay.com/vimeo/275411902/earth-1538.mp4?width=1280&hash=63e5b3e0d9489a661cb86d4e63e59552a80f90cf";
+
+video = document.createElement('video');
+video.src = videoSrc;
+video.crossOrigin = "anonymous";
+video.autoplay = true;
+video.loop = true;
+video.muted = true;
+video.playsInline = true;
+video.play();
+
+// 🔁 Draw video frames on canvas, scaling perfectly
+function draw() {
+  if (video.readyState >= 2) {
+    // cover-style scaling (like CSS background-size: cover)
+    const canvasRatio = canvas.width / canvas.height;
+    const videoRatio = video.videoWidth / video.videoHeight;
+    let drawWidth, drawHeight, offsetX, offsetY;
+
+    if (videoRatio > canvasRatio) {
+      drawHeight = canvas.height;
+      drawWidth = video.videoWidth * (canvas.height / video.videoHeight);
+      offsetX = (canvas.width - drawWidth) / 2;
+      offsetY = 0;
+    } else {
+      drawWidth = canvas.width;
+      drawHeight = video.videoHeight * (canvas.width / video.videoWidth);
+      offsetX = 0;
+      offsetY = (canvas.height - drawHeight) / 2;
+    }
+
+    ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
+  }
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>
