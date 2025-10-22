@@ -14,8 +14,9 @@
 
 <script>
 const v = document.getElementById("v");
-v.src = "https://cdn.jsdelivr.net/gh/naptha/tesseract.js@master/docs/images/video/space.mp4";
-v.play().catch(err => console.warn("Autoplay failed:", err));
+v.src = "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/gear1/prog_index.m3u8";
+v.play().catch(err => alert("Playback error: " + err.message));
 </script>
+  
 </body>
 </html>
