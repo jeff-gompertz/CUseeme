@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vertical Feed Canvas Test</title>
+<style>
+  html,body { margin:0; height:100%; background:black; overflow:hidden; }
+  canvas { width:100%; height:100%; display:block; }
+  #msg { position:absolute; top:10px; left:10px; color:white; font:14px monospace; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="msg">🎞️ Loading vertical video...</div>
+
+<script>
+const src = "https://storage.googleapis.com/coverr-main/mp4/Street_Drive.mp4"; // portrait-ish clip
+const v = document.createElement("video");
+v.src = src;
+v.muted = true;
+v.loop = true;
+v.playsInline = true;
+v.autoplay = true;
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+
+function resize() {
+  c.width = window.innerWidth;
+  c.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+v.addEventListener("play", () => {
+  document.getElementById("msg").textContent = "🎥 Playing open vertical feed";
+  draw();
+});
+
+function draw() {
+  if (!v.paused && !v.ended) {
+    const scale = Math.max(c.width / v.videoWidth, c.height / v.videoHeight);
+    const w = v.videoWidth * scale;
+    const h = v.videoHeight * scale;
+    const x = (c.width - w) / 2;
+    const y = (c.height - h) / 2;
+    ctx.drawImage(v, x, y, w, h);
+  }
+  requestAnimationFrame(draw);
+}
+
+v.play().catch(() => {
+  document.getElementById("msg").textContent = "▶️ Tap to start video";
+  document.body.addEventListener("click", () => v.play(), { once: true });
+});
+</script>
+</body>
+</html>
