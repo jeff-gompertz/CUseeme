@@ -1,0 +1,53 @@
+<style>
+html, body {
+  margin: 0; padding: 0;
+  height: 100%; overflow: hidden;
+  background: black;
+}
+#vimeo-bg {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+  z-index: 0;
+}
+#vimeo-bg iframe {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 120vw; height: 120vh;
+  transform: translate(-50%, -50%) scale(1.2);
+  transform-origin: center;
+  border: none;
+  pointer-events: none;
+}
+@supports (-webkit-touch-callout: none) {
+  #vimeo-bg iframe {
+    width: 200vw; height: 200vh;
+    transform: translate(-50%, -50%) scale(1.25);
+  }
+}
+</style>
+
+<div id="vimeo-bg"></div>
+
+<script>
+(async () => {
+  const container = document.getElementById('vimeo-bg');
+  try {
+    const res = await fetch('https://api.allorigins.win/raw?url=https://vimeo.com/channels/staffpicks/videos/rss');
+    const text = await res.text();
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(text, 'text/xml');
+    const firstItem = xml.querySelector('item link');
+    const link = firstItem ? firstItem.textContent.trim() : null;
+    if (!link) return;
+    const videoId = link.split('/').pop();
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://player.vimeo.com/video/${videoId}?background=1&autoplay=1&muted=1&loop=1`;
+    iframe.allow = "autoplay; fullscreen";
+    container.appendChild(iframe);
+  } catch (err) {
+    console.warn('Vimeo RSS error:', err);
+  }
+})();
+</script>
