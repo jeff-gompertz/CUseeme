@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vimeo Vertical Feed → Canvas Test</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: black;
+    overflow: hidden;
+  }
+
+  canvas#vimeoCanvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    background: black;
+    z-index: 0;
+  }
+
+  #vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,0.45) 100%);
+    z-index: 1;
+  }
+
+  /* iOS safe full-screen fix */
+  @supports (-webkit-touch-callout: none) {
+    html, body {
+      height: -webkit-fill-available;
+      background: #000;
+      overflow: hidden;
+    }
+    canvas#vimeoCanvas {
+      height: -webkit-fill-available;
+    }
+  }
+</style>
+</head>
+<body>
+<canvas id="vimeoCanvas"></canvas>
+<div id="vignette"></div>
+
+<script>
+(async () => {
+  const canvas = document.getElementById("vimeoCanvas");
+  const ctx = canvas.getContext("2d");
+  const video = document.createElement("video");
+  video.crossOrigin = "anonymous";
+  video.muted = true;
+  video.loop = true;
+  video.playsInline = true;
+  video.autoplay = true;
+  video.style.display = "none";
+  document.body.appendChild(video);
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resizeCanvas();
+  window.addEventListener("resize", resizeCanvas);
+
+  try {
+    // Fetch Vimeo RSS feed for videos tagged "vertical"
+    const feedRes = await fetch(
+      "https://api.allorigins.win/raw?url=https://vimeo.com/tag:vertical/videos/rss"
+    );
+    const feedText = await feedRes.text();
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(feedText, "text/xml");
+    const items = [...xml.querySelectorAll("item")];
+    if (!items.length) throw new Error("No videos found in RSS.");
+
+    // Take first video link
+    const link = items[0].querySelector("link")?.textContent.trim();
+    const id = link?.split("/").pop();
+    const vimeoPlayer = `https://player.vimeo.com/video/${id}?background=1&autoplay=1&muted=1&loop=1`;
+
+    // Use your Netlify proxy to bypass CORS
+    const proxied = `https://meek-blancmange-803ac1.netlify.app/.netlify/functions/proxy?url=${encodeURIComponent(vimeoPlayer)}`;
+
+    console.log("🎬 Playing:", link);
+
+    // Load through iframe shim (not pixel stream)
+    const iframe = document.createElement("iframe");
+    iframe.src = vimeoPlayer;
+    iframe.allow = "autoplay; fullscreen";
+    iframe.style.position = "fixed";
+    iframe.style.top = "50%";
+    iframe.style.left = "50%";
+    iframe.style.width = "100vw";
+    iframe.style.height = "177.78vw"; /* 9:16 portrait base */
+    iframe.style.transform = "translate(-50%, -50%)";
+    iframe.style.objectFit = "cover";
+    iframe.style.zIndex = "0";
+    iframe.style.border = "none";
+    iframe.style.opacity = "1";
+    document.body.appendChild(iframe);
+  } catch (err) {
+    console.warn("Vimeo RSS vertical error:", err);
+    ctx.fillStyle = "white";
+    ctx.font = "20px Arial";
+    ctx.fillText("Feed error: " + err.message, 20, 40);
+  }
+})();
+</script>
+</body>
+</html>
