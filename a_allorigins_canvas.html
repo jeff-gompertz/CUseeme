@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Canvas Vimeo Test – Free Proxy</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden}
+  canvas{width:100%;height:100%;display:block;object-fit:cover}
+  #msg{position:absolute;top:10px;left:10px;color:#ccc;font:16px monospace}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="msg">⏳ Loading Vimeo via free proxy…</div>
+
+<script>
+const proxy = "https://api.allorigins.win/raw?url=";
+const vimeoMP4 = "https://player.vimeo.com/external/76979871.sd.mp4";
+const videoSrc = proxy + encodeURIComponent(vimeoMP4);
+
+const video = document.createElement("video");
+video.src = videoSrc;
+video.muted = true;
+video.loop = true;
+video.playsInline = true;
+video.autoplay = true;
+video.crossOrigin = "anonymous";
+
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+video.onplay = () => document.getElementById("msg").textContent = "🎥 Playing via AllOrigins";
+
+function draw() {
+  if (video.readyState >= 2) {
+    // COVER-style scaling (fills viewport, crops edges)
+    const scale = Math.max(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
+    const w = video.videoWidth * scale;
+    const h = video.videoHeight * scale;
+    const x = (canvas.width - w) / 2;
+    const y = (canvas.height - h) / 2;
+    ctx.drawImage(video, x, y, w, h);
+  }
+  requestAnimationFrame(draw);
+}
+draw();
+
+video.play().catch(err => {
+  document.getElementById("msg").textContent = "▶️ Tap to start video";
+  document.body.addEventListener("click", () => video.play(), { once:true });
+});
+</script>
+</body>
+</html>
