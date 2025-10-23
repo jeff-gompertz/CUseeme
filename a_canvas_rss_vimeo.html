@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vimeo RSS → Canvas Test</title>
+<style>
+  html, body { margin:0; padding:0; height:100%; background:black; }
+  canvas { width:100%; height:100%; display:block; object-fit:cover; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<video id="v" playsinline muted loop crossorigin="anonymous" style="display:none"></video>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const video = document.getElementById('v');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Step 1: Fetch Vimeo Staff Picks RSS
+const rssUrl = "https://vimeo.com/channels/staffpicks/videos/rss";
+
+fetch(rssUrl)
+  .then(res => res.text())
+  .then(str => new window.DOMParser().parseFromString(str, "text/xml"))
+  .then(data => {
+    const firstItem = data.querySelector("item link");
+    if (!firstItem) throw new Error("No items found in RSS");
+    const videoLink = firstItem.textContent.trim();
+    console.log("🎞 First video:", videoLink);
+
+    // Step 2: Use Vimeo player embed through your proxy
+    const proxy = "https://meek-blancmange-803ac1.netlify.app/.netlify/functions/proxy?url=";
+    video.src = proxy + encodeURIComponent(videoLink);
+    video.play().then(draw).catch(err => alert("Tap to start video"));
+  })
+  .catch(err => {
+    console.error("RSS fetch error:", err);
+    ctx.fillStyle = "white";
+    ctx.fillText("RSS load failed", 20, 40);
+  });
+
+function draw() {
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  requestAnimationFrame(draw);
+}
+</script>
+</body>
+</html>
