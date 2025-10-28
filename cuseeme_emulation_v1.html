@@ -1,0 +1,122 @@
+<!-- === cucme_emulation_v1.html — live mirror + prompt === -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CUCME Emulation v1 — Mirror Field</title>
+
+<style>
+html,body {
+  margin:0;
+  padding:0;
+  height:100%;
+  background:#fff;
+  overflow:hidden;
+  font-family:monospace;
+  color:#000;
+}
+
+/* CAMERA LAYER */
+#mirror {
+  position:fixed;
+  inset:0;
+  background:#fff;
+  object-fit:cover;
+  transform:scaleX(-1); /* true mirror */
+  display:none;
+  z-index:0;
+}
+
+/* PERMISSION OVERLAY */
+#overlay {
+  position:fixed;
+  inset:0;
+  background:rgba(255,255,255,0.95);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:1.5rem;
+  color:#000;
+  z-index:2;
+  transition:opacity 1s ease;
+}
+
+/* PROMPT FIELD */
+#hud {
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:3;
+  pointer-events:none;
+}
+
+#promptWrap {
+  pointer-events:auto;
+  background:rgba(255,255,255,0.6);
+  border:1px solid rgba(0,0,0,0.2);
+  border-radius:2rem;
+  padding:0.8rem 1.4rem;
+  min-width:40vw;
+  max-width:80vw;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  backdrop-filter:blur(4px);
+}
+
+#input {
+  border:none;
+  outline:none;
+  background:transparent;
+  width:100%;
+  font-size:1.2rem;
+  color:#000;
+  font-family:monospace;
+  text-align:center;
+}
+
+#caret {
+  width:0.6ch;
+  height:1.3em;
+  background:#000;
+  margin-left:0.2ch;
+  animation:blink 1s step-end infinite;
+}
+@keyframes blink { 50% { opacity:0; } }
+</style>
+</head>
+
+<body>
+<video id="mirror" autoplay muted playsinline></video>
+
+<div id="overlay">Allow camera to activate field?</div>
+
+<div id="hud">
+  <div id="promptWrap">
+    <input id="input" type="text" placeholder="type a thought…" spellcheck="false" autocomplete="off">
+    <div id="caret"></div>
+  </div>
+</div>
+
+<script>
+(async ()=>{
+  const video = document.getElementById('mirror');
+  const overlay = document.getElementById('overlay');
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    video.srcObject = stream;
+    video.style.display = 'block';
+    overlay.style.opacity = '0';
+    setTimeout(()=>overlay.style.display='none',1000);
+  } catch(err) {
+    overlay.textContent = "Camera access denied or unavailable.";
+    console.warn(err);
+  }
+})();
+</script>
+</body>
+</html>
