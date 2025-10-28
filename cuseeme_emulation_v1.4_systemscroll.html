@@ -1,0 +1,161 @@
+<!-- === cuseeme_emulation_v1.4_systemscroll.html === -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>CUSeeMe Emulation v1.4 — System Scroll</title>
+
+<style>
+html,body{
+  margin:0;
+  padding:0;
+  height:100%;
+  background:#fff;
+  overflow:hidden;
+  font-family:monospace;
+}
+
+/* === Live camera === */
+#camera{
+  position:fixed;
+  inset:0;
+  background:#fff;
+  object-fit:cover;
+  width:100vw;
+  height:100vh;
+  z-index:0;
+  filter:brightness(1);
+  transform:scaleX(-1); /* mirror */
+}
+
+/* === Prompt === */
+#promptWrap{
+  position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  z-index:2;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  pointer-events:auto;
+}
+
+#input{
+  background:transparent;
+  border:none;
+  outline:none;
+  font-size:2rem;
+  color:#000;
+  width:16ch;
+  caret-color:transparent; /* custom caret */
+}
+
+#caret{
+  width:2px;
+  height:2rem;
+  background:#000;
+  animation:blink 1s step-end infinite;
+  margin-left:0.15rem;
+}
+
+@keyframes blink{
+  50%{opacity:0;}
+}
+
+/* === System Log === */
+#log{
+  position:fixed;
+  bottom:1.5rem;
+  left:1.5rem;
+  width:50vw;
+  max-width:600px;
+  color:#444;
+  font-size:1rem;
+  line-height:1.4rem;
+  z-index:1;
+  display:flex;
+  flex-direction:column-reverse;
+  pointer-events:none;
+}
+
+.logline{
+  opacity:0;
+  transform:translateY(20px);
+  transition:opacity 2s ease, transform 2s ease;
+}
+.logline.visible{
+  opacity:1;
+  transform:translateY(0);
+}
+.timestamp{
+  opacity:0.5;
+  margin-right:0.4rem;
+}
+</style>
+</head>
+
+<body>
+<video id="camera" autoplay playsinline muted></video>
+
+<div id="promptWrap">
+  <input id="input" type="text" spellcheck="false" autocomplete="off" />
+  <div id="caret"></div>
+</div>
+
+<div id="log"></div>
+
+<script>
+/* ======== CAMERA ======== */
+(async ()=>{
+  const video=document.getElementById('camera');
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    video.srcObject=stream;
+  }catch(e){
+    alert("Camera access denied or unavailable.");
+  }
+})();
+
+/* ======== PROMPT + LOG ======== */
+const input=document.getElementById('input');
+const log=document.getElementById('log');
+let logActive=false;
+let lineTimer=null;
+
+function addLogLine(text){
+  const div=document.createElement('div');
+  div.className='logline';
+  const time=new Date().toLocaleTimeString([], {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  div.innerHTML=`<span class="timestamp">${time}</span>${text}`;
+  log.prepend(div);
+  requestAnimationFrame(()=>div.classList.add('visible'));
+
+  // fade out after 60s
+  setTimeout(()=>{div.style.opacity=0;},60000);
+  // remove after 70s to keep DOM clean
+  setTimeout(()=>{div.remove();},70000);
+}
+
+function startLog(){
+  if(lineTimer) clearInterval(lineTimer);
+  lineTimer=setInterval(()=>{
+    const t=new Date().toLocaleTimeString([], {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    addLogLine(`System idle… awaiting new input`);
+  },6000);
+}
+
+/* On user input */
+input.addEventListener('keydown', e=>{
+  if(e.key==='Enter'){
+    const val=input.value.trim();
+    if(!val) return;
+    addLogLine(`> ${val}`);
+    if(!logActive){ logActive=true; startLog(); }
+    input.select();
+  }
+});
+</script>
+</body>
+</html>
