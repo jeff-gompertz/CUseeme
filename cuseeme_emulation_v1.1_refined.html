@@ -1,0 +1,98 @@
+<!-- === cuseeme_emulation_v1.1_refined.html === -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>CUCME Emulation v1.1 — Refined Mirror Field</title>
+
+<style>
+html,body{
+  margin:0;
+  padding:0;
+  height:100%;
+  background:#fff;
+  overflow:hidden;
+  font-family:system-ui, sans-serif;
+}
+
+/* Fullscreen camera video */
+#mirror{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  z-index:0;
+  filter:brightness(1.05) contrast(1.05);
+}
+
+/* Gentle white gradient overlay */
+#overlay{
+  position:fixed;
+  inset:0;
+  background:linear-gradient(to bottom, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.05) 40%, rgba(255,255,255,0.35) 100%);
+  z-index:1;
+  pointer-events:none;
+  mix-blend-mode:screen;
+}
+
+/* Prompt input box */
+#prompt{
+  position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%, -50%);
+  z-index:2;
+  background:rgba(255,255,255,0.3);
+  backdrop-filter:blur(10px);
+  border:none;
+  outline:none;
+  border-radius:25px;
+  padding:0.8rem 1.5rem;
+  font-size:1rem;
+  color:#111;
+  text-align:center;
+  width:260px; /* reduced ~15% */
+  box-shadow:0 0 20px rgba(255,255,255,0.4);
+}
+
+/* Permission text */
+#notice{
+  position:fixed;
+  inset:0;
+  display:grid;
+  place-items:center;
+  background:rgba(255,255,255,0.9);
+  z-index:5;
+  font-size:1.2rem;
+  color:#333;
+}
+</style>
+</head>
+<body>
+
+<video id="mirror" autoplay playsinline muted></video>
+<div id="overlay"></div>
+<input id="prompt" type="text" placeholder="type a thought..." />
+
+<div id="notice">Allow camera to activate field?</div>
+
+<script>
+(async () => {
+  const video = document.getElementById('mirror');
+  const notice = document.getElementById('notice');
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
+    video.srcObject = stream;
+    notice.style.display = 'none';
+  } catch (err) {
+    notice.textContent = 'Camera access denied or unavailable.';
+    console.warn('Camera error:', err);
+  }
+})();
+</script>
+
+</body>
+</html>
