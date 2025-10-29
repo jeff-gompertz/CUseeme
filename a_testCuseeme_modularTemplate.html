@@ -1,1 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CUSeeMe v1.8 — Floating Feed</title>
+<style>
+html,body{
+  margin:0;padding:0;height:100%;
+  background:#000;font-family:monospace;color:#0f0;
+  overflow:hidden;
+}
 
+/* === MAIN CAMERA FEED === */
+#camera{
+  position:fixed;inset:0;
+  object-fit:cover;
+  transform:scaleX(-1);
+  z-index:0;
+  filter:brightness(1.05) contrast(1.05);
+}
+
+/* === FLOATING MINI FEED === */
+#miniFeed{
+  position:absolute;
+  top:20px;right:20px;
+  width:200px;height:150px;
+  border-radius:8px;
+  overflow:hidden;
+  z-index:2;
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.15);
+  backdrop-filter:blur(2px);
+  cursor:grab;
+  transition:box-shadow .3s ease, transform .4s ease;
+}
+#miniFeed video{
+  width:100%;height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
+  opacity:0.9;
+}
+#miniFeed:hover{
+  box-shadow:0 0 20px rgba(150,220,255,0.3);
+  transform:scale(1.03);
+}
+
+/* === PROMPT LAYER === */
+#promptWrap{
+  position:fixed;inset:0;display:flex;
+  align-items:center;justify-content:center;
+  z-index:3;pointer-events:none;
+}
+#promptBox{
+  pointer-events:auto;
+  background:rgba(255,255,255,0.25);
+  border:1px solid rgba(0,0,0,0.2);
+  border-radius:10px;
+  padding:.6rem 1rem;
+  font-size:2rem;
+  display:flex;align-items:center;gap:.4rem;
+}
+#input{
+  background:transparent;
+  border:none;outline:none;
+  color:#111;
+  font-size:inherit;
+  width:14ch;
+}
+#caret{
+  width:.25ch;height:1.3em;background:#111;
+  animation:blink 1s step-end infinite;
+}
+@keyframes blink{50%{opacity:0}}
+
+/* === TICKER === */
+#ticker{
+  position:fixed;
+  left:10px;bottom:10px;
+  width:40%;
+  max-height:50%;
+  display:flex;flex-direction:column-reverse;
+  overflow:hidden;
+  z-index:3;
+  font-size:1rem;line-height:1.2rem;
+  color:#0f0;opacity:.9;
+}
+.tline{
+  opacity:.8;margin:0;
+  animation:fadeIn 1s ease forwards;
+  transition:opacity 45s linear;
+}
+@keyframes fadeIn{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:.8;transform:translateY(0)}
+}
+
+/* === TOGGLE BUTTON (HUD LIGHT VERSION) === */
+#hudToggle{
+  position:fixed;top:10px;right:10px;z-index:4;
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:6px;
+  color:#0f0;
+  font-size:12px;
+  padding:6px 10px;
+  cursor:pointer;
+  backdrop-filter:blur(4px);
+}
+#hudToggle:hover{
+  background:rgba(255,255,255,0.15);
+}
+</style>
+</head>
+<body>
+<video id="camera" autoplay muted playsinline></video>
+
+<!-- Floating mini-feed -->
+<div id="miniFeed">
+  <video id="miniVideo" autoplay muted playsinline></video>
+</div>
+
+<!-- Simple toggle button -->
+<div id="hudToggle">⧉ FLOAT</div>
+
+<!-- Prompt input -->
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" spellcheck="false" autocomplete="off" placeholder="type here...">
+  </div>
+</div>
+
+<!-- Ticker console -->
+<div id="ticker"></div>
+
+<script>
+/* === CAMERA INIT === */
+(async()=>{
+  const cam=document.getElementById('camera');
+  const mini=document.getElementById('miniVideo');
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    cam.srcObject=stream;
+    mini.srcObject=stream; // mirror the same feed
+  }catch(e){
+    alert('Camera access denied.');
+  }
+})();
+
+/* === DRAGGABLE MINI FEED === */
+(function(){
+  const el=document.getElementById('miniFeed');
+  let isDown=false,offsetX=0,offsetY=0;
+
+  el.addEventListener('mousedown',e=>{
+    isDown=true;
+    offsetX=e.clientX-el.offsetLeft;
+    offsetY=e.clientY-el.offsetTop;
+    el.style.cursor='grabbing';
+  });
+  window.addEventListener('mouseup',()=>{isDown=false;el.style.cursor='grab';});
+  window.addEventListener('mousemove',e=>{
+    if(!isDown)return;
+    el.style.left=(e.clientX-offsetX)+'px';
+    el.style.top=(e.clientY-offsetY)+'px';
+  });
+
+  // touch support
+  el.addEventListener('touchstart',e=>{
+    isDown=true;
+    const t=e.touches[0];
+    offsetX=t.clientX-el.offsetLeft;
+    offsetY=t.clientY-el.offsetTop;
+  });
+  window.addEventListener('touchmove',e=>{
+    if(!isDown)return;
+    const t=e.touches[0];
+    el.style.left=(t.clientX-offsetX)+'px';
+    el.style.top=(t.clientY-offsetY)+'px';
+  });
+  window.addEventListener('touchend',()=>{isDown=false;});
+})();
+
+/* === FLOAT TOGGLE BUTTON === */
+const mini=document.getElementById('miniFeed');
+document.getElementById('hudToggle').addEventListener('click',()=>{
+  mini.style.display=mini.style.display==='none'?'block':'none';
+});
+
+/* === TICKER SYSTEM === */
+const ticker=document.getElementById('ticker');
+function addTickerLine(text){
+  const el=document.createElement('div');
+  el.className='tline';
+  el.textContent=text;
+  ticker.prepend(el);
+  if(ticker.children.length>40)ticker.removeChild(ticker.lastChild);
+  setTimeout(()=>{el.style.opacity=0.15;},45000);
+}
+
+/* === SPEECH SYNTHESIS === */
+let voicesReady=false;
+function waitForVoices(){
+  return new Promise(resolve=>{
+    if(voicesReady && speechSynthesis.getVoices().length)return resolve();
+    const id=setInterval(()=>{
+      if(speechSynthesis.getVoices().length){
+        clearInterval(id);voicesReady=true;resolve();
+      }
+    },100);
+  });
+}
+async function speak(text){
+  if(!('speechSynthesis' in window))return;
+  await waitForVoices();
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=1.05;u.pitch=0.9;u.volume=0.8;u.lang='en-US';
+  const v=speechSynthesis.getVoices();
+  u.voice=v.find(x=>/samantha/i.test(x.name))||v.find(x=>/google/i.test(x.name))||v[0];
+  speechSynthesis.speak(u);
+}
+window.addEventListener('touchstart',()=>{speechSynthesis.speak(new SpeechSynthesisUtterance(''));},{once:true});
+
+/* === INPUT HANDLER === */
+const input=document.getElementById('input');
+input.addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;
+  const val=input.value.trim();
+  if(!val)return;
+  addTickerLine('> '+val);
+  input.value='';
+
+  const replies=[
+    `system echo: "${val}" acknowledged`,
+    `field response latency: ${(Math.random()*0.8+0.2).toFixed(2)} s`,
+    `"${val}" mirrored in floating feed`,
+    `drift vector stabilized`,
+    `resonance: ${Math.floor(Math.random()*100)}%`
+  ];
+  const reply=replies[Math.floor(Math.random()*replies.length)];
+  setTimeout(()=>{
+    addTickerLine('< '+reply);
+    speak(reply);
+  },600);
+});
+
+/* === DIAGNOSTIC FEED === */
+const diagnostics=[
+  "calibrating optical link...",
+  "signal noise threshold: 0.72",
+  "field sync nominal",
+  "mirror node online",
+  "loopback handshake OK"
+];
+setInterval(()=>{
+  const msg=diagnostics[Math.floor(Math.random()*diagnostics.length)];
+  addTickerLine(msg);
+},6500);
+</script>
+</body>
+</html>
