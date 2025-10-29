@@ -108,17 +108,43 @@ function addTickerLine(text){
 }
 
 /* === SPEECH SYNTHESIS === */
-function speakLine(text){
+/* === SPEECH SYNTHESIS === */
+let voicesLoaded = false;
+
+function loadVoices() {
+  return new Promise(resolve => {
+    let id = setInterval(() => {
+      const v = speechSynthesis.getVoices();
+      if (v.length !== 0) {
+        clearInterval(id);
+        voicesLoaded = true;
+        resolve(v);
+      }
+    }, 100);
+  });
+}
+
+async function speakLine(text){
   if(!window.speechSynthesis) return;
-  const utter=new SpeechSynthesisUtterance(text);
-  utter.rate=1.05;
-  utter.pitch=0.9;
-  utter.volume=0.8;
-  utter.lang='en-US';
-  const voices=window.speechSynthesis.getVoices();
-  if(voices.length>0) utter.voice=voices.find(v=>v.name.toLowerCase().includes('google'))||voices[0];
+  if(!voicesLoaded) await loadVoices();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 1.05;
+  utter.pitch = 0.9;
+  utter.volume = 0.8;
+  utter.lang = 'en-US';
+  const voices = window.speechSynthesis.getVoices();
+  if(voices.length>0)
+    utter.voice = voices.find(v=>v.name.toLowerCase().includes('samantha')) ||
+                  voices.find(v=>v.name.toLowerCase().includes('google')) ||
+                  voices[0];
   speechSynthesis.speak(utter);
 }
+
+/* === iOS VOICE UNLOCK === */
+window.addEventListener('touchstart', ()=> {
+  const dummy = new SpeechSynthesisUtterance('');
+  speechSynthesis.speak(dummy);
+}, {once:true});
 
 /* === DIAGNOSTIC FEED === */
 const diagnostics=[
@@ -144,8 +170,7 @@ input.addEventListener('keydown',e=>{
     if(!val) return;
     addTickerLine("> "+val);
     input.value='';
-    // Schedule synthetic response
-    setTimeout(()=>{
+    setTimeout(async ()=>{
       const responses=[
         `system echo: "${val}" acknowledged`,
         `field response latency: ${(Math.random()*0.8+0.2).toFixed(2)} s`,
@@ -155,10 +180,11 @@ input.addEventListener('keydown',e=>{
       ];
       const reply=responses[Math.floor(Math.random()*responses.length)];
       addTickerLine("< "+reply);
-      speakLine(reply);
+      await speakLine(reply);  // ✅ now guaranteed to play
     },2000+Math.random()*2000);
   }
 });
-</script>
+
+  
 </body>
 </html>
