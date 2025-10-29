@@ -1,1 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>c_centerpush_loadrandom2_FullAutoHUD_dimmed</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{
+    --hud-bg: rgba(10,10,10,.35);
+    --hud-fg: #e6f3ff;
+    --hud-ac: #98d5ff;
+  }
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;}
+  canvas{display:block;touch-action:none}
 
+  /* === HUD container === */
+  #hud{
+    position:fixed;top:10px;left:10px;z-index:10;
+    padding:12px 14px;border-radius:8px;
+    background:var(--hud-bg);color:var(--hud-fg);
+    font:12px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    backdrop-filter: blur(6px);
+    user-select:none;width:320px;
+    transition:opacity 0.6s ease,background 0.6s ease;
+  }
+
+  /* === HUD dimmed state === */
+  #hud.dimmed {
+    opacity: 0.12;
+  }
+
+  /* Keep toggle button bright and clickable even when dimmed */
+  #hud.dimmed #toggleHUD {
+    opacity: 1 !important;
+    background: rgba(255,255,255,0.12) !important;
+    border-color: rgba(255,255,255,0.35) !important;
+    pointer-events: auto !important;
+  }
+
+  #hud h1 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--hud-ac);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 115px 1fr 46px;
+    gap: 8px;
+    align-items: center;
+    margin: 5px 0;
+  }
+
+  .row label { opacity: 0.9; }
+  .row input[type="range"]{ width:100%; }
+
+  .readout {
+    margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);
+    font-size:11px;line-height:1.5;opacity:.8;white-space:pre;
+  }
+
+  .btnline{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+  .btn{
+    background:rgba(255,255,255,.08);color:var(--hud-fg);
+    border:1px solid rgba(255,255,255,.16);
+    padding:5px 10px;border-radius:6px;cursor:pointer;
+    font-size:12px;letter-spacing:.03em;
+  }
+  .btn:hover{background:rgba(255,255,255,.14);}
+
+  #flash{
+    position:fixed;inset:0;background:rgba(255,255,255,0);
+    pointer-events:none;z-index:5;transition:background .5s ease;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="flash"></div>
+
+<div id="hud">
+  <h1>HUD Controls</h1>
+
+  <div class="row"><label>CENTER_OVERLAP</label><input id="r1" type="range" min="0" max="400" value="0"/><output id="o1">0</output></div>
+  <div class="row"><label>EDGE_PADDING</label><input id="r2" type="range" min="0" max="300" value="300"/><output id="o2">300</output></div>
+  <div class="row"><label>NUM_CARDS</label><input id="r3" type="range" min="2" max="16" step="2" value="8"/><output id="o3">8</output></div>
+  <div class="row"><label>ALPHA</label><input id="r4" type="range" min="0" max="1" step="0.01" value="0.35"/><output id="o4">0.35</output></div>
