@@ -1,1 +1,119 @@
+<!-- === Generative API v1.1 — Posts Mode (ticker = #FF4433) === -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Generative API v1.1 — Posts Mode</title>
+<style>
+  html,body{margin:0;height:100%;background:#fff;font-family:monospace;overflow:hidden}
 
+  /* --- Centered prompt --- */
+  #promptWrap{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;z-index:2}
+  #promptBox{pointer-events:auto;display:flex;align-items:center;gap:.5rem;
+             padding:.6rem 1rem;border-radius:10px;
+             background:rgba(255,255,255,.25);border:1px solid rgba(0,0,0,.18)}
+  #caret{width:.35ch;height:1.3em;background:#111;animation:blink 1s step-end infinite}
+  #input{border:0;outline:0;background:transparent;color:#111;font:inherit;width:18ch}
+  #input::placeholder{color:rgba(0,0,0,.35)}
+  @keyframes blink{50%{opacity:0}}
+
+  /* --- Ticker Console --- */
+  #ticker{
+    position:fixed;left:10px;bottom:10px;width:40%;max-height:55%;
+    display:flex;flex-direction:column-reverse;overflow:hidden;z-index:3;
+    font-size:1.2rem;line-height:1.3rem;color:#FF4433;opacity:.85
+  }
+  .tline{
+    margin:0;opacity:.92;
+    animation:fadeIn .9s ease forwards;
+    transition:opacity 120s linear; /* linger long, then dim */
+    white-space:pre-wrap;word-break:break-word
+  }
+  @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:.92;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" spellcheck="false" autocomplete="off" placeholder="type here..." />
+  </div>
+</div>
+
+<div id="ticker"></div>
+
+<script>
+(() => {
+  const API = (q, page=1) =>
+    `https://art.jeffgompertz.site/wp-json/wp/v2/posts?search=${encodeURIComponent(q)}&per_page=12&page=${page}`;
+
+  const ticker = document.getElementById('ticker');
+  const input  = document.getElementById('input');
+
+  function addLine(text){
+    const el = document.createElement('div');
+    el.className = 'tline';
+    el.textContent = text;
+    ticker.prepend(el);
+    // after long linger, gently dim
+    setTimeout(()=>{ el.style.opacity = .18; }, 120000);
+    // keep console bounded
+    if (ticker.children.length > 120) ticker.removeChild(ticker.lastChild);
+  }
+
+  function strip(html){
+    const d = document.createElement('div'); d.innerHTML = html;
+    return (d.textContent || d.innerText || '').replace(/\s+/g,' ').trim();
+  }
+
+  function sentences(s){
+    // split into short readable fragments
+    return (s||'').split(/(?<=[\.\!\?])\s+|[\n\r]+/).map(t=>t.trim()).filter(Boolean);
+  }
+
+  async function fetchPostLines(word){
+    try{
+      const res = await fetch(API(word));
+      const posts = await res.json();
+      const lines = [];
+      posts.forEach(p=>{
+        if (p.title?.rendered)   lines.push(...sentences(strip(p.title.rendered)));
+        if (p.excerpt?.rendered) lines.push(...sentences(strip(p.excerpt.rendered)));
+        if (p.content?.rendered) lines.push(...sentences(strip(p.content.rendered)).slice(0,6));
+      });
+      // dedupe and keep concise
+      const uniq = [...new Set(lines)].filter(l => l.length >= 3 && l.length <= 220);
+      return uniq.slice(0, 30);
+    }catch(e){
+      return [];
+    }
+  }
+
+  async function react(word){
+    // pull lines; if none, show nothing artificial per spec (no labels)
+    const lines = await fetchPostLines(word);
+    if (!lines.length) return;
+
+    // emit 3–6 lines, staggered, feels like a fluent system readout
+    const count = Math.max(3, Math.min(6, lines.length));
+    for (let i=0;i<count;i++){
+      setTimeout(()=> addLine(lines[i % lines.length]), i*450);
+    }
+  }
+
+  // UX: react on Enter
+  input.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter'){
+      const q = input.value.trim();
+      if (!q) return;
+      react(q);
+      input.select(); // keep the field active
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
