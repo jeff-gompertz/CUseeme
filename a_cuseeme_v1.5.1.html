@@ -1,0 +1,173 @@
+<!-- === CUSeeMe Emulation v1.5.1 — Dual Layers (camera + field) === -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>CUSeeMe v1.5.1 — Dual Layers</title>
+<style>
+html,body{
+  margin:0;padding:0;height:100%;
+  background:#fff;
+  overflow:hidden;
+  font-family:monospace;
+}
+
+/* === CAMERA SUBSTRATE === */
+#camera{
+  position:fixed;inset:0;
+  object-fit:cover;
+  transform:scaleX(-1); /* mirror */
+  filter:contrast(1.2) brightness(1.05);
+  z-index:0;
+}
+
+/* === PROMPT FIELD === */
+#promptWrap{
+  position:fixed;inset:0;
+  display:grid;place-items:center;
+  z-index:3;pointer-events:none;
+}
+#prompt{
+  display:flex;align-items:center;
+  background:rgba(255,255,255,0.35);
+  backdrop-filter:blur(8px);
+  border-radius:2rem;
+  padding:0.8rem 1.4rem;
+  font-size:1.4rem;
+  color:#000;
+  pointer-events:auto;
+}
+#input{
+  border:none;outline:none;background:transparent;
+  color:#000;font:inherit;width:14ch;
+}
+#caret{
+  width:2px;height:1.2em;
+  background:#000;
+  margin-right:6px;
+  animation:blink 1s step-end infinite;
+}
+@keyframes blink{50%{opacity:0}}
+
+/* === USER EMISSION (CENTER EVENT) === */
+#field{
+  position:fixed;inset:0;
+  display:grid;place-items:center;
+  z-index:2;pointer-events:none;
+}
+.emission{
+  color:#FF4433;
+  font-size:3.5rem;
+  font-weight:bold;
+  text-shadow:0 0 8px rgba(255,68,51,0.6);
+  opacity:0;
+  animation:rise 4s ease-in forwards;
+}
+@keyframes rise{
+  0%{opacity:0;transform:translateY(30px);}
+  10%{opacity:1;transform:translateY(0);}
+  80%{opacity:0.9;}
+  100%{opacity:0;transform:translateY(-60px);}
+}
+
+/* === DIAGNOSTIC TICKER === */
+#ticker{
+  position:fixed;left:14px;bottom:10px;
+  width:40%;
+  color:#555;
+  font-size:0.95rem;
+  line-height:1.25rem;
+  z-index:2;
+  overflow:hidden;
+}
+.tick{
+  opacity:0;
+  animation:tickRise 60s linear forwards;
+}
+@keyframes tickRise{
+  0%{opacity:0;transform:translateY(10px);}
+  5%{opacity:0.9;transform:translateY(0);}
+  90%{opacity:0.7;}
+  100%{opacity:0;transform:translateY(-120px);}
+}
+</style>
+</head>
+<body>
+
+<video id="camera" autoplay muted playsinline></video>
+
+<div id="field"></div>
+
+<div id="ticker"></div>
+
+<div id="promptWrap">
+  <div id="prompt">
+    <div id="caret"></div>
+    <input id="input" type="text" placeholder="" autocomplete="off" spellcheck="false" />
+  </div>
+</div>
+
+<script>
+(async()=>{
+/* ==== CAMERA ACCESS ==== */
+const cam=document.getElementById('camera');
+try{
+  const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+  cam.srcObject=stream;
+}catch(e){
+  console.warn('Camera access denied:',e);
+}
+
+/* ==== ELEMENTS ==== */
+const input=document.getElementById('input');
+const field=document.getElementById('field');
+const ticker=document.getElementById('ticker');
+
+/* ==== USER INPUT ==== */
+input.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    const text=input.value.trim();
+    if(!text)return;
+    spawnEmission(text);
+    logTick(`> ${text}`);
+    input.value='';
+  }
+});
+
+/* ==== EMISSION ==== */
+function spawnEmission(txt){
+  const el=document.createElement('div');
+  el.className='emission';
+  el.textContent=txt;
+  field.appendChild(el);
+  setTimeout(()=>el.remove(),4000);
+}
+
+/* ==== DIAGNOSTIC TICKER ==== */
+function logTick(t){
+  const div=document.createElement('div');
+  div.className='tick';
+  const time=new Date().toLocaleTimeString();
+  div.textContent=`${time} ${t}`;
+  ticker.appendChild(div);
+  setTimeout(()=>div.remove(),60000);
+}
+
+/* ==== AUTO DIAGNOSTIC GENERATION ==== */
+const messages=[
+  'System idle… awaiting new input',
+  'Signal drift stable',
+  'Memory buffer cleared',
+  'Connection heartbeat OK',
+  'Listening on local field'
+];
+setInterval(()=>{
+  const msg=messages[Math.floor(Math.random()*messages.length)];
+  logTick(msg);
+},6000);
+})();
+</script>
+
+</body>
+</html>
