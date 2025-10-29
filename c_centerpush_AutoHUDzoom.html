@@ -16,7 +16,7 @@
   /* === HUD container === */
 
 /* === HUD container (invisible version) === */
-#hud {
+/* ===#hud {
   position: fixed;
   top: 10px;
   left: 10px;
@@ -25,16 +25,16 @@
   border-radius: 8px;
 
   /* Make it completely invisible */
-  background: transparent !important;
+/* ===  background: transparent !important;
   color: transparent !important;
   border: none !important;
   backdrop-filter: none !important;
-  box-shadow: none !important;
+  box-shadow: none !important;=== */ === */
 
  
   /*  If you want to still see the text/sliders but not the box, use this instead:
   */
-  #hud {
+/* ===  #hud {
   background: transparent !important;
   border: none !important;
   backdrop-filter: none !important;
@@ -42,12 +42,31 @@
 
   user-select: none;
   width: 320px;
+  transition: opacity 0.6s ease;=== */
+
+
+  
+}
+=== */
+
+
+/* === HUD container (background removed only) === */
+#hud {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+  width: 320px;
+  padding: 12px 14px;
+  border-radius: 8px;
+
+  background: transparent !important;
+  border: none !important;
+  backdrop-filter: none !important;
+
+  user-select: none;
   transition: opacity 0.6s ease;
 }
-
-
-
-
 
 
 
