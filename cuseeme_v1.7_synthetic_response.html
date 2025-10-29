@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CUSeeMe Emulation v1.7 — Synthetic Response (Voice Enabled)</title>
+<style>
+html,body{
+  margin:0;padding:0;height:100%;overflow:hidden;
+  background:#fff;font-family:monospace;color:#0f0;
+}
+
+/* CAMERA FEED */
+#camera{
+  position:fixed;inset:0;object-fit:cover;
+  transform:scaleX(-1); /* mirror */
+  z-index:0;
+  filter:brightness(1.05) contrast(1.05);
+}
+
+/* PROMPT FIELD */
+#promptWrap{
+  position:fixed;inset:0;display:flex;
+  align-items:center;justify-content:center;
+  z-index:2;pointer-events:none;
+}
+#promptBox{
+  pointer-events:auto;
+  background:rgba(255,255,255,0.3);
+  border:1px solid rgba(0,0,0,0.15);
+  border-radius:10px;
+  padding:.6rem 1rem;
+  font-size:2rem;
+  color:#000;
+  display:flex;align-items:center;gap:.4rem;
+}
+#input{
+  background:transparent;
+  border:none;outline:none;
+  color:#000;font-size:inherit;
+  width:12ch;
+}
+#caret{
+  width:.4ch;height:1.3em;background:#000;
+  animation:blink 1s step-end infinite;
+}
+@keyframes blink{50%{opacity:0}}
+
+/* TICKER */
+#ticker{
+  position:fixed;
+  left:10px;bottom:10px;
+  width:40%;
+  max-height:50%;
+  display:flex;flex-direction:column-reverse;
+  overflow:hidden;
+  z-index:3;
+  font-size:1rem;line-height:1.2rem;
+  color:#0f0;opacity:.9;
+}
+.tline{
+  opacity:.8;margin:0;
+  animation:fadeIn 1s ease forwards;
+  transition:opacity 45s linear;
+}
+@keyframes fadeIn{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:.8;transform:translateY(0)}
+}
+</style>
+</head>
+<body>
+<video id="camera" autoplay muted playsinline></video>
+
+<div id="promptWrap">
+  <div id="promptBox">
+    <input id="input" type="text" spellcheck="false" autocomplete="off" placeholder="">
+    <div id="caret"></div>
+  </div>
+</div>
+
+<div id="ticker"></div>
+
+<script>
+/* === CAMERA INIT === */
+(async()=>{
+  const cam=document.getElementById('camera');
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    cam.srcObject=stream;
+  }catch(e){
+    alert('Camera access denied.');
+  }
+})();
+
+/* === TICKER SYSTEM === */
+const ticker=document.getElementById('ticker');
+function addTickerLine(text){
+  const el=document.createElement('div');
+  el.className='tline';
+  el.textContent=text;
+  ticker.prepend(el);
+  if(ticker.children.length>40) ticker.removeChild(ticker.lastChild);
+  setTimeout(()=>{el.style.opacity=0.15;},45000);
+}
+
+/* === SPEECH SYNTHESIS === */
+function speakLine(text){
+  if(!window.speechSynthesis) return;
+  const utter=new SpeechSynthesisUtterance(text);
+  utter.rate=1.05;   // pace
+  utter.pitch=0.9;   // slightly lower, more “machine”
+  utter.volume=0.8;
+  utter.lang='en-US';
+  const voices=window.speechSynthesis.getVoices();
+  if(voices.length>0) utter.voice=voices.find(v=>v.name.toLowerCase().includes('google'))||voices[0];
+  speechSynthesis.speak(utter);
+}
+
+/* === DIAGNOSTIC FEED === */
+const diagnostics=[
+  "calibrating optical link...",
+  "signal noise threshold: 0.72",
+  "frame drift compensated",
+  "latency ping: 54ms",
+  "loopback handshake OK",
+  "resonance echo stable",
+  "stream integrity: 99.3%",
+  "field synchronization nominal"
+];
+setInterval(()=>{
+  const msg=diagnostics[Math.floor(Math.random()*diagnostics.length)];
+  addTickerLine(msg);
+},6500);
+
+/* === USER INPUT → echo + AI-like response === */
+const input=document.getElementById('input');
+input.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    const val=input.value.trim();
+    if(!val) return;
+    addTickerLine("> "+val);
+    input.value='';
+    // Schedule synthetic response
+    setTimeout(()=>{
+      const responses=[
+        `system echo: "${val}" acknowledged`,
+        `field response latency: ${(Math.random()*0.8+0.2).toFixed(2)} s`,
+        `semantic drift detected in "${val}"`,
+        `resonance pattern: ${Math.floor(Math.random()*100)}% correlation`,
+        `"${val}" logged in memory bank`
+      ];
+      const reply=responses[Math.floor(Math.random()*responses.length)];
+      addTickerLine("< "+reply);
+      speakLine(reply);
+    },2000+Math.random()*2000);
+  }
+});
+</script>
+</body>
+</html>
