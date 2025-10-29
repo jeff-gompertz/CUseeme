@@ -1,91 +1,156 @@
-<!-- === CUseeme Emulation — Project Index === -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CUCME Emulation — Index</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CUSeeMe Emulation Project Index — Jeff Gompertz</title>
 <style>
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  background: #fafafa;
-  font-family: system-ui, monospace;
-  color: #111;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
+body{
+  margin:0;
+  font-family:monospace;
+  background:#111;
+  color:#eee;
+  padding:3rem 2rem;
 }
-h1 {
-  margin-top: 3rem;
-  font-size: 1.6rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
+h1{
+  font-size:1.8rem;
+  color:#fff;
+  margin-bottom:2rem;
 }
-ul {
-  list-style: none;
-  padding: 0;
-  margin: 2rem 0;
-  width: 90%;
-  max-width: 500px;
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:1.5rem;
 }
-li {
-  margin: 1rem 0;
-  padding: 1rem 1.5rem;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-  transition: all 0.3s ease;
+.card{
+  background:#1a1a1a;
+  border:1px solid #333;
+  border-radius:8px;
+  padding:1rem;
+  transition:all .25s ease;
 }
-li:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+.card:hover{
+  background:#222;
+  border-color:#666;
+  transform:translateY(-3px);
 }
-a {
-  text-decoration: none;
-  color: #222;
-  font-weight: 500;
-  font-size: 1.05rem;
+a{
+  color:#0f0;
+  text-decoration:none;
 }
-.version {
-  font-size: 0.85rem;
-  color: #777;
-  display: block;
-  margin-top: 0.3rem;
+a:hover{
+  color:#ff4433;
 }
-footer {
-  margin-top: auto;
-  padding: 2rem;
-  font-size: 0.75rem;
-  color: #aaa;
+.version{
+  font-size:1rem;
+  color:#fff;
+  margin-bottom:.3rem;
+}
+.desc{
+  font-size:.9rem;
+  color:#aaa;
+  line-height:1.3;
+}
+hr{
+  border:0;
+  border-bottom:1px dashed #333;
+  margin:1rem 0;
 }
 </style>
 </head>
 <body>
+<h1>📡 CUSeeMe Emulation Project — Index</h1>
 
-<h1>CUCME Emulation — Project Index</h1>
+<div class="grid">
 
-<ul>
-  <li>
+  <div class="card">
+    <a href="cuseeme_emulation_v1.html" target="_blank">
+      <div class="version">v1.0 — First Camera Prompt Prototype</div>
+    </a>
+    <div class="desc">
+      Baseline: white field, camera activation, centered prompt box. No ticker yet.
+    </div>
+  </div>
+
+  <div class="card">
+    <a href="cuseeme_emulation_v1.1_refined.html" target="_blank">
+      <div class="version">v1.1 — Edge-to-Edge + Gradient</div>
+    </a>
+    <div class="desc">
+      Full viewport mirror, subtle gradient fade, refined prompt styling.
+    </div>
+  </div>
+
+  <div class="card">
     <a href="cuseeme_emulation_v1.2.1_cursorfix.html" target="_blank">
-      v1.2.1 — Cursor Fix
+      <div class="version">v1.2.1 — Cursor Alignment Fix</div>
     </a>
-    <span class="version">Centered prompt, fixed thin cursor.</span>
-  </li>
+    <div class="desc">
+      Blinking cursor adjusted left, reduced thickness, steady timing.
+    </div>
+  </div>
 
-  <li>
-    <a href="cuseeme_emulation_v1.3_interactivepulse.html" target="_blank">
-      v1.3 — Interactive Pulse
+  <div class="card">
+    <a href="cuseeme_emulation_v1.4_systemscroll.html" target="_blank">
+      <div class="version">v1.4 — System Scroll Log</div>
     </a>
-    <span class="version">Adds gray echo drift responding to user input.</span>
-  </li>
-</ul>
+    <div class="desc">
+      Introduced drifting diagnostic text (system log aesthetic), neutral white-gray scheme.
+    </div>
+  </div>
 
-<footer>
-  © 2025 Jeff Gompertz — CUCME Emulation Series
-</footer>
+  <div class="card">
+    <a href="a_cuseeme_v1.5.1.html" target="_blank">
+      <div class="version">v1.5.1 — Dual Text Layer Test</div>
+    </a>
+    <div class="desc">
+      Reintroduced bottom-left ticker, center input prompt refined, beginning generative drift.
+    </div>
+  </div>
+
+  <div class="card">
+    <a href="cuseeme_v1.7_synthetic_response.html" target="_blank">
+      <div class="version">v1.7 — Synthetic Response</div>
+    </a>
+    <div class="desc">
+      Voice synthesis added to system replies, live camera feed active, responsive input dialogue.
+    </div>
+  </div>
+
+  <div class="card">
+    <a href="cuseeme_v1.7.2_layout_annotated.html" target="_blank">
+      <div class="version">v1.7.2 — Annotated Layout</div>
+    </a>
+    <div class="desc">
+      Detailed commented version explaining layout, colors, z-index hierarchy, and animation timings.
+    </div>
+  </div>
+
+  <div class="card">
+    <a href="focus_semanticfield_v3.4_autodescriptive.html" target="_blank">
+      <div class="version">v3.4 — Semantic Field: Autodescriptive Overlay</div>
+    </a>
+    <div class="desc">
+      Reference earlier black-field series: video crossfade system, ticker diagnostics, generative captions.
+    </div>
+  </div>
+
+  <div class="card">
+    <a href="focus_semanticfield_v3.6_promptdialogue.html" target="_blank">
+      <div class="version">v3.6 — Prompt Dialogue</div>
+    </a>
+    <div class="desc">
+      Text input with voice prompt logic; precursor to CUSeeMe behavior merge.
+    </div>
+  </div>
+
+</div>
+
+<hr>
+<p style="font-size:.85rem;color:#777;text-align:center;">
+CUSeeMe Emulation project — evolving media/text interface study.<br>
+© 2025 Jeff Gompertz
+</p>
 
 </body>
 </html>
