@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>CUSeeMe Modular v1.2 — FloatingFeed Child</title>
+
+<style>
+html,body{
+  margin:0;padding:0;height:100%;
+  background:#000;
+  font-family:monospace;color:#0f0;
+  overflow:hidden;
+}
+
+/* === CAMERA BACKGROUND === */
+#camera{
+  position:fixed;inset:0;
+  object-fit:cover;
+  transform:scaleX(-1);
+  z-index:0;
+  filter:brightness(1.05) contrast(1.05);
+}
+
+/* === PROMPT LAYER === */
+#promptWrap{
+  position:fixed;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  z-index:3;pointer-events:none;
+}
+#promptBox{
+  pointer-events:auto;
+  background:rgba(255,255,255,0.25);
+  border:1px solid rgba(0,0,0,0.2);
+  border-radius:10px;
+  padding:.6rem 1rem;
+  font-size:2rem;
+  display:flex;align-items:center;gap:.4rem;
+}
+#input{
+  background:transparent;border:none;outline:none;
+  color:#111;font-size:inherit;width:14ch;
+}
+#caret{
+  width:.25ch;height:1.3em;background:#111;
+  animation:blink 1s step-end infinite;
+}
+@keyframes blink{50%{opacity:0}}
+
+/* === TICKER === */
+#ticker{
+  position:fixed;
+  left:10px;bottom:10px;
+  width:40%;max-height:50%;
+  display:flex;flex-direction:column-reverse;
+  overflow:hidden;z-index:3;
+  font-size:1rem;line-height:1.2rem;
+  color:#0f0;opacity:.9;
+}
+.tline{
+  opacity:.8;margin:0;
+  animation:fadeIn 1s ease forwards;
+  transition:opacity 45s linear;
+}
+@keyframes fadeIn{
+  from{opacity:0;transform:translateY(10px);}
+  to{opacity:.8;transform:translateY(0);}
+}
+
+/* === FLOATING FEED OVERLAY === */
+#floatingFeed{
+  position:absolute;
+  top:20px;right:20px;
+  width:220px;height:160px;
+  border-radius:10px;
+  overflow:hidden;
+  z-index:4;
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.15);
+  backdrop-filter:blur(2px);
+  box-shadow:0 0 10px rgba(0,255,255,0.15);
+  cursor:grab;
+  transition:box-shadow .3s ease, transform .4s ease, opacity 1s ease;
+}
+#floatingFeed video{
+  width:100%;height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
+  opacity:0.9;
+}
+#floatingFeed:hover{
+  box-shadow:0 0 20px rgba(150,220,255,0.3);
+  transform:scale(1.03);
+}
+
+/* === FLOATING FEED TOGGLE BUTTON === */
+#feedToggle{
+  position:fixed;
+  top:10px;right:10px;
+  z-index:5;
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:6px;
+  color:#0f0;
+  font-size:12px;
+  padding:6px 10px;
+  cursor:pointer;
+  backdrop-filter:blur(4px);
+}
+#feedToggle:hover{background:rgba(255,255,255,0.15);}
+</style>
+</head>
+
+<body>
+<video id="camera" autoplay muted playsinline></video>
+
+<!-- Floating mini feed -->
+<div id="floatingFeed">
+  <video id="mirror" autoplay muted playsinline></video>
+</div>
+
+<!-- Toggle button -->
+<div id="feedToggle">⧉ FEED</div>
+
+<!-- Prompt -->
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" />
+  </div>
+</div>
+
+<!-- Ticker -->
+<div id="ticker"></div>
+
+<script>
+/* =========================================================
+   MODULE 1 — CAMERA + FLOATING MIRROR FEED
+   ========================================================= */
+(async()=>{
+  const cam=document.getElementById('camera');
+  const mirror=document.getElementById('mirror');
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    cam.srcObject=stream;
+    mirror.srcObject=stream; // mirror feed
+  }catch(e){
+    console.warn('Camera unavailable:',e);
+  }
+})();
+
+/* =========================================================
+   MODULE 2 — DRAGGABLE FLOATING FEED
+   ========================================================= */
+(function(){
+  const el=document.getElementById('floatingFeed');
+  let isDown=false,offX=0,offY=0;
+  const move=(x,y)=>{el.style.left=x+'px';el.style.top=y+'px';};
+
+  el.addEventListener('mousedown',e=>{
+    isDown=true;
+    offX=e.clientX-el.offsetLeft;
+    offY=e.clientY-el.offsetTop;
+    el.style.cursor='grabbing';
+  });
+  window.addEventListener('mouseup',()=>{isDown=false;el.style.cursor='grab';});
+  window.addEventListener('mousemove',e=>{
+    if(!isDown)return;
+    move(e.clientX-offX,e.clientY-offY);
+  });
+
+  // touch
+  el.addEventListener('touchstart',e=>{
+    isDown=true;
+    const t=e.touches[0];
+    offX=t.clientX-el.offsetLeft; offY=t.clientY-el.offsetTop;
+  });
+  window.addEventListener('touchmove',e=>{
+    if(!isDown)return;
+    const t=e.touches[0];
+    move(t.clientX-offX,t.clientY-offY);
+  });
+  window.addEventListener('touchend',()=>{isDown=false;});
+})();
+
+/* =========================================================
+   MODULE 3 — FEED TOGGLE
+   ========================================================= */
+const feed=document.getElementById('floatingFeed');
+document.getElementById('feedToggle').addEventListener('click',()=>{
+  feed.style.display=feed.style.display==='none'?'block':'none';
+});
+
+/* =========================================================
+   MODULE 4 — TICKER SYSTEM
+   ========================================================= */
+const ticker=document.getElementById('ticker');
+function addTickerLine(text){
+  const el=document.createElement('div');
+  el.className='tline';
+  el.textContent=text;
+  ticker.prepend(el);
+  if(ticker.children.length>50)ticker.removeChild(ticker.lastChild);
+  setTimeout(()=>{el.style.opacity=0.15;},45000);
+}
+
+/* =========================================================
+   MODULE 5 — SPEECH SYNTHESIS
+   ========================================================= */
+let voicesLoaded=false;
+function loadVoices(){
+  return new Promise(resolve=>{
+    const id=setInterval(()=>{
+      const v=speechSynthesis.getVoices();
+      if(v.length!==0){
+        clearInterval(id);
+        voicesLoaded=true;
+        resolve(v);
+      }
+    },100);
+  });
+}
+async function speakLine(text){
+  if(!window.speechSynthesis)return;
+  if(!voicesLoaded)await loadVoices();
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=1.05;u.pitch=0.9;u.volume=0.8;u.lang='en-US';
+  const v=speechSynthesis.getVoices();
+  u.voice=v.find(x=>/samantha/i.test(x.name))||v.find(x=>/google/i.test(x.name))||v[0];
+  speechSynthesis.speak(u);
+}
+window.addEventListener('touchstart',()=>{speechSynthesis.speak(new SpeechSynthesisUtterance(''));},{once:true});
+
+/* =========================================================
+   MODULE 6 — PROMPT INPUT + SYNTH RESPONSE
+   ========================================================= */
+const input=document.getElementById('input');
+input.addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;
+  e.preventDefault();
+  const val=input.value.trim();
+  if(!val)return;
+  addTickerLine('> '+val);
+  input.value='';
+  const responses=[
+    `mirror acknowledges "${val}"`,
+    `"${val}" stored in local field memory`,
+    `resonance drift stabilized`,
+    `floating node active`,
+    `"${val}" relayed to WP feed`
+  ];
+  const reply=responses[Math.floor(Math.random()*responses.length)];
+  setTimeout(()=>{
+    addTickerLine('< '+reply);
+    speakLine(reply);
+  },600);
+});
+
+/* =========================================================
+   MODULE 7 — WORDPRESS FEED HOOK
+   ========================================================= */
+async function fetchWPFeed(keyword=''){
+  try{
+    const API=`https://jeffgompertz.site/wp-json/wp/v2/posts?search=${encodeURIComponent(keyword)}&per_page=5`;
+    const res=await fetch(API);
+    const posts=await res.json();
+    if(!posts.length){
+      addTickerLine(`∅ No posts found for "${keyword}"`);
+      return;
+    }
+    posts.forEach((p,i)=>{
+      const title=p.title?.rendered.replace(/<[^>]*>/g,'')||'untitled';
+      const excerpt=p.excerpt?.rendered.replace(/<[^>]*>/g,'').trim()||'';
+      const line=`${i+1}. ${title} — ${excerpt.slice(0,90)}...`;
+      addTickerLine(line);
+      setTimeout(()=>speakLine(title),1000*i);
+    });
+  }catch(err){
+    addTickerLine(`⚠️ WP fetch error: ${err.message}`);
+  }
+}
+
+/* =========================================================
+   MODULE 8 — DIAGNOSTIC HEARTBEAT
+   ========================================================= */
+const diagnostics=[
+  "optical sync stable",
+  "mirror loop calibrated",
+  "signal noise: 0.72",
+  "floating node drift compensated",
+  "stream resonance nominal"
+];
+setInterval(()=>{
+  const msg=diagnostics[Math.floor(Math.random()*diagnostics.length)];
+  addTickerLine(msg);
+},7000);
+</script>
+</body>
+</html>
