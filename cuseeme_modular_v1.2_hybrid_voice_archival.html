@@ -1,0 +1,333 @@
+<!-- === cuseeme_modular_v1.2_hybrid_voice_archival.html === -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe — Modular v1.2 (Hybrid Voice + Archival Feed)</title>
+
+<style>
+/* -----------------------------------------------------------
+   GLOBAL LAYOUT / TYPOGRAPHY
+----------------------------------------------------------- */
+html,body{
+  margin:0;padding:0;height:100%;overflow:hidden;
+  background:#fff;                      /* white field backdrop */
+  font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* -----------------------------------------------------------
+   CAMERA SUBSTRATE (full-bleed mirror)
+----------------------------------------------------------- */
+#camera{
+  position:fixed;inset:0;z-index:0;
+  object-fit:cover;                      /* edge-to-edge fill   */
+  transform:scaleX(-1);                  /* mirror the frame    */
+  filter:brightness(1.05) contrast(1.05);/* subtle clarity      */
+}
+
+/* -----------------------------------------------------------
+   CENTER PROMPT (chat-style, minimal)
+----------------------------------------------------------- */
+#promptWrap{
+  position:fixed;inset:0;z-index:2;
+  display:grid;place-items:center;pointer-events:none;
+}
+#promptForm{ pointer-events:auto; }
+#promptBox{
+  display:flex;align-items:center;gap:.5rem;
+  padding:.6rem 1rem;
+  font-size:2rem;                        /* change = prompt size */
+  background:rgba(255,255,255,.25);      /* frosted glass feel   */
+  border:1px solid rgba(0,0,0,.20);
+  border-radius:12px;                    /* change = corner roundness */
+}
+#caret{
+  width:.28ch;height:1.3em;background:#111; /* skinny solid caret  */
+  animation:blink 1s step-end infinite;
+}
+@keyframes blink{ 50%{opacity:0} }
+#input{
+  width:16ch;                            /* visible input width */
+  border:0;background:transparent;outline:0;
+  color:#111;font:inherit;               /* inherits size/mono  */
+}
+#input::placeholder{ color:rgba(0,0,0,.35); }
+
+/* -----------------------------------------------------------
+   TICKER CONSOLE (bottom-left, accumulates upward)
+   Color: Red-Orange (requested) → #FF4433
+   Adjust font-size / line-height for density.
+----------------------------------------------------------- */
+#ticker{
+  position:fixed;left:12px;bottom:12px;z-index:3;
+  width:min(42vw,560px);max-height:56vh;
+  display:flex;flex-direction:column-reverse;overflow:hidden;
+  color:#FF4433;opacity:.92;
+  font-size:1.2rem;line-height:1.28rem;  /* change = ticker size/density */
+}
+.tline{
+  margin:0;opacity:.9;white-space:pre-wrap;
+  animation:fadeIn .8s ease forwards;
+  transition:opacity 55s linear;         /* linger long, then dim */
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:.9;transform:translateY(0)}}
+
+/* iOS video overscan guard (some devices need a tad more fill) */
+@supports (-webkit-touch-callout:none){
+  #camera{ transform:scaleX(-1) scale(1.02); }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== LAYERS ======================================================== -->
+<video id="camera" autoplay muted playsinline></video>
+
+<div id="promptWrap">
+  <form id="promptForm" autocomplete="off" spellcheck="false">
+    <div id="promptBox">
+      <div id="caret"></div>
+      <input id="input" type="text" placeholder="type here…" />
+    </div>
+  </form>
+</div>
+
+<div id="ticker" aria-live="polite"></div>
+
+
+<script>
+/* =======================================================================
+   UTILITIES
+======================================================================= */
+const $ = sel => document.querySelector(sel);
+
+/* Add a line to the bottom-left ticker (accumulates upward) */
+function addTickerLine(text){
+  const el = document.createElement('div');
+  el.className = 'tline';
+  el.textContent = text;
+  $('#ticker').prepend(el);
+  /* keep memory bounded */
+  const MAX = 120;
+  const t = $('#ticker');
+  while (t.children.length > MAX) t.removeChild(t.lastChild);
+  /* gently fade after a while (still present, just dim) */
+  setTimeout(()=>{ el.style.opacity = .18; }, 55000);
+}
+
+/* Strip HTML → plain text, collapse whitespace */
+function stripHTML(html){
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  return (d.textContent || d.innerText || '').replace(/\s+/g,' ').trim();
+}
+
+/* Random helper */
+const rand = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+
+/* =======================================================================
+   MODULE 1 — CAMERA BACKGROUND
+======================================================================= */
+(async () => {
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
+    $('#camera').srcObject = stream;
+  }catch(err){
+    addTickerLine('⚠ camera permission denied (video substrate disabled)');
+  }
+})();
+
+/* =======================================================================
+   MODULE 2 — SPEECH (neutral, iOS-safe)
+   - We explicitly wait for voices
+   - We unlock on first user gesture
+======================================================================= */
+let voicesReady = false;
+function waitForVoices(){
+  return new Promise(resolve=>{
+    if (voicesReady && speechSynthesis.getVoices().length) return resolve();
+    const id = setInterval(()=>{
+      if (speechSynthesis.getVoices().length){
+        clearInterval(id); voicesReady = true; resolve();
+      }
+    }, 120);
+  });
+}
+async function speak(text){
+  if (!('speechSynthesis' in window)) return;
+  await waitForVoices();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 1.0;            // neutral pacing
+  u.pitch = 1.0;           // neutral tone (not playful/poetic)
+  u.volume = 0.9;
+  u.lang = 'en-US';
+  const v = speechSynthesis.getVoices();
+  /* prefer neutral/generic voices where available */
+  u.voice = v.find(x=>/neutral|news|story|google us english/i.test(x.name))
+          || v.find(x=>/samantha|ava|microsoft aria/i.test(x.name))
+          || v[0];
+  speechSynthesis.speak(u);
+}
+/* iOS unlock (first tap/click) */
+function unlockSpeechOnce(){
+  try{ speechSynthesis.speak(new SpeechSynthesisUtterance(' ')); speechSynthesis.cancel(); }catch{}
+  window.removeEventListener('touchstart', unlockSpeechOnce);
+  window.removeEventListener('click', unlockSpeechOnce);
+}
+window.addEventListener('touchstart', unlockSpeechOnce, {once:true});
+window.addEventListener('click', unlockSpeechOnce, {once:true});
+
+/* =======================================================================
+   MODULE 3 — WORDPRESS FEED (posts → text lines)
+   - Source: main site posts (adjust WP_BASE if you want the art subdomain)
+   - Keyword search supported
+   - Filters out “poetic/diagnostic” jargon per your preference
+======================================================================= */
+const WP_BASE = 'https://jeffgompertz.site'; // change to 'https://art.jeffgompertz.site' if desired
+
+/* Words to avoid in output (keeps the register plain/cinematic) */
+const STOPWORDS = [
+  'drift','resonance','entropy','stream','echo','latency','signal',
+  'calibrating','coherence','handshake','telemetry','heartbeat','anomaly'
+];
+
+function tooJargony(s){
+  const low = s.toLowerCase();
+  return STOPWORDS.some(w => low.includes(w));
+}
+
+async function fetchWPTextLines(keyword=''){
+  try{
+    const url = `${WP_BASE}/wp-json/wp/v2/posts?search=${encodeURIComponent(keyword)}&per_page=6`;
+    const res = await fetch(url, {mode:'cors'});
+    const posts = await res.json();
+    const lines = [];
+
+    posts.forEach(p=>{
+      const title = stripHTML(p.title?.rendered || '');
+      const excerpt = stripHTML(p.excerpt?.rendered || '');
+      /* split excerpt into sentence-like chunks */
+      const parts = (title + '. ' + excerpt).split(/(?<=[\.\!\?])\s+/);
+      parts.forEach(s=>{
+        const clean = s.replace(/\s+/g,' ').trim();
+        if (!clean) return;
+        if (tooJargony(clean)) return;                   // filter jargon
+        if (clean.length < 24 || clean.length > 220) return; // keep cinematic length
+        lines.push(clean);
+      });
+    });
+
+    return [...new Set(lines)].slice(0, 20); // dedupe + limit
+  }catch(err){
+    addTickerLine(`⚠ WP fetch error: ${err.message}`);
+    return [];
+  }
+}
+
+/* =======================================================================
+   MODULE 4 — SYNTHETIC NEUTRAL LINES (no fluff)
+   - Plain “system/archival” register — not poetic
+======================================================================= */
+const SYN_NEUTRAL = [
+  'entry appended to session log',
+  'request acknowledged',
+  'context aligned',
+  'no action required',
+  'ready for next input',
+  'indexing local memory',
+  'reference saved',
+  'note created',
+  'display updated',
+  'cache cleared'
+];
+
+/* =======================================================================
+   MODULE 5 — HYBRID EMISSION ENGINE (60% WP / 40% synthetic)
+======================================================================= */
+function hybridSample(wpLines, n=4){
+  const out = [];
+  const w = Math.max(1, Math.round(n*0.6));
+  const s = n - w;
+  /* pick W from WP */
+  for (let i=0;i<w && wpLines.length;i++){
+    out.push(wpLines.splice(rand(0, wpLines.length-1), 1)[0]);
+  }
+  /* pick S from synthetic */
+  for (let i=0;i<s;i++){
+    out.push(SYN_NEUTRAL[rand(0, SYN_NEUTRAL.length-1)]);
+  }
+  return out;
+}
+
+/* =======================================================================
+   MODULE 6 — PROMPT + FLOW
+   - Enter submits (form), safe on iOS
+   - On submit:
+       > log user's line
+       > fetch WP lines for the keyword
+       > emit a small hybrid set into the ticker
+       > optionally speak one line
+   - Background: steady heartbeat lines so the field feels alive
+======================================================================= */
+const form  = $('#promptForm');
+const input = $('#input');
+
+/* Heartbeat: ambient neutral status every 8–12s */
+setInterval(()=>{
+  addTickerLine(SYN_NEUTRAL[rand(0, SYN_NEUTRAL.length-1)]);
+}, rand(8000, 12000));
+
+/* Occasional voice read of a recent ticker line (every 25–45s, after first gesture) */
+let voiceTimer = null;
+function startAmbientVoice(){
+  if (voiceTimer) return;
+  voiceTimer = setInterval(()=>{
+    const t = $('#ticker');
+    if (!t.children.length) return;
+    const pick = t.children[rand(0, Math.min(8, t.children.length-1))]; // prefer recent
+    const text = pick.textContent.trim();
+    if (text && !text.startsWith('⚠') && !text.startsWith('>')) speak(text);
+  }, rand(25000, 45000));
+}
+window.addEventListener('click', startAmbientVoice, {once:true});
+window.addEventListener('touchstart', startAmbientVoice, {once:true});
+
+/* Enter key → submit (prevents iOS highlight quirk) */
+input.addEventListener('keydown', e=>{
+  if (e.key === 'Enter'){ e.preventDefault(); form.requestSubmit(); }
+});
+
+/* Submit handler */
+form.addEventListener('submit', async e=>{
+  e.preventDefault();
+  const q = input.value.trim();
+  if (!q) return;
+  addTickerLine('> ' + q);           // user line
+  input.value = '';
+
+  const wp = await fetchWPTextLines(q);
+  const pack = hybridSample(wp, rand(3,5));  // small pulse
+
+  // emit with slight stagger for presence
+  pack.forEach((line, i)=>{
+    setTimeout(()=> addTickerLine('< ' + line), i*350);
+  });
+
+  // speak one of the WP-derived lines if present, else a neutral line
+  const speakable = pack.find(x => !SYN_NEUTRAL.includes(x)) || pack[0];
+  setTimeout(()=> speak(speakable), 700);
+});
+
+/* =======================================================================
+   MODULE 7 — STARTUP DIAGNOSTIC (short burst to “wake the page”)
+======================================================================= */
+(function boot(){
+  addTickerLine('session start');
+  addTickerLine('camera ready (if permitted)');
+  addTickerLine('awaiting input…');
+})();
+</script>
+</body>
+</html>
