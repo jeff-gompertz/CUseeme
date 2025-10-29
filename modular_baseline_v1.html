@@ -234,6 +234,17 @@ function unlockSpeech() {
 window.addEventListener('touchstart', unlockSpeech);
 window.addEventListener('click', unlockSpeech);
 
+  /* =========================================================
+   OPTIONAL PATCH: Lazy unlock via first input or key
+   ========================================================= */
+const firstUnlock = () => {
+  unlockSpeech();
+  window.removeEventListener('keydown', firstUnlock);
+  window.removeEventListener('touchstart', firstUnlock);
+};
+window.addEventListener('keydown', firstUnlock);
+window.addEventListener('touchstart', firstUnlock);
+
 /* =========================================================
    MODULE 5: API / GENERATIVE HOOK (stub for future)
    ========================================================= */
