@@ -1,0 +1,222 @@
+<!-- === cuseeme_modular_v1.1_wpfeed.html === -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CUSeeMe Modular v1.1 — WP Feed Integration</title>
+
+<style>
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: #fff;
+  font-family: monospace;
+  overflow: hidden;
+}
+
+/* === CAMERA === */
+#camera {
+  position: fixed; inset: 0;
+  object-fit: cover;
+  transform: scaleX(-1);
+  z-index: 0;
+  filter: brightness(1.05) contrast(1.05);
+}
+
+/* === PROMPT BOX === */
+#promptWrap {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2; pointer-events: none;
+}
+#promptBox {
+  pointer-events: auto;
+  background: rgba(255,255,255,0.25);
+  border: 1px solid rgba(0,0,0,0.2);
+  border-radius: 10px;
+  padding: 0.6rem 1rem;
+  font-size: 2rem;
+  display: flex; align-items: center; gap: 0.4rem;
+}
+#caret {
+  width: 0.3ch; height: 1.3em;
+  background: #111;
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+#input {
+  background: transparent; border: none; outline: none;
+  color: #111; font-size: inherit;
+  width: 14ch;
+}
+#input::placeholder { color: rgba(0,0,0,0.3); }
+
+/* === TICKER === */
+#ticker {
+  position: fixed; left: 10px; bottom: 10px;
+  width: 40%; max-height: 50%;
+  display: flex; flex-direction: column-reverse;
+  overflow: hidden;
+  z-index: 3;
+  font-size: 1.2rem; line-height: 1.3rem;
+  color: #FF4433; opacity: 0.9;
+}
+.tline {
+  opacity: 0.8; margin: 0;
+  animation: fadeIn 1s ease forwards;
+  transition: opacity 45s linear;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 0.8; transform: translateY(0); }
+}
+</style>
+</head>
+
+<body>
+<video id="camera" autoplay muted playsinline></video>
+
+<div id="promptWrap">
+  <form id="promptForm" autocomplete="off" spellcheck="false">
+    <div id="promptBox">
+      <div id="caret"></div>
+      <input id="input" type="text" placeholder="type here…" />
+    </div>
+  </form>
+</div>
+
+<div id="ticker"></div>
+
+<script>
+/* =========================================================
+   MODULE 1 — CAMERA BACKGROUND
+   ========================================================= */
+(async()=>{
+  const cam=document.getElementById('camera');
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    cam.srcObject=stream;
+  }catch(e){
+    console.warn('Camera unavailable:', e);
+  }
+})();
+
+/* =========================================================
+   MODULE 2 — TICKER CONSOLE
+   ========================================================= */
+const ticker=document.getElementById('ticker');
+function addTickerLine(text){
+  const el=document.createElement('div');
+  el.className='tline';
+  el.textContent=text;
+  ticker.prepend(el);
+  if(ticker.children.length>50) ticker.removeChild(ticker.lastChild);
+  setTimeout(()=>{el.style.opacity=0.15;},45000);
+}
+
+/* =========================================================
+   MODULE 3 — SPEECH SYNTHESIS
+   ========================================================= */
+let voicesLoaded=false;
+function loadVoices(){
+  return new Promise(resolve=>{
+    const id=setInterval(()=>{
+      const v=speechSynthesis.getVoices();
+      if(v.length!==0){
+        clearInterval(id);
+        voicesLoaded=true;
+        resolve(v);
+      }
+    },100);
+  });
+}
+async function speakLine(text){
+  if(!window.speechSynthesis) return;
+  if(!voicesLoaded) await loadVoices();
+  const utter=new SpeechSynthesisUtterance(text);
+  utter.rate=1.05; utter.pitch=0.9; utter.volume=0.8;
+  utter.lang='en-US';
+  const voices=speechSynthesis.getVoices();
+  utter.voice=voices.find(v=>v.name.toLowerCase().includes('samantha'))
+            || voices.find(v=>v.name.toLowerCase().includes('google'))
+            || voices[0];
+  speechSynthesis.speak(utter);
+}
+window.addEventListener('touchstart',()=>{
+  const dummy=new SpeechSynthesisUtterance('');
+  speechSynthesis.speak(dummy);
+},{once:true});
+
+/* =========================================================
+   MODULE 4 — PROMPT + RESPONSE
+   ========================================================= */
+const form=document.getElementById('promptForm');
+const input=document.getElementById('input');
+
+input.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    e.preventDefault();
+    form.requestSubmit();
+  }
+});
+
+form.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const val=input.value.trim();
+  if(!val) return;
+  addTickerLine("> "+val);
+  input.value='';
+
+  // Primary system response (local)
+  const responses=[
+    `system echo: "${val}" acknowledged`,
+    `field response latency: ${(Math.random()*0.8+0.2).toFixed(2)} s`,
+    `semantic drift detected in "${val}"`,
+    `resonance pattern: ${Math.floor(Math.random()*100)}% correlation`,
+    `"${val}" logged in memory bank`
+  ];
+  const reply=responses[Math.floor(Math.random()*responses.length)];
+  addTickerLine("< "+reply);
+  await speakLine(reply);
+
+  // Optional: trigger WordPress feed fetch
+  fetchWPFeed(val);
+});
+
+/* =========================================================
+   MODULE 5 — WORDPRESS FEED HOOK
+   ========================================================= */
+async function fetchWPFeed(keyword=''){
+  try {
+    const API=`https://art.jeffgompertz.site/wp-json/wp/v2/posts?search=${encodeURIComponent(keyword)}&per_page=5`;
+    const res=await fetch(API);
+    const posts=await res.json();
+
+    if(!posts.length){
+      addTickerLine(`∅ No posts found for "${keyword}"`);
+      return;
+    }
+
+    posts.forEach((p,i)=>{
+      const title=p.title?.rendered.replace(/<[^>]*>/g,'')||'untitled';
+      const excerpt=p.excerpt?.rendered.replace(/<[^>]*>/g,'').trim()||'';
+      const line=`${i+1}. ${title} — ${excerpt.slice(0,90)}...`;
+      addTickerLine(line);
+      setTimeout(()=>speakLine(title),1000*i); // sequential spoken titles
+    });
+  } catch(err){
+    addTickerLine(`⚠️ WP fetch error: ${err.message}`);
+  }
+}
+
+/* =========================================================
+   MODULE 6 — INITIAL FEED PULSE
+   ========================================================= */
+// auto-fetch every 60s to keep it alive
+setInterval(()=>fetchWPFeed(''),60000);
+fetchWPFeed('');
+
+</script>
+</body>
+</html>
