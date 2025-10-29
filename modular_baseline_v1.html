@@ -216,6 +216,24 @@ form.addEventListener('submit',async e=>{
   },1500+Math.random()*1500);
 });
 
+  /* =========================================================
+   FINAL PATCH: GUARANTEED SPEECH ACTIVATION (iOS-friendly)
+   ========================================================= */
+function unlockSpeech() {
+  try {
+    const dummy = new SpeechSynthesisUtterance(' ');
+    speechSynthesis.speak(dummy);
+    speechSynthesis.cancel(); // clears dummy speech
+    console.log("🔊 Speech unlocked");
+  } catch (e) {
+    console.warn("Speech unlock failed:", e);
+  }
+  window.removeEventListener('touchstart', unlockSpeech);
+  window.removeEventListener('click', unlockSpeech);
+}
+window.addEventListener('touchstart', unlockSpeech);
+window.addEventListener('click', unlockSpeech);
+
 /* =========================================================
    MODULE 5: API / GENERATIVE HOOK (stub for future)
    ========================================================= */
