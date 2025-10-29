@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CenterPush Series Index</title>
+<style>
+html,body{
+  margin:0;padding:0;
+  background:#000;
+  color:#eee;
+  font-family:monospace;
+}
+h1{
+  text-align:center;
+  font-weight:400;
+  letter-spacing:.05em;
+  color:#98d5ff;
+  margin:24px 0 12px;
+}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(380px,1fr));
+  gap:28px;
+  padding:20px 28px 60px;
+  box-sizing:border-box;
+}
+.tile{
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.12);
+  border-radius:8px;
+  overflow:hidden;
+  box-shadow:0 0 10px rgba(0,0,0,0.5);
+  display:flex;
+  flex-direction:column;
+}
+.tile iframe{
+  width:100%;
+  height:300px;
+  border:none;
+  background:#000;
+}
+.info{
+  padding:10px 12px 14px;
+  font-size:13px;
+  line-height:1.5;
+  color:#ddd;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  height:100%;
+}
+.info b{color:#98d5ff;}
+.info small{opacity:.7;}
+.info a{
+  color:#ff4433;
+  text-decoration:none;
+  font-size:12px;
+  margin-top:4px;
+}
+.info a:hover{text-decoration:underline;}
+footer{
+  text-align:center;
+  font-size:12px;
+  opacity:.5;
+  padding:20px 0 40px;
+}
+</style>
+</head>
+<body>
+<h1>CenterPush / AutoHUD Series Index</h1>
+<div class="grid">
+
+  <div class="tile">
+    <iframe src="c_centerpush_loadrandom.html"></iframe>
+    <div class="info">
+      <b>c_centerpush_loadrandom.html</b>
+      <small>Initial random video loader prototype — base engine.</small>
+      <a href="c_centerpush_loadrandom.html" target="_blank">🔗 Open full</a>
+    </div>
+  </div>
+
+  <div class="tile">
+    <iframe src="c_centerpush_loadrandom2.html"></iframe>
+    <div class="info">
+      <b>c_centerpush_loadrandom2.html</b>
+      <small>Refined sequencing, smoother transitions, multi-clip set.</small>
+      <a href="c_centerpush_loadrandom2.html" target="_blank">🔗 Open full</a>
+    </div>
+  </div>
+
+  <div class="tile">
+    <iframe src="c_centerpush_loadrandom_AutoHUD.html"></iframe>
+    <div class="info">
+      <b>c_centerpush_loadrandom_AutoHUD.html</b>
+      <small>First interactive HUD controls for overlap & depth tuning.</small>
+      <a href="c_centerpush_loadrandom_AutoHUD.html" target="_blank">🔗 Open full</a>
+    </div>
+  </div>
+
+  <div class="tile">
+    <iframe src="c_centerpush_loadrandom2_AutoHUDzoom.html"></iframe>
+    <div class="info">
+      <b>c_centerpush_loadrandom2_AutoHUDzoom.html</b>
+      <small>Added zoom control & spine-center compositional balancing.</small>
+      <a href="c_centerpush_loadrandom2_AutoHUDzoom.html" target="_blank">🔗 Open full</a>
+    </div>
+  </div>
+
+  <div class="tile">
+    <iframe src="c_centerpush__AutoHUD_adaptive.html"></iframe>
+    <div class="info">
+      <b>c_centerpush__AutoHUD_adaptive.html</b>
+      <small>Adaptive HUD version — smoother fades, touch-friendly.</small>
+      <a href="c_centerpush__AutoHUD_adaptive.html" target="_blank">🔗 Open full</a>
+    </div>
+  </div>
+
+  <div class="tile">
+    <iframe src="c_centerpush_AutoHUD_adaptiveFix.html"></iframe>
+    <div class="info">
+      <b>c_centerpush_AutoHUD_adaptiveFix.html</b>
+      <small>Minor adaptive fix; refined HUD visibility toggle logic.</small>
+      <a href="c_centerpush_AutoHUD_adaptiveFix.html" target="_blank">🔗 Open full</a>
+    </div>
+  </div>
+
+  <div class="tile">
+    <iframe src="c_centerpush_AutoHUDzoom.html"></iframe>
+    <div class="info">
+      <b>c_centerpush_AutoHUDzoom.html</b>
+      <small>Zoom focus refinement; balanced central field luminosity.</small>
+      <a href="c_centerpush_AutoHUDzoom.html" target="_blank">🔗 Open full</a>
+    </div>
+  </div>
+
+  <div class="tile">
+    <iframe src="c_centerpush_CompositorLite.html"></iframe>
+    <div class="info">
+      <b>c_centerpush_CompositorLite.html</b>
+      <small>Lightweight compositor version — minimal render stack.</small>
+      <a href="c_centerpush_CompositorLite.html" target="_blank">🔗 Open full</a>
+    </div>
+  </div>
+
+</div>
+<footer>© 2025 Jeff Gompertz — CenterPush Experimental Video HUD Series</footer>
+</body>
+</html>
