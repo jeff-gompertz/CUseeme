@@ -383,41 +383,49 @@ btnReset.addEventListener('click', ()=>{
 /* =========================================================
    [L5] MINI WINDOW DRAG (pointer events)
 ========================================================= */
+  /* =========================================================
+   [L5] MINI WINDOW DRAG — unified pointer/touch
+========================================================= */
 (function(){
-  const grip = document.getElementById('miniBar'); // whole bar as handle
-  let dragging = false, sx=0, sy=0, sl=0, st=0;
+  let isDragging = false;
+  let startX, startY, startLeft, startTop;
 
-  function onDown(e){
-    dragging = true;
+  function startDrag(e){
+    isDragging = true;
     const rect = miniWin.getBoundingClientRect();
-    sl = rect.left; st = rect.top;
-    sx = (e.touches?e.touches[0].clientX:e.clientX);
-    sy = (e.touches?e.touches[0].clientY:e.clientY);
-    document.addEventListener('pointermove', onMove);
-    document.addEventListener('pointerup', onUp);
-    document.addEventListener('touchmove', onMove, {passive:false});
-    document.addEventListener('touchend', onUp);
+    startLeft = rect.left;
+    startTop  = rect.top;
+    startX = (e.touches ? e.touches[0].clientX : e.clientX);
+    startY = (e.touches ? e.touches[0].clientY : e.clientY);
+    document.addEventListener('pointermove', onDrag);
+    document.addEventListener('pointerup', stopDrag);
+    document.addEventListener('touchmove', onDrag, {passive:false});
+    document.addEventListener('touchend', stopDrag);
   }
-  function onMove(e){
-    if(!dragging) return;
-    const cx = (e.touches?e.touches[0].clientX:e.clientX);
-    const cy = (e.touches?e.touches[0].clientY:e.clientY);
-    const dx = cx - sx, dy = cy - sy;
-    miniWin.style.left = (sl + dx) + 'px';
-    miniWin.style.top  = (st + dy) + 'px';
+
+  function onDrag(e){
+    if(!isDragging) return;
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+    const dx = cx - startX;
+    const dy = cy - startY;
+    miniWin.style.left = (startLeft + dx) + 'px';
+    miniWin.style.top  = (startTop + dy) + 'px';
     e.preventDefault?.();
   }
-  function onUp(){
-    dragging = false;
-    document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', onUp);
-    document.removeEventListener('touchmove', onMove);
-    document.removeEventListener('touchend', onUp);
+
+  function stopDrag(){
+    isDragging = false;
+    document.removeEventListener('pointermove', onDrag);
+    document.removeEventListener('pointerup', stopDrag);
+    document.removeEventListener('touchmove', onDrag);
+    document.removeEventListener('touchend', stopDrag);
   }
 
-  grip.addEventListener('pointerdown', onDown);
-  grip.addEventListener('touchstart', onDown, {passive:false});
-})();
+  // Enable dragging from the title bar
+  document.getElementById('miniBar').addEventListener('pointerdown', startDrag);
+  document.getElementById('miniBar').addEventListener('touchstart', startDrag, {passive:false});
+})(); 
 
 /* =========================================================
    [OPTIONAL STUBS] — future API/WP hooks live here
