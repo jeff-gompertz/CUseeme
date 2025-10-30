@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe Modular v1.2 — Interactive (TTS + Semantic)</title>
+
+<style>
+/* =========================================================
+   [L6: GLOBAL STYLE SYSTEM]
+========================================================= */
+:root{
+  --base-bg: #ffffff;
+  --ui-fg:  #0a0a0a;
+  --glass:  rgba(255,255,255,0.22);
+  --glass-b: rgba(0,0,0,0.18);
+  --ticker-color: #FF4433;      /* locked red */
+}
+html,body{
+  margin:0;height:100%;overflow:hidden;background:var(--base-bg);
+  font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color:var(--ui-fg);
+}
+
+/* =========================================================
+   [L0: MAIN CAMERA]
+========================================================= */
+#cameraMain{
+  position:fixed;inset:0;object-fit:cover;
+  transform:scaleX(-1);  /* mirror default */
+  z-index:0;
+}
+
+/* =========================================================
+   [L1: HUD (upper-right, frosted)]
+========================================================= */
+#hud{
+  position:fixed;top:14px;right:14px;z-index:10;
+  display:grid;gap:8px;grid-auto-rows:min-content;
+  background:var(--glass);backdrop-filter:blur(10px);
+  border:1px solid var(--glass-b);border-radius:12px;
+  padding:10px;min-width:230px;
+}
+#hud h1{margin:2px 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.7}
+.hud-row{display:flex;gap:8px;flex-wrap:wrap}
+.hud-btn{
+  appearance:none;border:1px solid var(--glass-b);border-radius:10px;
+  background:rgba(255,255,255,.35);
+  padding:6px 10px;font-size:12px;letter-spacing:.02em;color:#000;cursor:pointer;
+  box-shadow:0 1px 0 rgba(255,255,255,.35) inset, 0 6px 16px rgba(0,0,0,.08);
+}
+.hud-btn:hover{background:rgba(255,255,255,.5)}
+.hud-btn:active{transform:translateY(1px)}
+.hud-btn.active{outline:2px solid rgba(166,135,255,.6)}
+
+/* =========================================================
+   [L3: DIAGNOSTIC TICKER — bottom-left]
+========================================================= */
+#ticker{
+  position:fixed;left:12px;bottom:12px;z-index:8;
+  width:42vw;max-width:640px;max-height:56vh;
+  display:flex;flex-direction:column-reverse;overflow:hidden;pointer-events:none;
+  color:var(--ticker-color);font-size:1.2rem;line-height:1.3rem;opacity:.9;
+}
+.tline{opacity:.9;margin:0;animation:tlIn .6s ease forwards}
+@keyframes tlIn{from{opacity:0;transform:translateY(8px)}to{opacity:.9;transform:none}}
+
+/* =========================================================
+   [L4: INPUT PROMPT — centered overlay]
+========================================================= */
+#promptWrap{
+  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  z-index:6;pointer-events:none;
+}
+#promptBox{
+  pointer-events:auto;display:flex;gap:.5rem;align-items:center;
+  background:rgba(255,255,255,.22);backdrop-filter:blur(6px);
+  border:1px solid rgba(0,0,0,.18);border-radius:12px;
+  padding:.7rem 1rem;font-size:1.6rem;
+}
+#caret{width:.3ch;height:1.3em;background:#111;animation:blink 1s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+#input{
+  background:transparent;border:none;outline:none;width:18ch;color:#111;font:inherit;
+}
+#input::placeholder{color:rgba(0,0,0,.35)}
+
+/* =========================================================
+   [L5: FLOATING MINI-FEED — draggable window]
+========================================================= */
+#miniWin{
+  position:fixed;z-index:7;left:6vw;top:10vh;width:38vw;aspect-ratio:4/3;
+  display:none;border:1px solid #bbb;border-radius:12px;
+  background:linear-gradient(#efefef,#dbdbdb);box-shadow:0 20px 60px rgba(0,0,0,.25);
+}
+#miniBar{
+  height:34px;display:flex;align-items:center;gap:8px;padding:0 10px;cursor:grab;
+  border-bottom:1px solid #cfcfcf;border-top-left-radius:12px;border-top-right-radius:12px;
+  background:linear-gradient(#f7f7f7,#e7e7e7);
+}
+#miniBar:active{cursor:grabbing}
+#miniTitle{font-size:12px;color:#555;letter-spacing:.02em}
+#miniBtns{margin-left:auto;display:flex;gap:6px}
+.win-dot{width:8px;height:8px;border-radius:50%;background:#c2c2c2;border:1px solid #9e9e9e}
+#miniInner{position:relative;width:100%;height:calc(100% - 34px);overflow:hidden;border-bottom-left-radius:12px;border-bottom-right-radius:12px}
+#cameraMini{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+</style>
+</head>
+<body>
+
+<!-- [L0] MAIN CAMERA -->
+<video id="cameraMain" autoplay muted playsinline></video>
+
+<!-- [L1] HUD -->
+<div id="hud">
+  <h1>Signal Shell</h1>
+  <div class="hud-row">
+    <button class="hud-btn active" id="btnToggleMini">➕ Mini-Feed</button>
+    <button class="hud-btn" id="btnMirrorMain">Mirror Main</button>
+    <button class="hud-btn" id="btnMirrorMini" disabled>Mirror Mini</button>
+  </div>
+  <div class="hud-row">
+    <button class="hud-btn" id="btnMiniGrow">Mini +</button>
+    <button class="hud-btn" id="btnMiniShrink">Mini −</button>
+    <button class="hud-btn" id="btnVoice">Voice: Off</button>
+  </div>
+  <div class="hud-row">
+    <button class="hud-btn" id="btnReset">Reset</button>
+  </div>
+</div>
+
+<!-- [L3] TICKER -->
+<div id="ticker"></div>
+
+<!-- [L4] PROMPT -->
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" />
+  </div>
+</div>
+
+<!-- [L5] MINI FEED -->
+<div id="miniWin" aria-label="mini feed window">
+  <div id="miniBar">
+    <div id="miniTitle">subject_0001</div>
+    <div id="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+  </div>
+  <div id="miniInner">
+    <video id="cameraMini" autoplay muted playsinline></video>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   UTIL — ticker lines
+========================================================= */
+const ticker = document.getElementById('ticker');
+function addTicker(text){
+  const line = document.createElement('div');
+  line.className = 'tline';
+  line.textContent = text;
+  ticker.prepend(line);
+  if(ticker.children.length > 80) ticker.removeChild(ticker.lastChild);
+  setTimeout(()=>line.style.opacity=.25, 60000);
+}
+
+/* Boot messages */
+['link /optical established','loopback handshake ok','field integrity 99.2%','ui shell ready','ticker: online']
+  .forEach((m,i)=>setTimeout(()=>addTicker(m), 300*i));
+
+/* =========================================================
+   CAMERA INIT (shared stream)
+========================================================= */
+const vMain = document.getElementById('cameraMain');
+const vMini = document.getElementById('cameraMini');
+let mediaStream = null;
+
+(async ()=>{
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    vMain.srcObject = mediaStream;
+    vMini.srcObject  = mediaStream;
+    addTicker('camera stream: granted');
+  }catch(e){
+    addTicker('⚠ camera denied');
+  }
+})();
+
+/* =========================================================
+   INPUT → ticker (delegates reply to Semantic Engine)
+========================================================= */
+const input = document.getElementById('input');
+function handleSubmit(value){
+  const val = value.trim();
+  if(!val) return;
+  addTicker('> ' + val);
+  input.value = '';
+  const reply = semanticReply(val);           // MODULE B
+  setTimeout(()=>{
+    addTicker('< ' + reply);
+    if(voiceOn) speak(reply);                 // MODULE A (replies only)
+  }, 550);
+}
+input.addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); handleSubmit(input.value); }
+});
+input.addEventListener('input', e=>{
+  if(e.inputType==='insertLineBreak'){ e.preventDefault?.(); handleSubmit(input.value); }
+});
+
+/* =========================================================
+   HUD wires
+========================================================= */
+const btnMini   = document.getElementById('btnToggleMini');
+const btnMirrorMain = document.getElementById('btnMirrorMain');
+const btnMirrorMini = document.getElementById('btnMirrorMini');
+const btnGrow   = document.getElementById('btnMiniGrow');
+const btnShrink = document.getElementById('btnMiniShrink');
+const btnReset  = document.getElementById('btnReset');
+const btnVoice  = document.getElementById('btnVoice');
+const miniWin   = document.getElementById('miniWin');
+
+btnMini.addEventListener('click', ()=>{
+  const on = miniWin.style.display !== 'block';
+  miniWin.style.display = on ? 'block' : 'none';
+  btnMirrorMini.disabled = !on;
+  btnMini.classList.toggle('active', on);
+  addTicker(on ? 'mini-feed: shown' : 'mini-feed: hidden');
+});
+
+/* Mirror toggles */
+let mirrorMain = true, mirrorMini = true;
+btnMirrorMain.addEventListener('click', ()=>{
+  mirrorMain = !mirrorMain;
+  vMain.style.transform = mirrorMain ? 'scaleX(-1)' : 'none';
+  btnMirrorMain.classList.toggle('active', !mirrorMain);
+  addTicker(`mirror main: ${mirrorMain?'on':'off'}`);
+});
+btnMirrorMini.addEventListener('click', ()=>{
+  mirrorMini = !mirrorMini;
+  vMini.style.transform = mirrorMini ? 'scaleX(-1)' : 'none';
+  btnMirrorMini.classList.toggle('active', !mirrorMini);
+  addTicker(`mirror mini: ${mirrorMini?'on':'off'}`);
+});
+
+/* Size controls */
+function setMiniScale(mult){
+  const r = miniWin.getBoundingClientRect();
+  const w = Math.max(220, Math.min(innerWidth*0.7, r.width*mult));
+  miniWin.style.width = w + 'px';
+}
+btnGrow.addEventListener('click', ()=>setMiniScale(1.1));
+btnShrink.addEventListener('click', ()=>setMiniScale(0.9));
+
+/* Reset defaults */
+btnReset.addEventListener('click', ()=>{
+  input.value='';
+  mirrorMain=true; vMain.style.transform='scaleX(-1)';
+  mirrorMini=true; vMini.style.transform='scaleX(-1)';
+  btnMirrorMain.classList.remove('active');
+  btnMirrorMini.classList.remove('active');
+  miniWin.style.left='6vw'; miniWin.style.top='10vh'; miniWin.style.width='38vw';
+  addTicker('reset: shell defaults');
+});
+
+/* Drag mini window */
+(function(){
+  const bar = document.getElementById('miniBar');
+  let dragging=false, sx=0, sy=0, sl=0, st=0;
+  function start(e){
+    dragging=true;
+    const r=miniWin.getBoundingClientRect();
+    sl=r.left; st=r.top;
+    sx=(e.touches?e.touches[0].clientX:e.clientX);
+    sy=(e.touches?e.touches[0].clientY:e.clientY);
+    document.addEventListener('pointermove',move);
+    document.addEventListener('pointerup',stop);
+    document.addEventListener('touchmove',move,{passive:false});
+    document.addEventListener('touchend',stop);
+  }
+  function move(e){
+    if(!dragging) return;
+    const cx=(e.touches?e.touches[0].clientX:e.clientX);
+    const cy=(e.touches?e.touches[0].clientY:e.clientY);
+    miniWin.style.left = (sl + (cx-sx))+'px';
+    miniWin.style.top  = (st + (cy-sy))+'px';
+    e.preventDefault?.();
+  }
+  function stop(){
+    dragging=false;
+    document.removeEventListener('pointermove',move);
+    document.removeEventListener('pointerup',stop);
+    document.removeEventListener('touchmove',move);
+    document.removeEventListener('touchend',stop);
+  }
+  bar.addEventListener('pointerdown',start);
+  bar.addEventListener('touchstart',start,{passive:false});
+})();
+
+/* =========================================================
+   MODULE A — TEXT-TO-SPEECH (replies only)
+========================================================= */
+let voiceOn = false;           // default OFF (toggle in HUD)
+let voicesReady = false;
+
+function primeVoices(){
+  return new Promise(res=>{
+    const tid = setInterval(()=>{
+      const v = speechSynthesis.getVoices();
+      if(v && v.length){ clearInterval(tid); voicesReady = true; res(); }
+    },100);
+  });
+}
+async function speak(text){
+  if(!voiceOn || !('speechSynthesis' in window)) return;
+  if(!voicesReady) await primeVoices();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang='en-US'; u.rate=1.05; u.pitch=0.9; u.volume=0.85;
+  const v = speechSynthesis.getVoices();
+  u.voice = v.find(x=>/samantha/i.test(x.name)) || v.find(x=>/google/i.test(x.name)) || v[0];
+  speechSynthesis.speak(u);
+}
+/* iOS unlock on first touch/click */
+function unlockTTS(){
+  try{ speechSynthesis.speak(new SpeechSynthesisUtterance('')); speechSynthesis.cancel(); }catch(e){}
+  window.removeEventListener('touchstart',unlockTTS);
+  window.removeEventListener('click',unlockTTS);
+}
+window.addEventListener('touchstart',unlockTTS,{once:true});
+window.addEventListener('click',unlockTTS,{once:true});
+
+/* HUD toggle for voice */
+btnVoice.addEventListener('click', ()=>{
+  voiceOn = !voiceOn;
+  btnVoice.textContent = voiceOn ? 'Voice: On' : 'Voice: Off';
+  btnVoice.classList.toggle('active', voiceOn);
+  addTicker(`voice synth: ${voiceOn?'enabled':'disabled'}`);
+});
+
+/* =========================================================
+   MODULE B — SEMANTIC REPLY ENGINE (concise diagnostics)
+========================================================= */
+function semanticReply(input){
+  const t = input.toLowerCase();
+
+  // quick keyword buckets
+  const greet = /(hello|hi|hey|yo|hola)/;
+  const video = /(video|camera|feed|frame|mirror|mini)/;
+  const sys   = /(link|signal|sync|handshake|latency|ping|bandwidth)/;
+  const ask   = /(why|how|what|when|where)/;
+  const ok    = /(ok|okay|good|great|works|working)/;
+  const warn  = /(error|fail|broken|issue|bug|stuck)/;
+  const size  = /(bigger|smaller|zoom|scale)/;
+
+  if (greet.test(t)) return 'acknowledged: uplink active';
+  if (video.test(t)) return 'video path: stable; mirror channel ready';
+  if (sys.test(t))   return `field sync nominal; latency ${(Math.random()*40+20|0)}ms`;
+  if (size.test(t))  return 'scaler engaged: adjust via mini ± controls';
+  if (ok.test(t))    return 'status: green; continuing stream';
+  if (warn.test(t))  return 'diagnostic: retry suggested; check permissions';
+  if (ask.test(t))   return 'referencing local map: route prepared';
+
+  // default neutral reply
+  const corr = Math.floor(Math.random()*100);
+  return `signal correlation ${corr}%`;
+}
+</script>
+</body>
+</html>
