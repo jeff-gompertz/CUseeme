@@ -254,30 +254,53 @@ btnVoice.addEventListener('click', ()=>{
 /* =========================================================
    MODULE B — SEMANTIC REPLY ENGINE (concise diagnostics)
 ========================================================= */
+/* =========================================================
+   MODULE B — SEMANTIC REPLY ENGINE (diagnostic / archival tone)
+   ========================================================= */
 function semanticReply(input){
-  const t = input.toLowerCase();
+  const t = input.toLowerCase().trim();
+  if (!t) return "awaiting signal input...";
 
-  // quick keyword buckets
-  const greet = /(hello|hi|hey|yo|hola)/;
-  const video = /(video|camera|feed|frame|mirror|mini)/;
-  const sys   = /(link|signal|sync|handshake|latency|ping|bandwidth)/;
-  const ask   = /(why|how|what|when|where)/;
-  const ok    = /(ok|okay|good|great|works|working)/;
-  const warn  = /(error|fail|broken|issue|bug|stuck)/;
-  const size  = /(bigger|smaller|zoom|scale)/;
+  // --- Primary Keyword Maps ---
+  const greet = /(hello|hi|hey|yo|hola|morning|evening)/;
+  const sys   = /(link|signal|sync|handshake|latency|ping|bandwidth|uplink|field)/;
+  const vid   = /(video|camera|feed|frame|mirror|mini|visual|stream)/;
+  const data  = /(file|archive|record|log|database|node|entry)/;
+  const mem   = /(memory|remember|forget|store|retrieve)/;
+  const ask   = /(who|what|when|where|why|how)/;
+  const warn  = /(error|fail|broken|issue|bug|stuck|fault)/;
+  const ok    = /(ok|okay|good|great|works|ready)/;
+  const sense = /(see|hear|feel|think|believe)/;
 
-  if (greet.test(t)) return 'acknowledged: uplink active';
-  if (video.test(t)) return 'video path: stable; mirror channel ready';
-  if (sys.test(t))   return `field sync nominal; latency ${(Math.random()*40+20|0)}ms`;
-  if (size.test(t))  return 'scaler engaged: adjust via mini ± controls';
-  if (ok.test(t))    return 'status: green; continuing stream';
-  if (warn.test(t))  return 'diagnostic: retry suggested; check permissions';
-  if (ask.test(t))   return 'referencing local map: route prepared';
+  // --- Contextual Responses ---
+  if (greet.test(t)) return "uplink active — connection recognized";
+  if (sys.test(t))   return `signal coherence ${Math.floor(Math.random()*30)+70}% — field stable`;
+  if (vid.test(t))   return "video path operational — mirror channel synchronized";
+  if (data.test(t))  return "querying CUSeeMe archive... local index returned 12 entries";
+  if (mem.test(t))   return "memory node checksum verified — logs intact";
+  if (ok.test(t))    return "status: green — continuing transmission";
+  if (warn.test(t))  return "diagnostic: minor interference detected — retry suggested";
+  if (ask.test(t))   return "searching semantic lattice... result incoming...";
+  if (sense.test(t)) return "perceptual input acknowledged — adjusting filters";
 
-  // default neutral reply
-  const corr = Math.floor(Math.random()*100);
-  return `signal correlation ${corr}%`;
+  // --- Procedural / Ambient Replies ---
+  const ambientReplies = [
+    "node_"+(Math.floor(Math.random()*9000)+1000)+" → response latency "+(Math.random()*120|0)+"ms",
+    "subroutine echo: stable",
+    "field sync nominal — awaiting next packet",
+    "no anomalies detected in current layer",
+    "trace: "+(Math.random()*100|0)+"% overlap with previous exchange",
+    "signal reflection confirmed",
+    "loopback resonance detected — minor phase drift",
+    "temporal cache refreshed",
+    "session hash "+Math.random().toString(36).slice(2,7)+" validated"
+  ];
+  return ambientReplies[Math.floor(Math.random()*ambientReplies.length)];
 }
+
+
+
+
 </script>
 </body>
 </html>
