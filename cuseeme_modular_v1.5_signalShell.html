@@ -3,49 +3,39 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe Modular v1.5 — Signal Shell</title>
+<title>CUSeeMe Modular v1.6 — Signal Shell</title>
 
 <style>
 /* =========================================================
    [L6: GLOBAL STYLE SYSTEM]
-   - Soft grayscale base
-   - Accent tints (no scanlines/noise)
-   - Easy theming via CSS variables
 ========================================================= */
 :root{
-  --base-bg: #ffffff;               /* white field */
-  --ui-fg:  #0a0a0a;                /* dark text */
-  --glass:  rgba(255,255,255,0.22); /* frosted panels */
-  --glass-b: rgba(0,0,0,0.18);      /* frosted borders */
-  --ticker-color: #FF4433;          /* locked red ticker */
-  --mini-bezel: #d7d7d7;            /* CUSeeMe-ish bezel */
-  --mini-label: #7a7a7a;            /* label text */
-  --accent-cyan: #44d4ff;
-  --accent-magenta: #ff55dd;
+  --base-bg: #ffffff;
+  --ui-fg:  #0a0a0a;
+  --glass:  rgba(255,255,255,0.22);
+  --glass-b: rgba(0,0,0,0.18);
+  --ticker-color: #FF4433;
+  --mini-bezel: #d7d7d7;
+  --mini-label: #7a7a7a;
   --accent-violet: #a687ff;
 }
-
-/* Clean “Signal Mode” = just subtle tint + transparency shifts */
-body.signal #cameraMain { filter: brightness(1.05) contrast(1.05) saturate(1.05); }
-body.signal #miniWin     { box-shadow: 0 20px 60px rgba(166,135,255,0.25); }
-body.signal .hud-btn.active { outline: 2px solid var(--accent-violet); }
 
 /* =========================================================
    [L0: BASE LAYER — CAMERA]
 ========================================================= */
 html,body{
   margin:0; height:100%; overflow:hidden; background:var(--base-bg);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: var(--ui-fg);
 }
 #cameraMain{
   position: fixed; inset: 0; object-fit: cover;
-  transform: scaleX(-1);    /* mirror by default (self-view) */
+  transform: scaleX(-1);
   z-index: 0;
 }
 
 /* =========================================================
-   [L1: HUD CORE — upper-right, frosted]
+   [L1: HUD — upper-right frosted controls]
 ========================================================= */
 #hud{
   position: fixed; top: 14px; right: 14px; z-index: 10;
@@ -54,147 +44,79 @@ html,body{
   border: 1px solid var(--glass-b); border-radius: 12px;
   padding: 10px; min-width: 220px;
 }
-#hud h1{
-  margin: 2px 0 6px; font-size: 12px; letter-spacing:.06em;
-  text-transform: uppercase; opacity:.7;
-}
+#hud h1{margin: 2px 0 6px; font-size: 12px; letter-spacing:.06em; opacity:.7;}
 .hud-row{ display:flex; gap:8px; flex-wrap:wrap; }
 
 .hud-btn{
   appearance:none; border:1px solid var(--glass-b); border-radius:10px;
   background: rgba(255,255,255,0.35);
-  padding: 6px 10px; font-size:12px; letter-spacing:.02em; color:#000;
+  padding: 6px 10px; font-size:12px; color:#000; cursor:pointer;
   box-shadow: 0 1px 0 rgba(255,255,255,0.35) inset, 0 6px 16px rgba(0,0,0,0.08);
-  cursor: pointer;
 }
 .hud-btn:hover{ background: rgba(255,255,255,0.5); }
-.hud-btn:active{ transform: translateY(1px); }
 .hud-btn.primary{ background: rgba(255,255,255,0.55); font-weight:600; }
-
-/* keep HUD unobtrusive if you ever want to dim it */
-#hud.dim { opacity:.15; }
-#hud.dim:hover { opacity:1; transition: opacity .15s ease; }
+#hud.dim { opacity:.15; } #hud.dim:hover { opacity:1; transition:opacity .2s; }
 
 /* =========================================================
-   [L3: DIAGNOSTIC TICKER — bottom-left, red, large]
+   [L3: TICKER — bottom-left, red]
 ========================================================= */
 #ticker{
   position: fixed; left: 12px; bottom: 12px; z-index: 8;
-  width: 42vw; max-width: 640px; max-height: 56vh;
-  display: flex; flex-direction: column-reverse;
-  overflow: hidden; pointer-events: none;
-  color: var(--ticker-color);
-  font-size: 1.2rem; line-height: 1.3rem; opacity: 0.9;
+  width: 42vw; max-width: 640px;
+  display:flex; flex-direction:column-reverse;
+  overflow:hidden; color:var(--ticker-color);
+  font-size:1.2rem; line-height:1.3rem; opacity:0.9;
 }
-.tline{ opacity:.9; margin:0; animation: tlIn .6s ease forwards; }
-@keyframes tlIn{ from{opacity:0; transform: translateY(8px)} to{opacity:.9; transform:none} }
+.tline{ opacity:.9; margin:0; animation:tlIn .6s ease forwards; }
+@keyframes tlIn{ from{opacity:0; transform:translateY(8px);} to{opacity:.9; transform:none;} }
 
 /* =========================================================
    [L4: INPUT PROMPT — centered overlay]
 ========================================================= */
-/* =========================================================
-   [L4] INPUT: echo into ticker (robust for iOS)
-========================================================= */
-const input = document.getElementById('input');
-
-function processInput(val){
-  val = val.trim();
-  if(!val) return;
-  addTicker('> ' + val);
-  input.value = ''; // clear after enter
-
-  // cinematic synthetic echo
-  const replies = [
-    `acknowledged: "${val}"`,
-    `note: "${val}" logged`,
-    `latency ${(Math.random()*0.6+0.2).toFixed(2)}s`,
-    `signal correlation ${Math.floor(Math.random()*100)}%`
-  ];
-  const reply = replies[Math.floor(Math.random()*replies.length)];
-  setTimeout(()=>addTicker('< ' + reply), 700);
+#promptWrap{
+  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+  pointer-events:none; z-index:9;
+}
+#promptBox{
+  display:flex; align-items:center; gap:6px;
+  background:rgba(255,255,255,0.25); backdrop-filter:blur(8px);
+  border-radius:10px; padding:8px 12px;
+}
+#input{
+  background:transparent; border:none; outline:none;
+  color:#111; font-size:14px; width:220px;
+  pointer-events:auto;
 }
 
-// Handles both desktop + iOS virtual keyboards
-input.addEventListener('keydown', e=>{
-  if(e.key === 'Enter'){
-    e.preventDefault();
-    processInput(input.value);
-  }
-});
-
-input.addEventListener('input', e=>{
-  if(e.inputType === 'insertLineBreak'){ // iOS virtual enter key
-    e.preventDefault?.();
-    processInput(input.value);
-  }
-});
-
 /* =========================================================
-   [L5: FLOATING MINI-FEED — draggable CUSeeMe-style window]
+   [L5: FLOATING MINI-FEED — draggable window]
 ========================================================= */
-/* =========================================================
-   [L5] MINI WINDOW DRAG — unified pointer/touch
-========================================================= */
-(function(){
-  let isDragging = false;
-  let startX, startY, startLeft, startTop;
-
-  function startDrag(e){
-    isDragging = true;
-    const rect = miniWin.getBoundingClientRect();
-    startLeft = rect.left;
-    startTop  = rect.top;
-    startX = (e.touches ? e.touches[0].clientX : e.clientX);
-    startY = (e.touches ? e.touches[0].clientY : e.clientY);
-    document.addEventListener('pointermove', onDrag);
-    document.addEventListener('pointerup', stopDrag);
-    document.addEventListener('touchmove', onDrag, {passive:false});
-    document.addEventListener('touchend', stopDrag);
-  }
-
-  function onDrag(e){
-    if(!isDragging) return;
-    const cx = (e.touches ? e.touches[0].clientX : e.clientX);
-    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
-    const dx = cx - startX;
-    const dy = cy - startY;
-    miniWin.style.left = (startLeft + dx) + 'px';
-    miniWin.style.top  = (startTop + dy) + 'px';
-    e.preventDefault?.();
-  }
-
-  function stopDrag(){
-    isDragging = false;
-    document.removeEventListener('pointermove', onDrag);
-    document.removeEventListener('pointerup', stopDrag);
-    document.removeEventListener('touchmove', onDrag);
-    document.removeEventListener('touchend', stopDrag);
-  }
-
-  // Enable dragging from the title bar
-  document.getElementById('miniBar').addEventListener('pointerdown', startDrag);
-  document.getElementById('miniBar').addEventListener('touchstart', startDrag, {passive:false});
-})();
-
-                          
-
-/* =========================================================
-   Small helpers
-========================================================= */
-.hidden{ display:none !important; }
-.muted{ opacity:.6; }
+#miniWin{
+  position: fixed;
+  left: 6vw; top: 10vh; z-index: 7;
+  width: 40vw; aspect-ratio: 4/3;
+  display: none;
+  border: 1px solid #bfbfbf;
+  border-radius: 12px;
+  background: linear-gradient(#efefef,#dbdbdb);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  overflow:hidden;
+  cursor: grab;
+}
+#miniWin:active{ cursor: grabbing; }
+#miniBar{
+  background:rgba(255,255,255,0.35);
+  font-size:11px; padding:4px 8px; cursor:grab;
+  display:flex; justify-content:space-between; align-items:center;
+}
+#miniInner video{ width:100%; height:100%; object-fit:cover; }
 </style>
 </head>
-<body>
 
-<!-- =======================================================
-     [L0] CAMERA
-======================================================== -->
+<body>
 <video id="cameraMain" autoplay muted playsinline></video>
 
-<!-- =======================================================
-     [L1] HUD CORE (upper-right)
-======================================================== -->
+<!-- HUD -->
 <div id="hud">
   <h1>Signal Shell</h1>
   <div class="hud-row">
@@ -207,232 +129,155 @@ input.addEventListener('input', e=>{
     <button class="hud-btn" id="btnMiniGrow">Mini +</button>
     <button class="hud-btn" id="btnMiniShrink">Mini −</button>
   </div>
-  <div class="hud-row">
-    <button class="hud-btn" id="btnReset">Reset</button>
-  </div>
+  <div class="hud-row"><button class="hud-btn" id="btnReset">Reset</button></div>
 </div>
 
-<!-- =======================================================
-     [L3] TICKER (bottom-left)
-======================================================== -->
+<!-- Ticker -->
 <div id="ticker"></div>
 
-<!-- =======================================================
-     [L4] INPUT PROMPT (center)
-======================================================== -->
+<!-- Input -->
 <div id="promptWrap">
   <div id="promptBox">
-    <div id="caret"></div>
     <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" />
   </div>
 </div>
 
-<!-- =======================================================
-     [L5] FLOATING MINI-FEED (draggable)
-======================================================== -->
-<div id="miniWin" aria-label="mini feed window">
-  <div id="miniBar">
-    <div id="miniTitle">subject_0001</div>
-    <div id="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
-    <div id="miniGrip"></div>
-  </div>
-  <div id="miniInner">
-    <video id="cameraMini" autoplay muted playsinline></video>
-  </div>
+<!-- Mini Window -->
+<div id="miniWin">
+  <div id="miniBar">subject_0001</div>
+  <div id="miniInner"><video id="cameraMini" autoplay muted playsinline></video></div>
 </div>
 
 <script>
 /* =========================================================
-   UTIL: add ticker lines (locked red, larger size)
+   [UTIL] — Add ticker lines
 ========================================================= */
-const ticker = document.getElementById('ticker');
+const ticker=document.getElementById('ticker');
 function addTicker(text){
-  const line = document.createElement('div');
-  line.className = 'tline';
-  line.textContent = text;
+  const line=document.createElement('div');
+  line.className='tline';
+  line.textContent=text;
   ticker.prepend(line);
-  if (ticker.children.length > 80) ticker.removeChild(ticker.lastChild);
-  // slow fade after a long dwell (you liked long presence)
-  setTimeout(()=>line.style.opacity = .25, 60000);
+  if(ticker.children.length>60)ticker.removeChild(ticker.lastChild);
 }
 
 /* Boot diagnostics */
-const bootMsgs = [
-  'link /optical established',
-  'loopback handshake ok',
-  'field integrity 99.2%',
-  'ui shell ready',
-  'ticker: online'
-];
-bootMsgs.forEach((m,i)=>setTimeout(()=>addTicker(m), 350*i));
+['link /optical established','loopback handshake ok','ui shell ready','ticker: online']
+.forEach((m,i)=>setTimeout(()=>addTicker(m),300*i));
 
 /* =========================================================
-   [L0] CAMERA INIT (shared stream to main + mini)
+   [L0] CAMERA INIT
 ========================================================= */
-const vMain = document.getElementById('cameraMain');
-const vMini = document.getElementById('cameraMini');
-let mediaStream = null;
-
-(async ()=>{
+const vMain=document.getElementById('cameraMain');
+const vMini=document.getElementById('cameraMini');
+(async()=>{
   try{
-    mediaStream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
-    vMain.srcObject = mediaStream;
-    vMini.srcObject  = mediaStream;
+    const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    vMain.srcObject=stream;
+    vMini.srcObject=stream;
     addTicker('camera stream: granted');
-  }catch(e){
-    addTicker('⚠ camera denied');
-  }
+  }catch(e){ addTicker('⚠ camera denied'); }
 })();
 
 /* =========================================================
-   [L4] INPUT: echo into ticker (simple, cinematic)
+   [L4] INPUT — echo text to ticker
 ========================================================= */
-const input = document.getElementById('input');
-input.addEventListener('keydown', (e)=>{
-  if(e.key !== 'Enter') return;
-  const val = input.value.trim();
-  if(!val) return;
-  addTicker('> ' + val);
-  input.select();
-
-  // lightweight synthetic reply (no network), cinematic delay
-  const replies = [
+const input=document.getElementById('input');
+function processInput(val){
+  val=val.trim(); if(!val)return;
+  addTicker('> '+val); input.value='';
+  const replies=[
     `acknowledged: "${val}"`,
     `note: "${val}" logged`,
     `latency ${(Math.random()*0.6+0.2).toFixed(2)}s`,
     `signal correlation ${Math.floor(Math.random()*100)}%`
   ];
-  const reply = replies[Math.floor(Math.random()*replies.length)];
-  setTimeout(()=>addTicker('< ' + reply), 700);
-});
-
-/* =========================================================
-   [L1] HUD WIRES
-========================================================= */
-const hud = document.getElementById('hud');
-const btnMini   = document.getElementById('btnToggleMini');
-const btnMirrorMain = document.getElementById('btnMirrorMain');
-const btnMirrorMini = document.getElementById('btnMirrorMini');
-const btnSignal = document.getElementById('btnSignal');
-const btnGrow   = document.getElementById('btnMiniGrow');
-const btnShrink = document.getElementById('btnMiniShrink');
-const btnReset  = document.getElementById('btnReset');
-
-const miniWin = document.getElementById('miniWin');
-
-btnMini.addEventListener('click', ()=>{
-  const on = miniWin.style.display !== 'block';
-  miniWin.style.display = on ? 'block' : 'none';
-  btnMirrorMini.disabled = !on;
-  btnMini.classList.toggle('active', on);
-  addTicker(on ? 'mini-feed: shown' : 'mini-feed: hidden');
-});
-
-/* Mirror toggles (pure CSS transform flips) */
-let mirrorMain = true;   // main starts mirrored
-let mirrorMini = true;   // mini starts mirrored
-btnMirrorMain.addEventListener('click', ()=>{
-  mirrorMain = !mirrorMain;
-  vMain.style.transform = mirrorMain ? 'scaleX(-1)' : 'none';
-  btnMirrorMain.classList.toggle('active', mirrorMain===false);
-  addTicker(`mirror main: ${mirrorMain?'on':'off'}`);
-});
-btnMirrorMini.addEventListener('click', ()=>{
-  mirrorMini = !mirrorMini;
-  vMini.style.transform = mirrorMini ? 'scaleX(-1)' : 'none';
-  btnMirrorMini.classList.toggle('active', mirrorMini===false);
-  addTicker(`mirror mini: ${mirrorMini?'on':'off'}`);
-});
-
-/* Signal mode (clean tint/transparency only) */
-btnSignal.addEventListener('click', ()=>{
-  const on = !document.body.classList.contains('signal');
-  document.body.classList.toggle('signal', on);
-  btnSignal.classList.toggle('active', on);
-  addTicker(`signal mode: ${on?'on':'off'}`);
-});
-
-/* Mini size controls (±10%) */
-function setMiniScale(mult){
-  const rect = miniWin.getBoundingClientRect();
-  const vw = Math.max(240, Math.min(window.innerWidth*0.7, rect.width * mult));
-  miniWin.style.width = vw + 'px';
+  setTimeout(()=>addTicker('< '+replies[Math.floor(Math.random()*replies.length)]),700);
 }
-btnGrow.addEventListener('click', ()=>{ setMiniScale(1.1); });
-btnShrink.addEventListener('click', ()=>{ setMiniScale(0.9); });
-
-/* Reset: HUD & windows to defaults */
-btnReset.addEventListener('click', ()=>{
-  // input
-  input.value = '';
-  // signal mode off
-  document.body.classList.remove('signal');
-  btnSignal.classList.remove('active');
-  // mirrors default ON
-  mirrorMain = true;  vMain.style.transform = 'scaleX(-1)';
-  mirrorMini = true;  vMini.style.transform = 'scaleX(-1)';
-  btnMirrorMain.classList.remove('active');
-  btnMirrorMini.classList.remove('active');
-  // mini position/size default
-  miniWin.style.left = '6vw';
-  miniWin.style.top  = '10vh';
-  miniWin.style.width = '32vw';
-  addTicker('reset: shell defaults');
+input.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();processInput(input.value);}
+});
+input.addEventListener('input',e=>{
+  if(e.inputType==='insertLineBreak'){e.preventDefault?.();processInput(input.value);}
 });
 
 /* =========================================================
-   [L5] MINI WINDOW DRAG (pointer events)
+   [L1] HUD FUNCTIONS
 ========================================================= */
-  /* =========================================================
+const miniWin=document.getElementById('miniWin');
+const btnMini=document.getElementById('btnToggleMini');
+const btnMirrorMain=document.getElementById('btnMirrorMain');
+const btnMirrorMini=document.getElementById('btnMirrorMini');
+const btnSignal=document.getElementById('btnSignal');
+const btnGrow=document.getElementById('btnMiniGrow');
+const btnShrink=document.getElementById('btnMiniShrink');
+const btnReset=document.getElementById('btnReset');
+
+btnMini.onclick=()=>{
+  const on=miniWin.style.display!=='block';
+  miniWin.style.display=on?'block':'none';
+  btnMirrorMini.disabled=!on;
+  addTicker(on?'mini-feed: shown':'mini-feed: hidden');
+};
+let mirrorMain=true,mirrorMini=true;
+btnMirrorMain.onclick=()=>{
+  mirrorMain=!mirrorMain;
+  vMain.style.transform=mirrorMain?'scaleX(-1)':'none';
+  addTicker(`mirror main: ${mirrorMain?'on':'off'}`);
+};
+btnMirrorMini.onclick=()=>{
+  mirrorMini=!mirrorMini;
+  vMini.style.transform=mirrorMini?'scaleX(-1)':'none';
+  addTicker(`mirror mini: ${mirrorMini?'on':'off'}`);
+};
+btnSignal.onclick=()=>{
+  document.body.classList.toggle('signal');
+  addTicker(`signal mode: ${document.body.classList.contains('signal')?'on':'off'}`);
+};
+btnGrow.onclick=()=>{miniWin.style.width=(miniWin.offsetWidth*1.1)+'px';};
+btnShrink.onclick=()=>{miniWin.style.width=(miniWin.offsetWidth*0.9)+'px';};
+btnReset.onclick=()=>{
+  document.body.classList.remove('signal');
+  vMain.style.transform='scaleX(-1)';
+  vMini.style.transform='scaleX(-1)';
+  miniWin.style.left='6vw'; miniWin.style.top='10vh'; miniWin.style.width='40vw';
+  addTicker('reset: shell defaults');
+};
+
+/* =========================================================
    [L5] MINI WINDOW DRAG — unified pointer/touch
 ========================================================= */
 (function(){
-  let isDragging = false;
-  let startX, startY, startLeft, startTop;
-
+  let isDragging=false,startX,startY,startLeft,startTop;
   function startDrag(e){
-    isDragging = true;
-    const rect = miniWin.getBoundingClientRect();
-    startLeft = rect.left;
-    startTop  = rect.top;
-    startX = (e.touches ? e.touches[0].clientX : e.clientX);
-    startY = (e.touches ? e.touches[0].clientY : e.clientY);
-    document.addEventListener('pointermove', onDrag);
-    document.addEventListener('pointerup', stopDrag);
-    document.addEventListener('touchmove', onDrag, {passive:false});
-    document.addEventListener('touchend', stopDrag);
+    isDragging=true;
+    const rect=miniWin.getBoundingClientRect();
+    startLeft=rect.left; startTop=rect.top;
+    startX=e.touches?e.touches[0].clientX:e.clientX;
+    startY=e.touches?e.touches[0].clientY:e.clientY;
+    document.addEventListener('pointermove',onDrag);
+    document.addEventListener('pointerup',stopDrag);
+    document.addEventListener('touchmove',onDrag,{passive:false});
+    document.addEventListener('touchend',stopDrag);
   }
-
   function onDrag(e){
-    if(!isDragging) return;
-    const cx = (e.touches ? e.touches[0].clientX : e.clientX);
-    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
-    const dx = cx - startX;
-    const dy = cy - startY;
-    miniWin.style.left = (startLeft + dx) + 'px';
-    miniWin.style.top  = (startTop + dy) + 'px';
+    if(!isDragging)return;
+    const cx=e.touches?e.touches[0].clientX:e.clientX;
+    const cy=e.touches?e.touches[0].clientY:e.clientY;
+    miniWin.style.left=(startLeft+(cx-startX))+'px';
+    miniWin.style.top=(startTop+(cy-startY))+'px';
     e.preventDefault?.();
   }
-
   function stopDrag(){
-    isDragging = false;
-    document.removeEventListener('pointermove', onDrag);
-    document.removeEventListener('pointerup', stopDrag);
-    document.removeEventListener('touchmove', onDrag);
-    document.removeEventListener('touchend', stopDrag);
+    isDragging=false;
+    document.removeEventListener('pointermove',onDrag);
+    document.removeEventListener('pointerup',stopDrag);
+    document.removeEventListener('touchmove',onDrag);
+    document.removeEventListener('touchend',stopDrag);
   }
-
-  // Enable dragging from the title bar
-  document.getElementById('miniBar').addEventListener('pointerdown', startDrag);
-  document.getElementById('miniBar').addEventListener('touchstart', startDrag, {passive:false});
-})(); 
-
-/* =========================================================
-   [OPTIONAL STUBS] — future API/WP hooks live here
-   (kept empty today to avoid regressions)
-========================================================= */
-// function fetchFromWP(...) { ... }
-
+  document.getElementById('miniBar').addEventListener('pointerdown',startDrag);
+  document.getElementById('miniBar').addEventListener('touchstart',startDrag,{passive:false});
+})();
 </script>
 </body>
 </html>
