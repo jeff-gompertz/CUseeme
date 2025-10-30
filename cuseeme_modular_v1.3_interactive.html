@@ -210,8 +210,12 @@ btnReset.addEventListener('click', ()=>{
 /* =========================================================
    MODULE A — TEXT-TO-SPEECH (replies only)
 ========================================================= */
-let voiceOn = false;           // default OFF (toggle in HUD)
-let voicesReady = false;
+/* let voiceOn = false;           // default OFF (toggle in HUD)
+let voicesReady = false;*/
+
+let voiceOn = true;            // default ON at startup
+btnVoice.textContent = "Voice: On";
+btnVoice.classList.add("active"); 
 
 function primeVoices(){
   return new Promise(res=>{
