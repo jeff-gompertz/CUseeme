@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe Modular v1.2 — Interactive (TTS + Semantic)</title>
+
+<style>
+/* =========================================================
+   [L6: GLOBAL STYLE SYSTEM]
+========================================================= */
+:root{
+  --base-bg: #ffffff;
+  --ui-fg:  #0a0a0a;
+  --glass:  rgba(255,255,255,0.22);
+  --glass-b: rgba(0,0,0,0.18);
+  --ticker-color: #FF4433;      /* locked red */
+}
+html,body{
+  margin:0;height:100%;overflow:hidden;background:var(--base-bg);
+  font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color:var(--ui-fg);
+}
+
+/* =========================================================
+   [L0: MAIN CAMERA]
+========================================================= */
+#cameraMain{
+  position:fixed;inset:0;object-fit:cover;
+  transform:scaleX(-1);  /* mirror default */
+  z-index:0;
+}
+
+/* =========================================================
+   [L1: HUD (upper-right, frosted)]
+========================================================= */
+#hud{
+  position:fixed;top:14px;right:14px;z-index:10;
+  display:grid;gap:8px;grid-auto-rows:min-content;
+  background:var(--glass);backdrop-filter:blur(10px);
+  border:1px solid var(--glass-b);border-radius:12px;
+  padding:10px;min-width:230px;
+}
+#hud h1{margin:2px 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.7}
+.hud-row{display:flex;gap:8px;flex-wrap:wrap}
+.hud-btn{
+  appearance:none;border:1px solid var(--glass-b);border-radius:10px;
+  background:rgba(255,255,255,.35);
+  padding:6px 10px;font-size:12px;letter-spacing:.02em;color:#000;cursor:pointer;
+  box-shadow:0 1px 0 rgba(255,255,255,.35) inset, 0 6px 16px rgba(0,0,0,.08);
+}
+.hud-btn:hover{background:rgba(255,255,255,.5)}
+.hud-btn:active{transform:translateY(1px)}
+.hud-btn.active{outline:2px solid rgba(166,135,255,.6)}
+
+/* =========================================================
+   [L3: DIAGNOSTIC TICKER — bottom-left]
+========================================================= */
+#ticker{
+  position:fixed;left:12px;bottom:12px;z-index:8;
+  width:42vw;max-width:640px;max-height:56vh;
+  display:flex;flex-direction:column-reverse;overflow:hidden;pointer-events:none;
