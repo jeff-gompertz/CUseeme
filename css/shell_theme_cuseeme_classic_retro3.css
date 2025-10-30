@@ -1,0 +1,269 @@
+/* =========================================================
+   CUSeeMe — shell_theme_cuseeme_classic_retro3.css
+   "Early Netscape meets Analog Bloom"
+   ========================================================= */
+
+/* === GLOBAL ROOT COLORS === */
+:root {
+  --bg-top: #f3f3f5;
+  --bg-bot: #e6e7ea;
+
+  --hud-top: #ece7ec;
+  --hud-bot: #d8d4d8;
+  --hud-border-dark: #b9b6b9;
+  --hud-border-light: #f8f8f8;
+
+  --btn-top: #fafafa;
+  --btn-bot: #cfcfcf;
+  --btn-active-top: #d0d0d0;
+  --btn-active-bot: #f5f5f5;
+
+  --txt-fg: #0a0a0a;
+  --accent-magenta: rgba(255, 120, 200, 0.25);
+  --accent-cyan: rgba(140, 255, 255, 0.25);
+
+  --mini-bar-top: #dcdcdc;
+  --mini-bar-bot: #c0c0c0;
+
+  --ticker-color: #FF4433;
+}
+
+/* === GLOBAL BACKGROUND === */
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: linear-gradient(var(--bg-top), var(--bg-bot));
+  font-family: "VT323", ui-monospace, Menlo, Consolas, monospace;
+  color: var(--txt-fg);
+}
+
+/* === CAMERA FEED (main layer) === */
+#cameraMain {
+  position: fixed;
+  inset: 0;
+  object-fit: cover;
+  transform: scaleX(-1);
+  z-index: 0;
+  border: 1px solid #c0bfc0;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.25),
+              0 0 10px var(--accent-magenta);
+}
+
+/* =========================================================
+   [HUD PANEL — early Netscape system box style]
+   ========================================================= */
+#hud {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 10;
+  display: grid;
+  gap: 8px;
+  grid-auto-rows: min-content;
+
+  background: linear-gradient(var(--hud-top), var(--hud-bot));
+  border: 1px solid var(--hud-border-dark);
+  border-radius: 6px;
+  box-shadow:
+    inset 1px 1px 0 var(--hud-border-light),
+    inset -1px -1px 0 var(--hud-border-dark),
+    3px 3px 8px rgba(0,0,0,0.25);
+  padding: 10px 12px;
+  min-width: 240px;
+
+  color: var(--txt-fg);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+#hud:hover {
+  box-shadow:
+    inset 1px 1px 0 var(--hud-border-light),
+    inset -1px -1px 0 var(--hud-border-dark),
+    3px 3px 10px rgba(255, 150, 200, 0.25),
+    0 0 12px rgba(140, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+#hud h1 {
+  margin: 2px 0 6px;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+.hud-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* === HUD Buttons === */
+.hud-btn {
+  appearance: none;
+  border: 1px solid var(--hud-border-dark);
+  border-radius: 3px;
+  background: linear-gradient(var(--btn-top), var(--btn-bot));
+  font-family: "VT323", monospace;
+  font-size: 14px;
+  color: var(--txt-fg);
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.4),
+    0 2px 4px rgba(0,0,0,0.15);
+}
+.hud-btn:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    0 0 6px var(--accent-magenta);
+}
+.hud-btn:active {
+  background: linear-gradient(var(--btn-active-top), var(--btn-active-bot));
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 0 rgba(0,0,0,0.2),
+    0 1px 2px rgba(0,0,0,0.25);
+}
+.hud-btn.active {
+  outline: 1px solid var(--accent-cyan);
+}
+
+/* =========================================================
+   [TICKER — bottom-left diagnostic field]
+   ========================================================= */
+#ticker {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 8;
+  width: 42vw;
+  max-width: 640px;
+  max-height: 56vh;
+  display: flex;
+  flex-direction: column-reverse;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--ticker-color);
+  font-size: 1.2rem;
+  line-height: 1.3rem;
+  opacity: 0.9;
+}
+.tline {
+  opacity: 0.9;
+  margin: 0;
+  animation: tlIn 0.6s ease forwards;
+}
+@keyframes tlIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 0.9; transform: none; }
+}
+
+/* =========================================================
+   [PROMPT — center overlay input]
+   ========================================================= */
+#promptWrap {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 6;
+  pointer-events: none;
+}
+#promptBox {
+  pointer-events: auto;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  background: linear-gradient(var(--hud-top), var(--hud-bot));
+  border: 1px solid var(--hud-border-dark);
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  box-shadow:
+    inset 1px 1px 0 var(--hud-border-light),
+    inset -1px -1px 0 var(--hud-border-dark),
+    3px 3px 6px rgba(0,0,0,0.25);
+  font-size: 1.6rem;
+}
+#caret {
+  width: 0.3ch;
+  height: 1.3em;
+  background: var(--txt-fg);
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink {
+  50% { opacity: 0; }
+}
+#input {
+  background: transparent;
+  border: none;
+  outline: none;
+  width: 18ch;
+  color: var(--txt-fg);
+  font: inherit;
+}
+
+/* =========================================================
+   [MINI FEED WINDOW — frosted portrait]
+   ========================================================= */
+#miniWin {
+  position: fixed;
+  z-index: 7;
+  left: 8vw;
+  top: 10vh;
+  height: 58vh;
+  aspect-ratio: 9 / 14;
+  display: none;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid var(--hud-border-dark);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,0.25),
+    3px 6px 16px rgba(0,0,0,0.25);
+  overflow: hidden;
+  cursor: grab;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+#miniWin:active {
+  cursor: grabbing;
+  transform: scale(1.02);
+  box-shadow: 3px 8px 22px rgba(0,0,0,0.35);
+}
+#miniBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: linear-gradient(var(--mini-bar-top), var(--mini-bar-bot));
+  font-size: 12px;
+  color: #222;
+}
+#miniTitle {
+  font-weight: 600;
+  opacity: 0.7;
+}
+#miniBtns {
+  display: flex;
+  gap: 4px;
+}
+.win-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #999;
+  opacity: 0.7;
+}
+#miniInner {
+  position: relative;
+  width: 100%;
+  height: calc(100% - 24px);
+}
+#cameraMini {
+  position: absolute;
+  inset: 0;
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(-1);
+}
