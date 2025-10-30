@@ -214,8 +214,9 @@ btnReset.addEventListener('click', ()=>{
 let voicesReady = false;*/
 
 let voiceOn = true;            // default ON at startup
+let voicesReady = false;       // ✅ reintroduce missing flag
 btnVoice.textContent = "Voice: On";
-btnVoice.classList.add("active"); 
+btnVoice.classList.add("active");
 
 function primeVoices(){
   return new Promise(res=>{
