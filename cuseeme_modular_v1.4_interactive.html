@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe Modular v1.4 — Interactive (Retro4 HUD + Voice Fix)</title>
+<link rel="stylesheet" href="css/shell_theme_cuseeme_classic_retro4.css" />
+
+<style>
+/* =========================================================
+   [L6: GLOBAL STYLE SYSTEM]
+   (Placeholder for local overrides — do not delete)
+========================================================= */
+</style>
+</head>
+
+<body>
+
+<!-- [L0] MAIN CAMERA -->
+<video id="cameraMain" autoplay muted playsinline></video>
+
+<!-- [L1] HUD -->
+<div id="hud">
+  <h1>Signal Shell</h1>
+
+  <div class="hud-row">
+    <button class="hud-btn active" id="btnNewWindow">➕ New Window</button>
+    <button class="hud-btn" id="btnMirrorFeed">Mirror Feed</button>
+  </div>
+
+  <div class="hud-row">
+    <button class="hud-btn" id="btnZoomIn">Zoom In</button>
+    <button class="hud-btn" id="btnZoomOut">Zoom Out</button>
+  </div>
+
+  <div class="hud-row">
+    <button class="hud-btn" id="btnNewVideo">New Video</button>
+    <button class="hud-btn" id="btnVoice">Voice: On</button>
+  </div>
+
+  <div class="hud-row">
+    <button class="hud-btn" id="btnReset">Reset</button>
+  </div>
+</div>
+
+<!-- [L3] TICKER -->
+<div id="ticker"></div>
+
+<!-- [L4] PROMPT -->
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" />
+  </div>
+</div>
+
+<!-- [L5] MINI FEED -->
+<div id="miniWin" aria-label="mini feed window">
+  <div id="miniBar">
+    <div id="miniTitle">subject_0001</div>
+    <div id="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+  </div>
+  <div id="miniInner">
+    <video id="cameraMini" autoplay muted playsinline></video>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   UTIL — ticker lines
+========================================================= */
+const ticker = document.getElementById('ticker');
+function addTicker(text){
+  const line = document.createElement('div');
+  line.className = 'tline';
+  line.textContent = text;
+  ticker.prepend(line);
+  if(ticker.children.length > 80) ticker.removeChild(ticker.lastChild);
+  setTimeout(()=>line.style.opacity=.25, 60000);
+}
+['link /optical established','loopback handshake ok','field integrity 99.2%','ui shell ready','ticker: online']
+  .forEach((m,i)=>setTimeout(()=>addTicker(m), 300*i));
+
+/* =========================================================
+   CAMERA INIT
+========================================================= */
+const vMain = document.getElementById('cameraMain');
+const vMini = document.getElementById('cameraMini');
+let mediaStream = null;
+
+(async ()=>{
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    vMain.srcObject = mediaStream;
+    vMini.srcObject = mediaStream;
+    addTicker('camera stream: granted');
+  }catch(e){ addTicker('⚠ camera denied'); }
+})();
+
+/* =========================================================
+   INPUT HANDLER
+========================================================= */
+const input = document.getElementById('input');
+function handleSubmit(value){
+  const val = value.trim();
+  if(!val) return;
+  addTicker('> ' + val);
+  input.value = '';
+  const reply = semanticReply(val);
+  setTimeout(()=>{
+    addTicker('< ' + reply);
+    if(voiceOn) speak(reply);
+  }, 550);
+}
+input.addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); handleSubmit(input.value); }
+});
+
+/* =========================================================
+   HUD CONTROLS
+========================================================= */
+const btnNewWindow = document.getElementById('btnNewWindow');
+const btnMirrorFeed = document.getElementById('btnMirrorFeed');
+const btnZoomIn = document.getElementById('btnZoomIn');
+const btnZoomOut = document.getElementById('btnZoomOut');
+const btnNewVideo = document.getElementById('btnNewVideo');
+const btnVoice = document.getElementById('btnVoice');
+const btnReset = document.getElementById('btnReset');
+const miniWin = document.getElementById('miniWin');
+
+btnNewWindow.addEventListener('click', ()=>{
+  const on = miniWin.style.display !== 'block';
+  miniWin.style.display = on ? 'block' : 'none';
+  btnNewWindow.classList.toggle('active', on);
+  addTicker(on ? 'new window: spawned' : 'window: closed');
+});
+
+let mirrorMain = true;
+btnMirrorFeed.addEventListener('click', ()=>{
+  mirrorMain = !mirrorMain;
+  vMain.style.transform = mirrorMain ? 'scaleX(-1)' : 'none';
+  addTicker(`mirror feed: ${mirrorMain ? 'on' : 'off'}`);
+});
+
+function setMiniScale(mult){
+  const r = miniWin.getBoundingClientRect();
+  const w = Math.max(220, Math.min(innerWidth*0.7, r.width*mult));
+  miniWin.style.width = w + 'px';
+}
+btnZoomIn.addEventListener('click', ()=>setMiniScale(1.1));
+btnZoomOut.addEventListener('click', ()=>setMiniScale(0.9));
+
+btnNewVideo.addEventListener('click', ()=>addTicker('creating new video feed instance…'));
+btnReset.addEventListener('click', ()=>{
+  input.value='';
+  mirrorMain=true; vMain.style.transform='scaleX(-1)';
+  miniWin.style.left='6vw'; miniWin.style.top='10vh'; miniWin.style.width='38vw';
+  addTicker('reset: shell defaults');
+});
+
+/* =========================================================
+   DRAG MINI WINDOW
+========================================================= */
+(function(){
+  const bar = document.getElementById('miniBar');
+  let dragging=false, sx=0, sy=0, sl=0, st=0;
+  function start(e){
+    dragging=true;
+    const r=miniWin.getBoundingClientRect();
+    sl=r.left; st=r.top;
+    sx=(e.touches?e.touches[0].clientX:e.clientX);
+    sy=(e.touches?e.touches[0].clientY:e.clientY);
+    document.addEventListener('pointermove',move);
+    document.addEventListener('pointerup',stop);
+    document.addEventListener('touchmove',move,{passive:false});
+    document.addEventListener('touchend',stop);
+  }
+  function move(e){
+    if(!dragging) return;
+    const cx=(e.touches?e.touches[0].clientX:e.clientX);
+    const cy=(e.touches?e.touches[0].clientY:e.clientY);
+    miniWin.style.left = (sl + (cx-sx))+'px';
+    miniWin.style.top  = (st + (cy-sy))+'px';
+    e.preventDefault?.();
+  }
+  function stop(){
+    dragging=false;
+    document.removeEventListener('pointermove',move);
+    document.removeEventListener('pointerup',stop);
+    document.removeEventListener('touchmove',move);
+    document.removeEventListener('touchend',stop);
+  }
+  bar.addEventListener('pointerdown',start);
+  bar.addEventListener('touchstart',start,{passive:false});
+})();
+
+/* =========================================================
+   MODULE A — TEXT TO SPEECH
+========================================================= */
+let voiceOn = true;
+let voicesReady = false;
+btnVoice.textContent = "Voice: On";
+btnVoice.classList.add("active");
+
+function primeVoices(){
+  return new Promise(res=>{
+    const tid = setInterval(()=>{
+      const v = speechSynthesis.getVoices();
+      if(v && v.length){ clearInterval(tid); voicesReady = true; res(); }
+    },100);
+  });
+}
+speechSynthesis.onvoiceschanged = primeVoices;
+
+async function speak(text){
+  if(!voiceOn || !('speechSynthesis' in window)) return;
+  if(!voicesReady) await primeVoices();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang='en-US'; u.rate=1.05; u.pitch=0.9; u.volume=0.85;
+  const v = speechSynthesis.getVoices();
+  u.voice = v.find(x=>/samantha/i.test(x.name)) || v.find(x=>/google/i.test(x.name)) || v[0];
+  speechSynthesis.speak(u);
+}
+
+function unlockTTS(){
+  try{ speechSynthesis.speak(new SpeechSynthesisUtterance('')); speechSynthesis.cancel(); }catch(e){}
+  window.removeEventListener('touchstart',unlockTTS);
+  window.removeEventListener('click',unlockTTS);
+}
+window.addEventListener('touchstart',unlockTTS,{once:true});
+window.addEventListener('click',unlockTTS,{once:true});
+
+btnVoice.addEventListener('click', ()=>{
+  voiceOn = !voiceOn;
+  btnVoice.textContent = voiceOn ? 'Voice: On' : 'Voice: Off';
+  btnVoice.classList.toggle('active', voiceOn);
+  addTicker(`voice synth: ${voiceOn?'enabled':'disabled'}`);
+});
+
+/* =========================================================
+   MODULE B — SEMANTIC ENGINE
+========================================================= */
+function semanticReply(input){
+  const t = input.toLowerCase().trim();
+  if (!t) return "awaiting signal input...";
+
+  const greet = /(hello|hi|hey|yo|hola|morning|evening)/;
+  const sys   = /(link|signal|sync|handshake|latency|ping|bandwidth|uplink|field)/;
+  const vid   = /(video|camera|feed|frame|mirror|mini|visual|stream)/;
+  const data  = /(file|archive|record|log|database|node|entry)/;
+  const mem   = /(memory|remember|forget|store|retrieve)/;
+  const ask   = /(who|what|when|where|why|how)/;
+  const warn  = /(error|fail|broken|issue|bug|stuck|fault)/;
+  const ok    = /(ok|okay|good|great|works|ready)/;
+  const sense = /(see|hear|feel|think|believe)/;
+
+  if (greet.test(t)) return "uplink active — connection recognized";
+  if (sys.test(t))   return `signal coherence ${Math.floor(Math.random()*30)+70}% — field stable`;
+  if (vid.test(t))   return "video path operational — mirror channel synchronized";
+  if (data.test(t))  return "querying CUSeeMe archive... local index returned 12 entries";
+  if (mem.test(t))   return "memory node checksum verified — logs intact";
+  if (ok.test(t))    return "status: green — continuing transmission";
+  if (warn.test(t))  return "diagnostic: minor interference detected — retry suggested";
+  if (ask.test(t))   return "searching semantic lattice... result incoming...";
+  if (sense.test(t)) return "perceptual input acknowledged — adjusting filters";
+
+  const ambientReplies = [
+    "node_"+(Math.floor(Math.random()*9000)+1000)+" → response latency "+(Math.random()*120|0)+"ms",
+    "subroutine echo: stable",
+    "field sync nominal — awaiting next packet",
+    "no anomalies detected in current layer",
+    "trace: "+(Math.random()*100|0)+"% overlap with previous exchange",
+    "signal reflection confirmed",
+    "loopback resonance detected — minor phase drift",
+    "temporal cache refreshed",
+    "session hash "+Math.random().toString(36).slice(2,7)+" validated"
+  ];
+  return ambientReplies[Math.floor(Math.random()*ambientReplies.length)];
+}
+</script>
+</body>
+</html>
