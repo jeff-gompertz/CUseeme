@@ -120,3 +120,54 @@ html, body {
   font-family: "VT323", monospace;
   color: var(--text-fg);
 }
+/* =========================================================
+   [L4] INPUT PROMPT — centered overlay (retro shell version)
+   ========================================================= */
+#promptWrap {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 6;
+  pointer-events: none;
+}
+
+#promptBox {
+  pointer-events: auto;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.20);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 10px;
+  padding: 0.6rem 1rem;
+  font-size: 1.6rem;
+  color: #111;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+}
+
+#caret {
+  width: 0.3ch;
+  height: 1.3em;
+  background: #111;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+#input {
+  background: transparent;
+  border: none;
+  outline: none;
+  width: 18ch;
+  color: #111;
+  font: inherit;
+}
+
+#input::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+}
