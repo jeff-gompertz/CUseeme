@@ -1,0 +1,122 @@
+/* ============================================================
+   CUSeeMe CLASSIC RETRO THEME  (Theme A)
+   — faithful 90s workstation look
+   — matte gray, pixel mono, low-relief panels
+============================================================ */
+
+/* --- BASE --- */
+:root {
+  --base-bg: #d6d6d6;
+  --panel-top: #e7e7e7;
+  --panel-bot: #bfbfbf;
+  --panel-edge-light: #f2f2f2;
+  --panel-edge-dark: #8e8e8e;
+  --text-fg: #202020;
+  --hud-gray: #666;
+  --signal-red: #ff4433;
+}
+
+/* --- GLOBAL --- */
+html, body {
+  margin:0; height:100%; overflow:hidden;
+  background: var(--base-bg);
+  color: var(--text-fg);
+  font-family: "VT323", "IBM Plex Mono", monospace;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+/* --- HUD --- */
+#hud {
+  position: fixed;
+  top: 14px; right: 14px;
+  display: grid; gap: 6px;
+  padding: 10px 12px;
+  background: linear-gradient(var(--panel-top), var(--panel-bot));
+  border: 1px solid var(--panel-edge-dark);
+  box-shadow: inset 1px 1px 0 var(--panel-edge-light),
+              inset -1px -1px 0 var(--panel-edge-dark);
+  border-radius: 3px;
+  font-family: "DM Mono", monospace;
+  font-size: 13px;
+  color: var(--hud-gray);
+  z-index:10;
+}
+.hud-row {
+  display:flex; gap:6px; flex-wrap:wrap;
+}
+.hud-btn {
+  background: linear-gradient(var(--panel-top), var(--panel-bot));
+  border: 1px solid var(--panel-edge-dark);
+  box-shadow: inset 1px 1px 0 var(--panel-edge-light),
+              inset -1px -1px 0 var(--panel-edge-dark);
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor:pointer;
+}
+.hud-btn:active {
+  box-shadow: inset -1px -1px 0 var(--panel-edge-light),
+              inset 1px 1px 0 var(--panel-edge-dark);
+}
+
+/* --- MINI WINDOW --- */
+#miniWin {
+  background: linear-gradient(var(--panel-top), var(--panel-bot));
+  border: 1px solid var(--panel-edge-dark);
+  box-shadow: inset 1px 1px 0 var(--panel-edge-light),
+              inset -1px -1px 0 var(--panel-edge-dark),
+              4px 6px 16px rgba(0,0,0,0.25);
+  border-radius: 4px;
+  cursor: grab;
+}
+#miniWin:active { cursor: grabbing; }
+
+#miniBar {
+  background: var(--panel-top);
+  border-bottom: 1px solid var(--panel-edge-dark);
+  font-size: 11px;
+  letter-spacing: .04em;
+  padding: 3px 8px;
+  color: #222;
+  display:flex; align-items:center; justify-content:space-between;
+}
+#miniTitle { font-weight:bold; text-transform:lowercase; }
+#miniBtns { display:flex; gap:4px; }
+.win-dot {
+  width:6px; height:6px; border-radius:50%;
+  background: var(--hud-gray); opacity:.6;
+}
+
+/* --- TICKER --- */
+#ticker {
+  position:fixed; left:12px; bottom:12px;
+  width:42vw; max-width:640px;
+  color: var(--signal-red);
+  font-family: "VT323", monospace;
+  font-size: 1.1rem; line-height:1.1;
+  display:flex; flex-direction:column-reverse;
+  overflow:hidden; pointer-events:none;
+}
+.tline {
+  animation: tlIn .6s ease forwards;
+}
+@keyframes tlIn {
+  from { opacity:0; transform: translateY(8px); }
+  to   { opacity:1; transform:none; }
+}
+
+/* --- PROMPT --- */
+#promptBox {
+  background: linear-gradient(var(--panel-top), var(--panel-bot));
+  border: 1px solid var(--panel-edge-dark);
+  box-shadow: inset 1px 1px 0 var(--panel-edge-light),
+              inset -1px -1px 0 var(--panel-edge-dark);
+  border-radius: 4px;
+  padding: 6px 12px;
+  color: var(--hud-gray);
+}
+#input {
+  background: transparent; border:none; outline:none;
+  font-family: "VT323", monospace;
+  color: var(--text-fg);
+}
