@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CU-SeeMe Retro Conference</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=VT323&amp;display=swap" rel="stylesheet"/>
+<style>
+    body {
+      font-family: 'VT323', monospace;
+    }
+  </style>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#137fec",
+            "background-light": "#f6f7f8",
+            "background-dark": "#101922",
+          },
+          fontFamily: {
+            "display": ["VT323", "monospace"]
+          },
+          borderRadius: {
+            "DEFAULT": "0rem",
+            "lg": "0rem",
+            "xl": "0rem",
+            "full": "0rem"
+          },
+        },
+      },
+    }
+  </script>
+</head>
+<body class="bg-[#333333] font-display text-base">
+<div class="relative flex h-screen w-full flex-col group/design-root overflow-hidden">
+<!-- Main Video Display (Background) -->
+<div class="absolute inset-0 bg-cover bg-center" data-alt="A person in a video call, seen from the perspective of their webcam." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDPIonS4zXR9DDq9rEpH8_WaZmaD6rwRyVBO1HF57P1c31oPPiDrarUjWqNeyuYF0DUbxQSMMGgn0YDjmGtUQnKRhDud_DMyCJeJK1mbfLGYZDeGszOBi8SF3X9NZsWh38SCOK12I_Qry8vlXH9mQdMYgy4DNW-BcLRhZ-2KrojbA5W0Yw0fvCZHoJS6QRWJbavv73p6kKVx0UtPzC__XgSE4tBSrbi1fXvyJqhODuXq3z_5KePwIWNPEp44cRFziEwAYlgpQJbh4I');">
+<div class="absolute inset-0 bg-black/30"></div>
+</div>
+<div class="relative flex h-full grow flex-col p-4 md:p-8">
+<!-- Self-View Window (Floating) -->
+<div class="absolute top-8 right-8 w-64 border-2 border-t-[#FFFFFF] border-l-[#FFFFFF] border-b-[#000000] border-r-[#000000] bg-[#C0C0C0] shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)]">
+<div class="flex h-6 items-center justify-between bg-[#000084] px-1 text-white">
+<h2 class="text-sm font-bold">Local</h2>
+<button class="flex h-4 w-4 items-center justify-center border-2 border-t-[#FFFFFF] border-l-[#FFFFFF] border-b-[#000000] border-r-[#000000] bg-[#C0C0C0] text-black text-xs font-black">X</button>
+</div>
+<div class="p-1">
+<div class="relative flex items-center justify-center border-2 border-t-[#000000] border-l-[#000000] border-b-[#FFFFFF] border-r-[#FFFFFF] bg-[#111418] bg-cover bg-center aspect-[4/3]" data-alt="A naturally posed person in a live video feed, with a slightly pixelated retro effect." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDiy6nLxRHH4qKeh2uNwIebPKqQruktFFCS8M97KX1jKuHGsf85coYaSDeEUPHYHoIucTuECHnOH8yOuceteay3vlp409GeJqsD8zcrfTRlsGk_r4xU3ZxmJo-nqTsLOlCJhhQN1QAf3fnSWJtmMl0Q9Kh408uPfC7Whrmk-QK1bWX_mPTZE7Vi5RDQ5TyNT7JoXgBCFXbp_jrfYdQozbV3a12z_XE2V_oa8PgInoV3S7C2gwyYt2_7Pw--0oC-S88kEnlPCzQhC_8'); filter: grayscale(50%) contrast(1.1);">
+</div>
+</div>
+</div>
+<!-- Control Panel (Floating) -->
+<div class="absolute bottom-16 left-1/2 w-[480px] -translate-x-1/2 border-2 border-t-[#FFFFFF] border-l-[#FFFFFF] border-b-[#000000] border-r-[#000000] bg-[#C0C0C0] p-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)]">
+<div class="flex flex-col gap-2 border-2 border-t-[#000000] border-l-[#000000] border-b-[#FFFFFF] border-r-[#FFFFFF] p-4">
+<div class="flex w-full gap-2">
+<button class="h-8 flex-1 border-2 border-t-[#FFFFFF] border-l-[#FFFFFF] border-b-[#000000] border-r-[#000000] bg-[#C0C0C0] px-3 py-1 text-sm font-bold text-black active:border-t-[#000000] active:border-l-[#000000] active:border-b-[#FFFFFF] active:border-r-[#FFFFFF]">MUTE AUDIO</button>
+<button class="h-8 flex-1 border-2 border-t-[#000000] border-l-[#000000] border-b-[#FFFFFF] border-r-[#FFFFFF] bg-[#C0C0C0] bg-[#008080]/30 px-3 py-1 text-sm font-bold text-black active:border-t-[#FFFFFF] active:border-l-[#FFFFFF] active:border-b-[#000000] active:border-r-[#000000]">STOP VIDEO</button>
+<button class="h-8 flex-1 border-2 border-t-[#FFFFFF] border-l-[#FFFFFF] border-b-[#000000] border-r-[#000000] bg-[#C0C0C0] px-3 py-1 text-sm font-bold text-black active:border-t-[#000000] active:border-l-[#000000] active:border-b-[#FFFFFF] active:border-r-[#FFFFFF]">SETTINGS</button>
+</div>
+<div class="flex flex-col gap-2 pt-2">
+<!-- MIC Slider -->
+<div class="relative flex w-full flex-row items-center justify-between gap-3">
+<p class="text-black text-base font-bold">MIC</p>
+<div class="flex h-4 w-full items-center gap-4">
+<div class="flex h-1 flex-1 border-2 border-t-[#000000] border-l-[#000000] border-b-[#FFFFFF] border-r-[#FFFFFF] bg-[#888888]">
+<div class="h-full w-[75%] bg-[#000084]"></div>
+<div class="relative">
+<div class="absolute -left-2 -top-[5px] size-4 border-2 border-t-[#FFFFFF] border-l-[#FFFFFF] border-b-[#000000] border-r-[#000000] bg-[#C0C0C0]"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- SPKR Slider -->
+<div class="relative flex w-full flex-row items-center justify-between gap-3">
+<p class="text-black text-base font-bold">SPKR</p>
+<div class="flex h-4 w-full items-center gap-4">
+<div class="flex h-1 flex-1 border-2 border-t-[#000000] border-l-[#000000] border-b-[#FFFFFF] border-r-[#FFFFFF] bg-[#888888]">
+<div class="h-full w-[80%] bg-[#000084]"></div>
+<div class="relative">
+<div class="absolute -left-2 -top-[5px] size-4 border-2 border-t-[#FFFFFF] border-l-[#FFFFFF] border-b-[#000000] border-r-[#000000] bg-[#C0C0C0]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Video Quality Dropdown -->
+<div class="flex w-full flex-wrap items-end gap-4 pt-2">
+<label class="flex flex-col flex-1">
+<p class="text-black text-base font-bold pb-1">VIDEO QUALITY</p>
+<select class="form-select h-8 w-full flex-1 resize-none overflow-hidden border-2 border-t-[#000000] border-l-[#000000] border-b-[#FFFFFF] border-r-[#FFFFFF] bg-white p-1 text-sm font-normal text-black focus:outline-none focus:ring-0">
+<option selected="">High</option>
+<option>Medium</option>
+<option>Low</option>
+<option>B&amp;W</option>
+</select>
+</label>
+</div>
+</div>
+</div>
+</div>
+<!-- Status Bar -->
+<div class="absolute bottom-0 left-0 right-0 flex h-8 items-center border-t-2 border-t-[#FFFFFF] bg-[#C0C0C0] px-4">
+<div class="flex h-full items-center border-r-2 border-r-[#000000] pr-4">
+<p class="text-black text-sm">STATUS: CONNECTED</p>
+</div>
+<div class="flex h-full items-center pl-4">
+<p class="text-black text-sm">PARTICIPANTS: 2</p>
+</div>
+</div>
+</div>
+</body></html>
