@@ -92,61 +92,91 @@ html,body{
 /* =========================================================
    [L4: INPUT PROMPT — centered overlay]
 ========================================================= */
-#promptWrap{
-  position: fixed; inset: 0; display: grid; place-items: center; z-index: 9;
-  pointer-events: none;
+/* =========================================================
+   [L4] INPUT: echo into ticker (robust for iOS)
+========================================================= */
+const input = document.getElementById('input');
+
+function processInput(val){
+  val = val.trim();
+  if(!val) return;
+  addTicker('> ' + val);
+  input.value = ''; // clear after enter
+
+  // cinematic synthetic echo
+  const replies = [
+    `acknowledged: "${val}"`,
+    `note: "${val}" logged`,
+    `latency ${(Math.random()*0.6+0.2).toFixed(2)}s`,
+    `signal correlation ${Math.floor(Math.random()*100)}%`
+  ];
+  const reply = replies[Math.floor(Math.random()*replies.length)];
+  setTimeout(()=>addTicker('< ' + reply), 700);
 }
-#promptBox{
-  pointer-events: auto;
-  display: flex; align-items: center; gap: .5rem;
-  background: var(--glass); border:1px solid var(--glass-b); border-radius: 12px;
-  padding: .65rem 1rem; min-width: 18ch;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.08);
-}
-#caret{ width:.25ch; height:1.35em; background:#111; animation:blink 1s step-end infinite; }
-@keyframes blink{50%{opacity:0}}
-#input{
-  background: transparent; border:0; outline:0; color:#111; font-size: 1.6rem;
-  width: 16ch;
-}
-#input::placeholder{ color: rgba(0,0,0,0.35); }
+
+// Handles both desktop + iOS virtual keyboards
+input.addEventListener('keydown', e=>{
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    processInput(input.value);
+  }
+});
+
+input.addEventListener('input', e=>{
+  if(e.inputType === 'insertLineBreak'){ // iOS virtual enter key
+    e.preventDefault?.();
+    processInput(input.value);
+  }
+});
 
 /* =========================================================
    [L5: FLOATING MINI-FEED — draggable CUSeeMe-style window]
 ========================================================= */
-#miniWin{
-  position: fixed; z-index: 7;
-  left: 6vw; top: 10vh; width: 32vw; aspect-ratio: 4/3;  /* ~20% larger flavor */
-  display: none;     /* toggled from HUD */
-  border: 1px solid #bfbfbf; border-radius: 10px;
-  background: linear-gradient(#efefef,#dbdbdb);
-  box-shadow: 0 14px 40px rgba(0,0,0,.22);
-}
-#miniBar{
-  height: 28px; display:flex; align-items:center; justify-content:space-between;
-  padding: 0 8px; border-bottom: 1px solid #c8c8c8;
-  background: linear-gradient(#f7f7f7,#e6e6e6);
-  border-top-left-radius:10px; border-top-right-radius:10px;
-  user-select:none; cursor: grab;
-}
-#miniBar:active{ cursor: grabbing; }
-#miniTitle{ font-size: 12px; color: var(--mini-label); letter-spacing:.04em; }
-#miniBtns{ display:flex; gap:6px; }
-.win-dot{
-  width: 10px; height:10px; border-radius: 50%;
-  background: #bbb; box-shadow: inset 0 1px 0 rgba(255,255,255,.75);
-}
-#miniInner{
-  position:absolute; inset: 28px 8px 8px 8px; overflow:hidden; border-radius: 6px;
-  background:#000; border: 1px solid #cfcfcf;
-}
-#cameraMini{
-  position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
-  transform: scaleX(-1); /* mirrored mini by default */
-}
+/* =========================================================
+   [L5] MINI WINDOW DRAG — unified pointer/touch
+========================================================= */
+(function(){
+  let isDragging = false;
+  let startX, startY, startLeft, startTop;
 
-/* Drag handle touch support: big invisible pad over bar, optional */
-#miniGrip{ position:absolute; left:0; top:0; right:0; height:28px; }
+  function startDrag(e){
+    isDragging = true;
+    const rect = miniWin.getBoundingClientRect();
+    startLeft = rect.left;
+    startTop  = rect.top;
+    startX = (e.touches ? e.touches[0].clientX : e.clientX);
+    startY = (e.touches ? e.touches[0].clientY : e.clientY);
+    document.addEventListener('pointermove', onDrag);
+    document.addEventListener('pointerup', stopDrag);
+    document.addEventListener('touchmove', onDrag, {passive:false});
+    document.addEventListener('touchend', stopDrag);
+  }
+
+  function onDrag(e){
+    if(!isDragging) return;
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+    const dx = cx - startX;
+    const dy = cy - startY;
+    miniWin.style.left = (startLeft + dx) + 'px';
+    miniWin.style.top  = (startTop + dy) + 'px';
+    e.preventDefault?.();
+  }
+
+  function stopDrag(){
+    isDragging = false;
+    document.removeEventListener('pointermove', onDrag);
+    document.removeEventListener('pointerup', stopDrag);
+    document.removeEventListener('touchmove', onDrag);
+    document.removeEventListener('touchend', stopDrag);
+  }
+
+  // Enable dragging from the title bar
+  document.getElementById('miniBar').addEventListener('pointerdown', startDrag);
+  document.getElementById('miniBar').addEventListener('touchstart', startDrag, {passive:false});
+})();
+
+                          
 
 /* =========================================================
    Small helpers
