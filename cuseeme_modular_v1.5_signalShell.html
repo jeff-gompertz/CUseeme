@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe Modular v1.5 — Signal Shell</title>
+
+<style>
+/* =========================================================
+   [L6: GLOBAL STYLE SYSTEM]
+   - Soft grayscale base
+   - Accent tints (no scanlines/noise)
+   - Easy theming via CSS variables
+========================================================= */
+:root{
+  --base-bg: #ffffff;               /* white field */
+  --ui-fg:  #0a0a0a;                /* dark text */
+  --glass:  rgba(255,255,255,0.22); /* frosted panels */
+  --glass-b: rgba(0,0,0,0.18);      /* frosted borders */
+  --ticker-color: #FF4433;          /* locked red ticker */
+  --mini-bezel: #d7d7d7;            /* CUSeeMe-ish bezel */
+  --mini-label: #7a7a7a;            /* label text */
+  --accent-cyan: #44d4ff;
+  --accent-magenta: #ff55dd;
+  --accent-violet: #a687ff;
+}
+
+/* Clean “Signal Mode” = just subtle tint + transparency shifts */
+body.signal #cameraMain { filter: brightness(1.05) contrast(1.05) saturate(1.05); }
+body.signal #miniWin     { box-shadow: 0 20px 60px rgba(166,135,255,0.25); }
+body.signal .hud-btn.active { outline: 2px solid var(--accent-violet); }
+
+/* =========================================================
+   [L0: BASE LAYER — CAMERA]
+========================================================= */
+html,body{
+  margin:0; height:100%; overflow:hidden; background:var(--base-bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  color: var(--ui-fg);
+}
+#cameraMain{
+  position: fixed; inset: 0; object-fit: cover;
+  transform: scaleX(-1);    /* mirror by default (self-view) */
+  z-index: 0;
+}
+
+/* =========================================================
+   [L1: HUD CORE — upper-right, frosted]
+========================================================= */
+#hud{
+  position: fixed; top: 14px; right: 14px; z-index: 10;
+  display: grid; gap: 8px; grid-auto-rows: min-content;
+  background: var(--glass); backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-b); border-radius: 12px;
+  padding: 10px; min-width: 220px;
+}
+#hud h1{
+  margin: 2px 0 6px; font-size: 12px; letter-spacing:.06em;
+  text-transform: uppercase; opacity:.7;
+}
+.hud-row{ display:flex; gap:8px; flex-wrap:wrap; }
+
+.hud-btn{
+  appearance:none; border:1px solid var(--glass-b); border-radius:10px;
+  background: rgba(255,255,255,0.35);
+  padding: 6px 10px; font-size:12px; letter-spacing:.02em; color:#000;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.35) inset, 0 6px 16px rgba(0,0,0,0.08);
+  cursor: pointer;
+}
+.hud-btn:hover{ background: rgba(255,255,255,0.5); }
+.hud-btn:active{ transform: translateY(1px); }
+.hud-btn.primary{ background: rgba(255,255,255,0.55); font-weight:600; }
+
+/* keep HUD unobtrusive if you ever want to dim it */
+#hud.dim { opacity:.15; }
+#hud.dim:hover { opacity:1; transition: opacity .15s ease; }
+
+/* =========================================================
+   [L3: DIAGNOSTIC TICKER — bottom-left, red, large]
+========================================================= */
+#ticker{
+  position: fixed; left: 12px; bottom: 12px; z-index: 8;
+  width: 42vw; max-width: 640px; max-height: 56vh;
+  display: flex; flex-direction: column-reverse;
+  overflow: hidden; pointer-events: none;
+  color: var(--ticker-color);
+  font-size: 1.2rem; line-height: 1.3rem; opacity: 0.9;
+}
+.tline{ opacity:.9; margin:0; animation: tlIn .6s ease forwards; }
+@keyframes tlIn{ from{opacity:0; transform: translateY(8px)} to{opacity:.9; transform:none} }
+
+/* =========================================================
+   [L4: INPUT PROMPT — centered overlay]
+========================================================= */
+#promptWrap{
+  position: fixed; inset: 0; display: grid; place-items: center; z-index: 9;
+  pointer-events: none;
+}
+#promptBox{
+  pointer-events: auto;
+  display: flex; align-items: center; gap: .5rem;
+  background: var(--glass); border:1px solid var(--glass-b); border-radius: 12px;
+  padding: .65rem 1rem; min-width: 18ch;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.08);
+}
+#caret{ width:.25ch; height:1.35em; background:#111; animation:blink 1s step-end infinite; }
+@keyframes blink{50%{opacity:0}}
+#input{
+  background: transparent; border:0; outline:0; color:#111; font-size: 1.6rem;
+  width: 16ch;
+}
+#input::placeholder{ color: rgba(0,0,0,0.35); }
+
+/* =========================================================
+   [L5: FLOATING MINI-FEED — draggable CUSeeMe-style window]
+========================================================= */
+#miniWin{
+  position: fixed; z-index: 7;
+  left: 6vw; top: 10vh; width: 32vw; aspect-ratio: 4/3;  /* ~20% larger flavor */
+  display: none;     /* toggled from HUD */
+  border: 1px solid #bfbfbf; border-radius: 10px;
+  background: linear-gradient(#efefef,#dbdbdb);
+  box-shadow: 0 14px 40px rgba(0,0,0,.22);
+}
+#miniBar{
+  height: 28px; display:flex; align-items:center; justify-content:space-between;
+  padding: 0 8px; border-bottom: 1px solid #c8c8c8;
+  background: linear-gradient(#f7f7f7,#e6e6e6);
+  border-top-left-radius:10px; border-top-right-radius:10px;
+  user-select:none; cursor: grab;
+}
+#miniBar:active{ cursor: grabbing; }
+#miniTitle{ font-size: 12px; color: var(--mini-label); letter-spacing:.04em; }
+#miniBtns{ display:flex; gap:6px; }
+.win-dot{
+  width: 10px; height:10px; border-radius: 50%;
+  background: #bbb; box-shadow: inset 0 1px 0 rgba(255,255,255,.75);
+}
+#miniInner{
+  position:absolute; inset: 28px 8px 8px 8px; overflow:hidden; border-radius: 6px;
+  background:#000; border: 1px solid #cfcfcf;
+}
+#cameraMini{
+  position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+  transform: scaleX(-1); /* mirrored mini by default */
+}
+
+/* Drag handle touch support: big invisible pad over bar, optional */
+#miniGrip{ position:absolute; left:0; top:0; right:0; height:28px; }
+
+/* =========================================================
+   Small helpers
+========================================================= */
+.hidden{ display:none !important; }
+.muted{ opacity:.6; }
+</style>
+</head>
+<body>
+
+<!-- =======================================================
+     [L0] CAMERA
+======================================================== -->
+<video id="cameraMain" autoplay muted playsinline></video>
+
+<!-- =======================================================
+     [L1] HUD CORE (upper-right)
+======================================================== -->
+<div id="hud">
+  <h1>Signal Shell</h1>
+  <div class="hud-row">
+    <button class="hud-btn primary" id="btnToggleMini">➕ Mini-Feed</button>
+    <button class="hud-btn" id="btnMirrorMain">Mirror Main</button>
+    <button class="hud-btn" id="btnMirrorMini" disabled>Mirror Mini</button>
+  </div>
+  <div class="hud-row">
+    <button class="hud-btn" id="btnSignal">Signal Mode</button>
+    <button class="hud-btn" id="btnMiniGrow">Mini +</button>
+    <button class="hud-btn" id="btnMiniShrink">Mini −</button>
+  </div>
+  <div class="hud-row">
+    <button class="hud-btn" id="btnReset">Reset</button>
+  </div>
+</div>
+
+<!-- =======================================================
+     [L3] TICKER (bottom-left)
+======================================================== -->
+<div id="ticker"></div>
+
+<!-- =======================================================
+     [L4] INPUT PROMPT (center)
+======================================================== -->
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" />
+  </div>
+</div>
+
+<!-- =======================================================
+     [L5] FLOATING MINI-FEED (draggable)
+======================================================== -->
+<div id="miniWin" aria-label="mini feed window">
+  <div id="miniBar">
+    <div id="miniTitle">subject_0001</div>
+    <div id="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+    <div id="miniGrip"></div>
+  </div>
+  <div id="miniInner">
+    <video id="cameraMini" autoplay muted playsinline></video>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   UTIL: add ticker lines (locked red, larger size)
+========================================================= */
+const ticker = document.getElementById('ticker');
+function addTicker(text){
+  const line = document.createElement('div');
+  line.className = 'tline';
+  line.textContent = text;
+  ticker.prepend(line);
+  if (ticker.children.length > 80) ticker.removeChild(ticker.lastChild);
+  // slow fade after a long dwell (you liked long presence)
+  setTimeout(()=>line.style.opacity = .25, 60000);
+}
+
+/* Boot diagnostics */
+const bootMsgs = [
+  'link /optical established',
+  'loopback handshake ok',
+  'field integrity 99.2%',
+  'ui shell ready',
+  'ticker: online'
+];
+bootMsgs.forEach((m,i)=>setTimeout(()=>addTicker(m), 350*i));
+
+/* =========================================================
+   [L0] CAMERA INIT (shared stream to main + mini)
+========================================================= */
+const vMain = document.getElementById('cameraMain');
+const vMini = document.getElementById('cameraMini');
+let mediaStream = null;
+
+(async ()=>{
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
+    vMain.srcObject = mediaStream;
+    vMini.srcObject  = mediaStream;
+    addTicker('camera stream: granted');
+  }catch(e){
+    addTicker('⚠ camera denied');
+  }
+})();
+
+/* =========================================================
+   [L4] INPUT: echo into ticker (simple, cinematic)
+========================================================= */
+const input = document.getElementById('input');
+input.addEventListener('keydown', (e)=>{
+  if(e.key !== 'Enter') return;
+  const val = input.value.trim();
+  if(!val) return;
+  addTicker('> ' + val);
+  input.select();
+
+  // lightweight synthetic reply (no network), cinematic delay
+  const replies = [
+    `acknowledged: "${val}"`,
+    `note: "${val}" logged`,
+    `latency ${(Math.random()*0.6+0.2).toFixed(2)}s`,
+    `signal correlation ${Math.floor(Math.random()*100)}%`
+  ];
+  const reply = replies[Math.floor(Math.random()*replies.length)];
+  setTimeout(()=>addTicker('< ' + reply), 700);
+});
+
+/* =========================================================
+   [L1] HUD WIRES
+========================================================= */
+const hud = document.getElementById('hud');
+const btnMini   = document.getElementById('btnToggleMini');
+const btnMirrorMain = document.getElementById('btnMirrorMain');
+const btnMirrorMini = document.getElementById('btnMirrorMini');
+const btnSignal = document.getElementById('btnSignal');
+const btnGrow   = document.getElementById('btnMiniGrow');
+const btnShrink = document.getElementById('btnMiniShrink');
+const btnReset  = document.getElementById('btnReset');
+
+const miniWin = document.getElementById('miniWin');
+
+btnMini.addEventListener('click', ()=>{
+  const on = miniWin.style.display !== 'block';
+  miniWin.style.display = on ? 'block' : 'none';
+  btnMirrorMini.disabled = !on;
+  btnMini.classList.toggle('active', on);
+  addTicker(on ? 'mini-feed: shown' : 'mini-feed: hidden');
+});
+
+/* Mirror toggles (pure CSS transform flips) */
+let mirrorMain = true;   // main starts mirrored
+let mirrorMini = true;   // mini starts mirrored
+btnMirrorMain.addEventListener('click', ()=>{
+  mirrorMain = !mirrorMain;
+  vMain.style.transform = mirrorMain ? 'scaleX(-1)' : 'none';
+  btnMirrorMain.classList.toggle('active', mirrorMain===false);
+  addTicker(`mirror main: ${mirrorMain?'on':'off'}`);
+});
+btnMirrorMini.addEventListener('click', ()=>{
+  mirrorMini = !mirrorMini;
+  vMini.style.transform = mirrorMini ? 'scaleX(-1)' : 'none';
+  btnMirrorMini.classList.toggle('active', mirrorMini===false);
+  addTicker(`mirror mini: ${mirrorMini?'on':'off'}`);
+});
+
+/* Signal mode (clean tint/transparency only) */
+btnSignal.addEventListener('click', ()=>{
+  const on = !document.body.classList.contains('signal');
+  document.body.classList.toggle('signal', on);
+  btnSignal.classList.toggle('active', on);
+  addTicker(`signal mode: ${on?'on':'off'}`);
+});
+
+/* Mini size controls (±10%) */
+function setMiniScale(mult){
+  const rect = miniWin.getBoundingClientRect();
+  const vw = Math.max(240, Math.min(window.innerWidth*0.7, rect.width * mult));
+  miniWin.style.width = vw + 'px';
+}
+btnGrow.addEventListener('click', ()=>{ setMiniScale(1.1); });
+btnShrink.addEventListener('click', ()=>{ setMiniScale(0.9); });
+
+/* Reset: HUD & windows to defaults */
+btnReset.addEventListener('click', ()=>{
+  // input
+  input.value = '';
+  // signal mode off
+  document.body.classList.remove('signal');
+  btnSignal.classList.remove('active');
+  // mirrors default ON
+  mirrorMain = true;  vMain.style.transform = 'scaleX(-1)';
+  mirrorMini = true;  vMini.style.transform = 'scaleX(-1)';
+  btnMirrorMain.classList.remove('active');
+  btnMirrorMini.classList.remove('active');
+  // mini position/size default
+  miniWin.style.left = '6vw';
+  miniWin.style.top  = '10vh';
+  miniWin.style.width = '32vw';
+  addTicker('reset: shell defaults');
+});
+
+/* =========================================================
+   [L5] MINI WINDOW DRAG (pointer events)
+========================================================= */
+(function(){
+  const grip = document.getElementById('miniBar'); // whole bar as handle
+  let dragging = false, sx=0, sy=0, sl=0, st=0;
+
+  function onDown(e){
+    dragging = true;
+    const rect = miniWin.getBoundingClientRect();
+    sl = rect.left; st = rect.top;
+    sx = (e.touches?e.touches[0].clientX:e.clientX);
+    sy = (e.touches?e.touches[0].clientY:e.clientY);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('touchmove', onMove, {passive:false});
+    document.addEventListener('touchend', onUp);
+  }
+  function onMove(e){
+    if(!dragging) return;
+    const cx = (e.touches?e.touches[0].clientX:e.clientX);
+    const cy = (e.touches?e.touches[0].clientY:e.clientY);
+    const dx = cx - sx, dy = cy - sy;
+    miniWin.style.left = (sl + dx) + 'px';
+    miniWin.style.top  = (st + dy) + 'px';
+    e.preventDefault?.();
+  }
+  function onUp(){
+    dragging = false;
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onUp);
+  }
+
+  grip.addEventListener('pointerdown', onDown);
+  grip.addEventListener('touchstart', onDown, {passive:false});
+})();
+
+/* =========================================================
+   [OPTIONAL STUBS] — future API/WP hooks live here
+   (kept empty today to avoid regressions)
+========================================================= */
+// function fetchFromWP(...) { ... }
+
+</script>
+</body>
+</html>
