@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>CUSeeMe Modular v1.4 — Interactive (Retro4 HUD + Voice Fix)</title>
-<link rel="stylesheet" href="css/shell_theme_cuseeme_classic_retro4.css" />
+<link rel="stylesheet" href="css/shell_theme_cuseeme_classic_retro4.1.css" />
 
 <style>
 /* =========================================================
@@ -20,28 +20,25 @@
 <video id="cameraMain" autoplay muted playsinline></video>
 
 <!-- [L1] HUD -->
+<!-- [L1] HUD -->
 <div id="hud">
-  <h1>Signal Shell</h1>
+  <div class="hud-top"></div>
 
   <div class="hud-row">
     <button class="hud-btn active" id="btnNewWindow">➕ New Window</button>
-    <button class="hud-btn" id="btnMirrorFeed">Mirror Feed</button>
+    <button class="hud-btn" id="btnReverseCam">🔁 Reverse Cam</button>
   </div>
 
   <div class="hud-row">
-    <button class="hud-btn" id="btnZoomIn">Zoom In</button>
-    <button class="hud-btn" id="btnZoomOut">Zoom Out</button>
-  </div>
-
-  <div class="hud-row">
-    <button class="hud-btn" id="btnNewVideo">New Video</button>
-    <button class="hud-btn" id="btnVoice">Voice: On</button>
+    <button class="hud-btn" id="btnNewVideo">🎥 New Video</button>
+    <button class="hud-btn" id="btnVoice">🔊 Voice On</button>
   </div>
 
   <div class="hud-row">
     <button class="hud-btn" id="btnReset">Reset</button>
   </div>
 </div>
+
 
 <!-- [L3] TICKER -->
 <div id="ticker"></div>
