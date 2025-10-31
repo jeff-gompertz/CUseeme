@@ -1,0 +1,88 @@
+/* =========================================================
+   CUSeeMe Modular — Retro 4.1 Aqua-Glass HUD
+   ========================================================= */
+
+:root {
+  --hud-aqua: rgba(185, 230, 255, 0.35);
+  --hud-aqua-edge: rgba(255,255,255,0.65);
+  --hud-orange: rgba(255,140,0,0.7);
+  --hud-text: #f8fafc;
+  --hud-border: rgba(255,255,255,0.5);
+  --hud-shadow: rgba(0,0,0,0.35);
+  --hud-font: "VT323", monospace;
+}
+
+/* Main HUD container */
+#hud {
+  position: fixed;
+  bottom: 3vh;
+  left: 3vw;
+  width: 260px;
+  padding: 16px 14px 18px;
+  border-radius: 12px;
+  background: var(--hud-aqua);
+  backdrop-filter: blur(8px) saturate(140%);
+  border: 1px solid var(--hud-border);
+  box-shadow:
+    inset 0 1px 0 var(--hud-aqua-edge),
+    2px 3px 8px var(--hud-shadow);
+  font-family: var(--hud-font);
+  color: var(--hud-text);
+  text-align: center;
+  user-select: none;
+  transition: all 0.3s ease;
+}
+
+/* Reserved top header space (blank for now) */
+.hud-top {
+  height: 36px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+}
+
+/* Button rows */
+.hud-row {
+  display: flex;
+  justify-content: space-around;
+  margin: 8px 0;
+}
+
+/* Buttons */
+.hud-btn {
+  flex: 1;
+  margin: 0 4px;
+  padding: 8px 6px;
+  font-size: 16px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 6px;
+  color: var(--hud-text);
+  cursor: pointer;
+  text-shadow: 0 0 3px rgba(0,0,0,0.4);
+  transition: all 0.25s ease;
+}
+
+/* Hover + active glow */
+.hud-btn:hover {
+  background: rgba(255,255,255,0.18);
+  box-shadow: 0 0 8px var(--hud-orange);
+  color: #fff;
+}
+
+.hud-btn.active {
+  background: rgba(255,255,255,0.25);
+  box-shadow: 0 0 6px var(--hud-orange);
+}
+
+/* Film-grain overlay (optional) */
+body::after {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQMAAAAl21bKAAAABlBMVEUAAAD///+l2Z/dAAAAAXRSTlMAQObYZgAAAApJREFUCNdjYAAAAAIAAeIhvDMAAAAASUVORK5CYII=");
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  z-index: 9999;
+}
