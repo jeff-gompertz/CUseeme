@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe Modular — Live Preview Index</title>
+
+<style>
+body {
+  background: radial-gradient(circle at center, #0b1118 0%, #030507 100%);
+  font-family: "VT323", monospace;
+  color: #dff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3vh 2vw;
+  gap: 3vh;
+}
+h1 {
+  color: #9ef;
+  font-size: 2.2em;
+  letter-spacing: 2px;
+  text-shadow: 0 0 6px rgba(0,255,255,0.6);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 2vw;
+  width: 100%;
+  max-width: 1600px;
+}
+.preview {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  box-shadow: 0 0 12px rgba(0,255,255,0.1);
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.preview:hover {
+  transform: scale(1.03);
+  box-shadow: 0 0 16px rgba(255,140,0,0.25);
+}
+iframe {
+  width: 100%;
+  height: 220px;
+  border: none;
+  background: #000;
+}
+.label {
+  padding: 0.8em 1em;
+  font-size: 1em;
+  background: rgba(255,255,255,0.05);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  text-align: center;
+  color: #fff8d8;
+  letter-spacing: 1px;
+}
+.label a {
+  color: #ffa;
+  text-decoration: none;
+}
+.label a:hover {
+  color: #fff;
+  text-shadow: 0 0 6px #fa0;
+}
+</style>
+</head>
+
+<body>
+<h1>CUSeeMe Modular — Live Preview Index</h1>
+
+<div class="grid">
+
+  <div class="preview">
+    <iframe src="cuseeme_modular_v1.5_signalShell.html"></iframe>
+    <div class="label"><a href="cuseeme_modular_v1.5_signalShell.html" target="_blank">v1.5 — SignalShell</a></div>
+  </div>
+
+  <div class="preview">
+    <iframe src="cuseeme_modular_v1.4_interactive.html"></iframe>
+    <div class="label"><a href="cuseeme_modular_v1.4_interactive.html" target="_blank">v1.4 — Interactive (Retro4.1)</a></div>
+  </div>
+
+  <div class="preview">
+    <iframe src="cuseeme_modular_v1.3_interactive.html"></iframe>
+    <div class="label"><a href="cuseeme_modular_v1.3_interactive.html" target="_blank">v1.3 — CSS Migration</a></div>
+  </div>
+
+  <div class="preview">
+    <iframe src="cuseeme_modular_v1.2_interactive_frostedPortrait.html"></iframe>
+    <div class="label"><a href="cuseeme_modular_v1.2_interactive_frostedPortrait.html" target="_blank">v1.2 — Frosted Portrait</a></div>
+  </div>
+
+  <div class="preview">
+    <iframe src="cuseeme_modular_v1.2_interactive.html"></iframe>
+    <div class="label"><a href="cuseeme_modular_v1.2_interactive.html" target="_blank">v1.2 — Interactive (Baseline)</a></div>
+  </div>
+
+  <div class="preview">
+    <iframe src="cuseeme_modular_gold_v1.0.html"></iframe>
+    <div class="label"><a href="cuseeme_modular_gold_v1.0.html" target="_blank">Gold v1.0 — Prototype</a></div>
+  </div>
+
+  <div class="preview">
+    <iframe src="a_testCuseeme_modularTemplate.html"></iframe>
+    <div class="label"><a href="a_testCuseeme_modularTemplate.html" target="_blank">Test Template</a></div>
+  </div>
+
+</div>
+
+<p style="margin-top:3em;color:#777;">© CUSeeMe Modular Archive — Jeff Gompertz</p>
+
+</body>
+</html>
