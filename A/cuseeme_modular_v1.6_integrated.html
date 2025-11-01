@@ -1,549 +1,281 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
+<meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe Modular v1.6 — Integrated Multi-HUD Environment</title>
+<title>CUSeeMe Modular v1.6 Redux — Aqua-Glass (Live Camera)</title>
 
-<!-- ================= Classic 4.4 Theme (baseline look preserved) ================= -->
 <style>
-  :root{
-    /* color tokens */
-    --bg: #0b0b0e;
-    --ink: #f6f7fb;
-    --muted: 220,220,230;
-    --glass: 255,255,255;
-    --shadow: 0,0,0;
+/* =========================================================
+   Aqua-Glass White Theme (Retro 4.4)
+========================================================= */
+:root{
+  --hud-glass: rgba(185, 225, 255, 0.45);
+  --hud-border-light: rgba(255, 255, 255, 0.65);
+  --hud-border-dark: rgba(0, 45, 90, 0.35);
+  --hud-shadow: 0 12px 45px rgba(0, 50, 90, 0.35);
+  --hud-text: #1b1d22;
+  --btn-bg: rgba(215, 235, 255, 0.35);
+  --btn-inset-light: rgba(255,255,255,0.8);
+  --btn-inset-dark: rgba(0,30,60,0.3);
+  --btn-glow: rgba(255,120,50,0.7);
+  --btn-glow-outer: rgba(255,150,80,0.35);
 
-    /* chrome tokens */
-    --hud-radius: 12px;
-    --pane-radius: 16px;
-    --bar-height: 34px;
+  --bg: #f7f7f4;
+  --ticker: #ff3a2f;
+}
+html,body{
+  height:100%; margin:0;
+  background: var(--bg);
+  font-family: "VT323", ui-monospace, Menlo, Consolas, monospace;
+  color:#222;
+  overflow:hidden;
+}
 
-    /* z-layers (L0..L5) */
-    --L0: 0;   /* main video feed */
-    --L1: 20;  /* HUD wrapper */
-    --L3: 30;  /* ticker (shared) */
-    --L4: 40;  /* prompt input */
-    --L5: 50;  /* mini-feed */
-    --WM: 45;  /* HUD2 window manager sits below L5 but above L4 if needed */
-  }
+/* Optional full-bleed backdrop camera (off by default) */
+#cameraMain{ display:none; position:fixed; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
 
-  html, body {
-    margin:0; padding:0; height:100%; background:var(--bg); color:var(--ink);
-    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-    overflow:hidden;
-  }
+/* =========================================================
+   HUD wrapper + panels
+========================================================= */
+#hudWrapper{ position:fixed; top:24px; right:32px; z-index:1000; }
+#hudShell{
+  display:grid; gap:14px; padding:28px 26px 26px; min-width:320px;
+  background: var(--hud-glass);
+  border-radius: 20px;
+  border: 1px solid var(--hud-border-light);
+  box-shadow: inset 0 1px 3px var(--hud-border-light), inset 0 -1px 3px var(--hud-border-dark), var(--hud-shadow);
+  backdrop-filter: blur(20px) saturate(1.25);
+  -webkit-backdrop-filter: blur(20px) saturate(1.25);
+  color: var(--hud-text);
+  text-align: center; letter-spacing:.4px;
+  transition: transform .25s ease, box-shadow .25s ease, opacity .25s ease;
+}
+#hudShell:hover{ transform: translateY(-1px); box-shadow: 0 16px 50px rgba(0, 60, 110, 0.45); }
 
-  /* ==== L0: Main video feed ===================================================== */
-  .layer0 {
-    position:fixed; inset:0; z-index:var(--L0);
-    background:
-      radial-gradient(1200px 800px at 20% 25%, rgba(90,100,140,.18), transparent 60%),
-      radial-gradient(1100px 700px at 75% 70%, rgba(70,90,130,.14), transparent 60%),
-      #0b0b0e;
-  }
-  .main-feed {
-    position:absolute; inset:0;
-    object-fit:cover; width:100%; height:100%;
-    opacity:.15; /* aesthetic placeholder vibe if no live feed piped in */
-  }
+#hudHeader{ display:block; margin-bottom:10px; font-size:24px; color:rgba(20,30,45,.8);
+  text-shadow:0 1px 0 rgba(255,255,255,.6); user-select:none; cursor:pointer; }
+#hudHeader:hover{ text-shadow:0 0 6px rgba(255,120,50,.5); }
+#hudIndex{ position:absolute; top:6px; left:10px; font-size:12px; opacity:.55; }
 
-  /* ==== L1: HUD shell (3 panels live here) ===================================== */
-  .hudShell {
-    position:fixed; inset:0; z-index:var(--L1);
-    pointer-events:none; display:flex; flex-direction:column; justify-content:space-between;
-  }
-  .hudRow {
-    display:flex; align-items:center; justify-content:space-between; gap:.8rem;
-    padding:14px 18px; pointer-events:none;
-  }
-  .chunk {
-    display:flex; align-items:center; gap:.5rem; pointer-events:auto;
-    backdrop-filter: blur(10px) saturate(1.1);
-    -webkit-backdrop-filter: blur(10px) saturate(1.1);
-    background: rgba(var(--glass), .08);
-    border: 1px solid rgba(var(--muted), .18);
-    box-shadow: 0 8px 28px rgba(var(--shadow), .35), inset 0 1px 0 rgba(255,255,255,.06);
-    border-radius: var(--hud-radius);
-    padding:8px 10px;
-  }
-  .tag { font-size:12px; letter-spacing:.12em; text-transform:uppercase; opacity:.8;
-    padding:6px 9px; border:1px solid rgba(var(--muted),.22); border-radius:8px; }
-  .mode { font-size:12px; letter-spacing:.18em; text-transform:uppercase; opacity:.95;
-    padding:6px 10px; border-radius:8px; border:1px dashed rgba(var(--muted),.35); }
-  .btn {
-    cursor:pointer; user-select:none; font-size:13px; padding:8px 12px; border-radius:10px;
-    border:1px solid rgba(var(--muted),.25); background:rgba(255,255,255,.07);
-    transition:transform .08s ease, background .12s ease, border-color .12s ease;
-  }
-  .btn:hover { transform:translateY(-1px); background:rgba(255,255,255,.1); }
-  .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size:12px; padding:6px 8px; border-radius:8px; border:1px solid rgba(var(--muted),.25); background:rgba(255,255,255,.04); }
-  .spacer { width:10px; height:1px; }
+.hud-panel{ position:relative; opacity:0; pointer-events:none; transition:opacity .28s ease; }
+.hud-panel.active{ opacity:1; pointer-events:auto; }
 
-  /* HUD switching visibility */
-  [data-hud="1"] .HUD1 { display:flex; }
-  [data-hud="1"] .HUD2,
-  [data-hud="1"] .HUD3 { display:none; }
+.hud-row{ display:flex; gap:12px; justify-content:space-between; }
+.hud-btn{
+  flex:1; font-family:"VT323", monospace; font-size:17px; letter-spacing:.2px; font-weight:500;
+  color:#132030; background: var(--btn-bg); border:none; border-radius:10px;
+  box-shadow: inset 1px 1px 2px var(--btn-inset-light), inset -1px -2px 3px var(--btn-inset-dark), 0 3px 6px rgba(0,0,0,0.08);
+  padding:10px 12px; transition: all .22s ease; cursor:pointer;
+}
+.hud-btn:hover{ transform:translateY(-1px); box-shadow: inset 1px 1px 2px var(--btn-inset-light), inset -1px -2px 3px var(--btn-inset-dark), 0 5px 12px rgba(0,0,0,.15); }
+.hud-btn.active{
+  background: rgba(255,165,100,0.15); color:#ff6a2f; font-weight:600;
+  box-shadow: inset 0 0 4px var(--btn-glow), 0 0 14px 3px var(--btn-glow-outer), 0 2px 8px rgba(0,0,0,.2);
+}
 
-  [data-hud="2"] .HUD1 { display:none; }
-  [data-hud="2"] .HUD2 { display:flex; }
-  [data-hud="2"] .HUD3 { display:none; }
+/* =========================================================
+   WM layer for HUD 2 (mini-windows)
+========================================================= */
+#wmLayer{
+  position:fixed; inset:0; z-index:900; pointer-events:none;
+  transition:opacity .22s ease, visibility .22s ease; opacity:0; visibility:hidden;
+}
+#wmLayer.visible{ opacity:1; visibility:visible; }
 
-  [data-hud="3"] .HUD1,
-  [data-hud="3"] .HUD2 { display:none; }
-  [data-hud="3"] .HUD3 { display:flex; }
+.miniWin{
+  position:absolute; width:22vw; max-width:380px; aspect-ratio:9/16;
+  background: rgba(210,240,255,0.25);
+  border:1px solid rgba(255,255,255,0.55);
+  border-radius:16px; backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.6), 0 18px 40px rgba(0,0,0,0.25);
+  overflow:hidden; cursor:grab; z-index: 1; pointer-events:auto;
+}
+.miniWin:active{ cursor:grabbing; }
+.miniBar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:4px 10px; height:26px; background:rgba(255,255,255,.18);
+  font-size:12px; color:#222; user-select:none; cursor:grab;
+}
+.miniTitle{ font-weight:600; opacity:.75; }
+.miniBtns{ display:flex; gap:4px; }
+.win-dot{ width:6px; height:6px; border-radius:50%; background:#999; opacity:.7; }
+.miniInner{ position:relative; width:100%; height: calc(100% - 26px); }
+.miniVideo{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
 
-  .hudHidden .HUD1, .hudHidden .HUD2, .hudHidden .HUD3 { opacity:0; transition:opacity .16s ease; pointer-events:none; }
+/* =========================================================
+   Ticker + Prompt
+========================================================= */
+#ticker{
+  position:fixed; left:16px; bottom:14px; z-index:950;
+  width:45vw; max-width:700px; max-height:50vh;
+  display:flex; flex-direction:column-reverse; overflow:hidden;
+  color:var(--ticker); font-size:18px; line-height:1.25;
+}
+.tline{ opacity:.95; margin:0; animation:fadeIn .6s ease; }
+@keyframes fadeIn{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
 
-  /* ==== WM layer (HUD2 multi-window) =========================================== */
-  .wm-layer {
-    position:fixed; inset:0; z-index:var(--WM); pointer-events:none;
-    transition:opacity .18s ease, visibility .18s ease;
-  }
-  .wm-layer.hidden { opacity:0; visibility:hidden; }
-  .wm-layer.visible { opacity:1; visibility:visible; }
+#promptWrap{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:960; }
+#promptBox{
+  pointer-events:auto; display:flex; gap:10px; align-items:center; padding:10px 16px;
+  background: rgba(240,250,255,.55);
+  border:1px solid rgba(255,255,255,.6); border-radius:12px;
+  box-shadow: 0 8px 24px rgba(0,30,60,.18), inset 0 1px 1px rgba(255,255,255,.6);
+}
+#input{ background:transparent; border:none; outline:none; font:inherit; font-size:18px; color:#111; width:24ch; }
+#caret{ width:.5ch; height:1.2em; background:#222; animation:blink 1s step-end infinite; }
+@keyframes blink{ 50%{opacity:0} }
 
-  .pane {
-    position:absolute; width:380px; min-width:260px; height:240px; max-height:70vh;
-    display:flex; flex-direction:column; overflow:hidden; pointer-events:auto; will-change:transform,left,top;
-    border-radius: var(--pane-radius);
-    background: rgba(255,255,255,.07);
-    backdrop-filter: blur(12px) saturate(1.12);
-    -webkit-backdrop-filter: blur(12px) saturate(1.12);
-    border:1px solid rgba(255,255,255,.18);
-    box-shadow: 0 18px 55px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
-  }
-  .titlebar {
-    height:var(--bar-height); display:flex; align-items:center; justify-content:space-between; gap:.6rem;
-    padding:0 10px; cursor:grab; user-select:none;
-    background: linear-gradient(to bottom, rgba(255,255,255,.09), rgba(255,255,255,.02));
-    border-bottom:1px solid rgba(255,255,255,.12);
-  }
-  .pane.is-dragging .titlebar { cursor:grabbing; }
-  .title { font-size:13px; letter-spacing:.06em; text-transform:uppercase; opacity:.92; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .controls { display:flex; gap:6px; align-items:center; }
-  .dot { width:11px; height:11px; border-radius:50%; opacity:.95; }
-  .dot.close { background:#ff5f56; cursor:pointer; }
-  .dot.min   { background:#ffbd2e; }
-  .dot.max   { background:#27c93f; }
-  .dot.dup   { background:#7aa7ff; cursor:pointer; transition:transform .08s ease; }
-  .dot.dup:hover { transform:scale(1.06); }
-  .content { flex:1; overflow:auto; padding:12px 14px; font-size:14px; line-height:1.45; }
-  .content::-webkit-scrollbar{ width:10px; }
-  .content::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.12); border-radius:999px; }
-  .content::-webkit-scrollbar-track{ background:transparent; }
-
-  /* ==== L3: ticker ============================================================= */
-  .ticker {
-    position:fixed; left:0; right:0; bottom:64px; z-index:var(--L3);
-    pointer-events:none;
-  }
-  .tickerTrack {
-    position:relative; width:200%; animation:ticker 32s linear infinite;
-    white-space:nowrap; opacity:.85;
-  }
-  .ticker .chip {
-    display:inline-block; margin:0 18px; padding:8px 12px; pointer-events:auto;
-    backdrop-filter: blur(8px) saturate(1.05); -webkit-backdrop-filter: blur(8px) saturate(1.05);
-    background: rgba(255,255,255,.07); border:1px solid rgba(220,220,230,.2); border-radius:10px; font-size:13px;
-  }
-  @keyframes ticker {
-    0% { transform:translateX(0); }
-    100% { transform:translateX(-50%); }
-  }
-
-  /* ==== L4: prompt input ======================================================= */
-  .prompt {
-    position:fixed; left:18px; right:18px; bottom:14px; z-index:var(--L4);
-    display:flex; gap:10px; align-items:center;
-  }
-  .promptBox {
-    flex:1; display:flex; align-items:center; gap:10px; padding:10px 12px;
-    border-radius:12px; border:1px solid rgba(220,220,230,.22);
-    background:rgba(255,255,255,.07);
-    backdrop-filter: blur(10px) saturate(1.1); -webkit-backdrop-filter: blur(10px) saturate(1.1);
-  }
-  .promptBox input {
-    flex:1; background:transparent; border:none; outline:none; color:var(--ink); font-size:15px;
-  }
-  .promptBox .btn { padding:8px 12px; }
-
-  /* ==== L5: mini-feed ========================================================== */
-  .miniFeed {
-    position:fixed; right:14px; top:14px; z-index:var(--L5);
-    width:260px; height:146px; display:flex; overflow:hidden;
-    border-radius:14px; border:1px solid rgba(220,220,230,.22);
-    background:rgba(255,255,255,.08);
-    box-shadow: 0 12px 38px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.06);
-    backdrop-filter: blur(10px) saturate(1.08); -webkit-backdrop-filter: blur(10px) saturate(1.08);
-  }
-  .miniFeed video, .miniFeed canvas, .miniFeed img { width:100%; height:100%; object-fit:cover; opacity:.9; }
-
-  /* helper corner label */
-  .corner {
-    position:fixed; right:12px; bottom:10px; opacity:.55; font-size:12px; letter-spacing:.14em; text-transform:uppercase;
-    user-select:none; pointer-events:none;
-  }
-
-  @media (max-width: 680px){
-    .miniFeed { width:42vw; height:24vw; }
-    .pane { width:86vw; height:46vh; }
-  }
+/* Camera prompt helper button */
+#grantCam{
+  display:none; position:fixed; left:16px; bottom:70px; z-index:965;
+  padding:8px 12px; border-radius:10px; border:1px solid rgba(0,0,0,.15);
+  background:#fff; box-shadow:0 8px 24px rgba(0,0,0,.18);
+  cursor:pointer; font-family:inherit; font-size:16px;
+}
+#grantCam.show{ display:inline-block; }
 </style>
 </head>
-<body data-hud="1">
+<body>
 
-  <!-- ================= L0: Main video feed ================= -->
-  <div class="layer0" id="layer0">
-    <!-- Hook your real stream here; this is a visual placeholder -->
-    <video class="main-feed" id="mainVideo" autoplay muted loop playsinline>
-      <source src="" type="video/mp4" />
-    </video>
-  </div>
+<!-- (Optional) full-bleed backdrop camera -->
+<video id="cameraMain" autoplay muted playsinline></video>
 
-  <!-- ================= L1: HUD wrapper (3 panels) ================= -->
-  <div class="hudShell" id="hudShell">
-    <!-- HUD1: Base Control (mirror of v1.5 buttons/feel) -->
-    <section class="HUD1 hudRow">
-      <div class="chunk">
-        <span class="tag">CUSeeMe Modular</span>
-        <span class="mode">HUD 1 — Base</span>
-      </div>
-      <div class="chunk">
-        <button class="btn" id="btnNewWindow">New Window</button>
-        <button class="btn" id="btnReverseCam">Reverse Cam</button>
-        <button class="btn" id="btnVoice">Voice</button>
-        <div class="spacer"></div>
-        <button class="btn" id="btnModeShift">Mode ▸ Shift</button>
-        <button class="btn" id="btnHideHUD">HUD ⌘</button>
-      </div>
-    </section>
+<!-- HUD wrapper -->
+<div id="hudWrapper">
+  <div id="hudShell">
+    <div id="hudIndex">HUD 1 / 3</div>
+    <div id="hudHeader" title="Click to cycle modes">Mode &gt; Shift</div>
 
-    <!-- HUD2: Multi-Window Mode (integrated, no iframe) -->
-    <section class="HUD2 hudRow">
-      <div class="chunk">
-        <span class="tag">CUSeeMe Modular</span>
-        <span class="mode">HUD 2 — Multi-Window</span>
-        <button class="btn" id="spawnBtn">Spawn</button>
-        <button class="btn" id="driftBtn">Pause drift</button>
-        <button class="btn" id="clearBtn">Clear</button>
+    <!-- HUD 1 — Base Control -->
+    <section id="hud1" class="hud-panel active">
+      <div class="hud-row">
+        <button class="hud-btn" id="btnNewWindow">➕ New Window</button>
+        <button class="hud-btn" id="btnSpawn5">➕➕ Spawn 5</button>
       </div>
-      <div class="chunk">
-        <span class="kbd">Shift</span> cycle modes
-        <div class="spacer"></div>
-        <button class="btn" data-jump="1">HUD1</button>
-        <button class="btn" data-jump="3">HUD3</button>
-        <button class="btn" id="btnHideHUD2">HUD ⌘</button>
+      <div class="hud-row">
+        <button class="hud-btn" id="btnGrid">▦ Grid Snap</button>
+        <button class="hud-btn" id="btnCloseAll">✕ Close All</button>
+      </div>
+      <div class="hud-row">
+        <button class="hud-btn" id="btnReverseCam">🔁 Reverse Cam</button>
+        <button class="hud-btn" id="btnVoice">🔊 Voice On</button>
       </div>
     </section>
 
-    <!-- HUD3: Experimental placeholder (unchanged) -->
-    <section class="HUD3 hudRow">
-      <div class="chunk">
-        <span class="tag">CUSeeMe Modular</span>
-        <span class="mode">HUD 3 — Experimental</span>
+    <!-- HUD 2 — Live Mini-Window Lab (uses same DOM) -->
+    <section id="hud2" class="hud-panel">
+      <div class="hud-row">
+        <button class="hud-btn" id="btnSpawn2_1">➕ New Window</button>
+        <button class="hud-btn" id="btnSpawn2_5">➕➕ Spawn 5</button>
       </div>
-      <div class="chunk">
-        <button class="btn" data-jump="1">HUD1</button>
-        <button class="btn" data-jump="2">HUD2</button>
-        <button class="btn" id="btnHideHUD3">HUD ⌘</button>
+      <div class="hud-row">
+        <button class="hud-btn" id="btnGrid2">▦ Grid Snap</button>
+        <button class="hud-btn" id="btnClear2">✕ Close All</button>
+      </div>
+      <div class="hud-row">
+        <button class="hud-btn" id="btnReverseCam2">🔁 Reverse Cam</button>
+      </div>
+    </section>
+
+    <!-- HUD 3 — Experimental placeholder -->
+    <section id="hud3" class="hud-panel">
+      <div class="hud-row">
+        <button class="hud-btn" id="btnFutureA">Reserve A</button>
+        <button class="hud-btn" id="btnFutureB">Reserve B</button>
+      </div>
+      <div class="hud-row">
+        <button class="hud-btn" id="btnFutureC">Reserve C</button>
       </div>
     </section>
   </div>
+</div>
 
-  <!-- ================= HUD2 window manager surface (shared DOM) ================= -->
-  <div class="wm-layer hidden" id="wmLayer" aria-hidden="true"></div>
+<!-- HUD2 window layer -->
+<div id="wmLayer" aria-hidden="true"></div>
 
-  <!-- ================= L3: Ticker (shared) ================= -->
-  <div class="ticker" id="ticker">
-    <div class="tickerTrack" aria-hidden="true">
-      <span class="chip">CUSeeMe v1.6 integrated</span>
-      <span class="chip">Shift = cycle HUDs</span>
-      <span class="chip">H = toggle HUD chrome</span>
-      <span class="chip">Drag windows by title bar</span>
-      <span class="chip">Spawn / Clear / Pause drift</span>
-      <!-- mirrored again for seamless loop -->
-      <span class="chip">CUSeeMe v1.6 integrated</span>
-      <span class="chip">Shift = cycle HUDs</span>
-      <span class="chip">H = toggle HUD chrome</span>
-      <span class="chip">Drag windows by title bar</span>
-      <span class="chip">Spawn / Clear / Pause drift</span>
-    </div>
+<!-- Ticker -->
+<div id="ticker"></div>
+
+<!-- Prompt -->
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" />
   </div>
+</div>
 
-  <!-- ================= L4: Prompt input ================= -->
-  <div class="prompt" id="promptLayer">
-    <div class="promptBox">
-      <input id="promptInput" placeholder="Type your prompt…" />
-      <button class="btn" id="promptSend">Send</button>
-    </div>
-  </div>
-
-  <!-- ================= L5: Mini-feed (overlay) ================= -->
-  <div class="miniFeed" id="miniFeed">
-    <video autoplay muted loop playsinline>
-      <source src="" type="video/mp4" />
-    </video>
-  </div>
-
-  <div class="corner">v1.6 — Integrated</div>
+<button id="grantCam" title="Retry camera access">Grant Camera</button>
 
 <script>
-/* =============================================================================
-   CUSeeMe Modular v1.6 — Integrated Multi-HUD Environment
-   Layers:
-     L0 – main video feed
-     L1 – HUD wrapper (HUD1, HUD2, HUD3)
-     L3 – ticker (shared)
-     L4 – prompt input
-     L5 – mini-feed
-   Behavior:
-     - Mode ▸ Shift cycles 1 → 2 → 3 → 1
-     - HUD2 activates local multi-window system (initMultiWindow)
-     - Switching away from HUD2 hides (fades) windows without destroying them
-     - Classic 4.4 styling across modes
-   Keys:
-     - Shift : cycle modes
-     - 1/2/3 : jump to HUD
-     - H     : toggle HUD chrome
-============================================================================= */
+/* =========================================================
+   Ticker
+========================================================= */
+const ticker = document.getElementById('ticker');
+function addTicker(txt){
+  const line = document.createElement('div');
+  line.className = 'tline';
+  line.textContent = txt;
+  ticker.prepend(line);
+  if (ticker.children.length > 120) ticker.removeChild(ticker.lastChild);
+}
+['v1.6 redux / aqua-glass','live camera substrate','hud shell ready','ticker: online']
+  .forEach((m,i)=>setTimeout(()=>addTicker(m), 220*i));
 
-(function(){
-  const root = document.body;
-  const wmLayer = document.getElementById('wmLayer');
+/* =========================================================
+   Prompt → ticker
+========================================================= */
+const input = document.getElementById('input');
+function submitPrompt(v){
+  const t=(v||'').trim(); if(!t) return;
+  addTicker('> '+t); input.value='';
+  if(voiceOn) speak('Received');
+}
+input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); submitPrompt(input.value); }});
 
-  /* =================== HUD switching + chrome =================== */
-  const getHUD = ()=> Number(root.getAttribute('data-hud') || '1');
-  const setHUD = (n)=>{
-    const prev = getHUD();
-    root.setAttribute('data-hud', String(n));
-    // Show/Hide WM layer depending on active HUD
-    if(n === 2){
-      wmLayer.classList.remove('hidden'); wmLayer.classList.add('visible');
-      initMultiWindow(); // idempotent
-    } else {
-      wmLayer.classList.remove('visible'); wmLayer.classList.add('hidden'); // fade but keep nodes
-    }
-  };
-  const cycleHUD = ()=>{
-    const n = getHUD();
-    setHUD(n === 1 ? 2 : n === 2 ? 3 : 1);
-  };
-  const toggleHUDChrome = ()=>{
-    document.getElementById('hudShell').classList.toggle('hudHidden');
-  };
+/* =========================================================
+   Voice (optional)
+========================================================= */
+let voiceOn = false, voicesReady = false;
+function primeVoices(){ return new Promise(res=>{ const id=setInterval(()=>{ const v=speechSynthesis.getVoices(); if(v&&v.length){ clearInterval(id); voicesReady=true; res(); }},120);}); }
+speechSynthesis.onvoiceschanged = primeVoices;
+async function speak(t){
+  if(!voiceOn || !('speechSynthesis' in window)) return;
+  if(!voicesReady) await primeVoices();
+  const u = new SpeechSynthesisUtterance(t);
+  u.lang='en-US'; u.rate=1.05; u.pitch=0.9; u.volume=0.9;
+  const v = speechSynthesis.getVoices();
+  u.voice = v.find(x=>/samantha/i.test(x.name)) || v.find(x=>/google/i.test(x.name)) || v[0];
+  speechSynthesis.speak(u);
+}
+document.getElementById('btnVoice').addEventListener('click', ()=>{
+  voiceOn = !voiceOn;
+  document.getElementById('btnVoice').textContent = voiceOn ? '🔊 Voice On' : '🔇 Voice Off';
+  addTicker('voice: '+ (voiceOn?'on':'off'));
+  if(voiceOn) speak('Voice enabled');
+});
 
-  // Buttons (HUD1)
-  document.getElementById('btnModeShift')?.addEventListener('click', cycleHUD);
-  document.getElementById('btnHideHUD')?.addEventListener('click', toggleHUDChrome);
-  // Buttons (HUD2/3)
-  document.getElementById('btnHideHUD2')?.addEventListener('click', toggleHUDChrome);
-  document.getElementById('btnHideHUD3')?.addEventListener('click', toggleHUDChrome);
+/* =========================================================
+   Camera substrate (single stream shared)
+========================================================= */
+let mediaStream = null;
+let facing = 'user'; // 'user' | 'environment'
+const grantCamBtn = document.getElementById('grantCam');
 
-  // Jump buttons
-  document.querySelectorAll('[data-jump]').forEach(b=>{
-    b.addEventListener('click', ()=> setHUD(Number(b.getAttribute('data-jump'))));
-  });
-
-  // Keyboard
-  window.addEventListener('keydown', (e)=>{
-    if(e.key === 'Shift') cycleHUD();
-    else if(e.key === '1') setHUD(1);
-    else if(e.key === '2') { setHUD(2); }
-    else if(e.key === '3') setHUD(3);
-    else if(e.key.toLowerCase() === 'h') toggleHUDChrome();
-  });
-
-  /* =================== HUD1 sample hooks =================== */
-  document.getElementById('btnNewWindow')?.addEventListener('click', ()=> {
-    setHUD(2);
-    initMultiWindow();
-    WM && WM.spawn();
-  });
-  document.getElementById('btnReverseCam')?.addEventListener('click', ()=> {
-    // stub for your camera reversal
-    flashChip('Reverse Cam toggled');
-  });
-  document.getElementById('btnVoice')?.addEventListener('click', ()=> {
-    // stub for your voice control
-    flashChip('Voice control toggled');
-  });
-
-  /* =================== Prompt input action =================== */
-  document.getElementById('promptSend')?.addEventListener('click', ()=>{
-    const val = (document.getElementById('promptInput').value || '').trim();
-    if(!val) return;
-    flashChip('Prompt sent: ' + val);
-    document.getElementById('promptInput').value = '';
-  });
-
-  function flashChip(text){
-    const t = document.querySelector('.ticker .tickerTrack');
-    const chip = document.createElement('span');
-    chip.className = 'chip';
-    chip.textContent = text;
-    t.appendChild(chip);
-    setTimeout(()=> chip.remove(), 6000);
+async function initStream(){
+  // stop prior
+  if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:facing } }, audio:false });
+    grantCamBtn.classList.remove('show');
+    addTicker(`camera: ${facing==='user'?'front':'back'} ready`);
+    // attach to all videos
+    document.querySelectorAll('.miniVideo').forEach(v=> v.srcObject = mediaStream);
+    const main = document.getElementById('cameraMain');
+    if(main) main.srcObject = mediaStream;
+  }catch(e){
+    addTicker('⚠ camera denied/unavailable');
+    grantCamBtn.classList.add('show');
   }
-
-  /* =================== Multi-Window System (full behavior) =================== */
-  let WM = null; // singleton
-
-  function initMultiWindow(){
-    if(WM) return WM; // idempotent
-    class WindowManager {
-      constructor(layer){
-        this.layer = layer;
-        this.windows = new Set();
-        this._id = 0;
-        this.driftOn = true;
-        this.bounds = { w: window.innerWidth, h: window.innerHeight };
-        window.addEventListener('resize', ()=>{
-          this.bounds = { w: window.innerWidth, h: window.innerHeight };
-        });
-        this._tick = this._tick.bind(this);
-        this._raf = requestAnimationFrame(this._tick);
-      }
-      spawn(opts={}){
-        const id = ++this._id;
-        const pane = document.createElement('div');
-        pane.className = 'pane';
-        pane.style.left = (opts.x ?? Math.random()*(this.bounds.w-420)+20) + 'px';
-        pane.style.top  = (opts.y ?? Math.random()*(this.bounds.h-300)+20) + 'px';
-
-        // velocity
-        const speed = 0.25 + Math.random()*0.55;
-        const angle = Math.random()*Math.PI*2;
-        pane.dataset.vx = Math.cos(angle)*speed;
-        pane.dataset.vy = Math.sin(angle)*speed;
-
-        pane.dataset.id = id;
-        pane.innerHTML = `
-          <div class="titlebar">
-            <div class="controls">
-              <div class="dot close" title="Close"></div>
-              <div class="dot min" title="Minimize (visual only)"></div>
-              <div class="dot max" title="Maximize (visual only)"></div>
-            </div>
-            <div class="title">Window ${id} — Translucent Pane</div>
-            <div class="controls">
-              <div class="dot dup" title="Duplicate"></div>
-            </div>
-          </div>
-          <div class="content">
-            <p><b>Floating pane ${id}</b></p>
-            <p>Real multi-window system running in the same DOM (no iframes). Drag me; I’ll bounce when drifting.</p>
-            <p><span class="kbd">Shift</span> cycles HUDs. <span class="kbd">H</span> toggles chrome.</p>
-          </div>
-        `;
-
-        // interactions
-        pane.addEventListener('mousedown', ()=> this.bringToFront(pane));
-
-        // drag
-        const bar = pane.querySelector('.titlebar');
-        let dragging=false, sx=0, sy=0, ox=0, oy=0;
-        const move = (ev)=>{
-          if(!dragging) return;
-          const x = (ev.touches?.[0]?.clientX ?? ev.clientX);
-          const y = (ev.touches?.[0]?.clientY ?? ev.clientY);
-          pane.style.left = (ox + (x - sx)) + 'px';
-          pane.style.top  = (oy + (y - sy)) + 'px';
-        };
-        const up = ()=>{
-          if(!dragging) return;
-          dragging=false; pane.classList.remove('is-dragging');
-          window.removeEventListener('mousemove', move);
-          window.removeEventListener('mouseup', up);
-          window.removeEventListener('touchmove', move);
-          window.removeEventListener('touchend', up);
-        };
-        const down = (ev)=>{
-          ev.preventDefault(); dragging=true; pane.classList.add('is-dragging'); this.bringToFront(pane);
-          sx = (ev.touches?.[0]?.clientX ?? ev.clientX); sy = (ev.touches?.[0]?.clientY ?? ev.clientY);
-          const r = pane.getBoundingClientRect(); ox = r.left; oy = r.top;
-          window.addEventListener('mousemove', move);
-          window.addEventListener('mouseup', up);
-          window.addEventListener('touchmove', move, {passive:false});
-          window.addEventListener('touchend', up);
-        };
-        bar.addEventListener('mousedown', down);
-        bar.addEventListener('touchstart', down, {passive:false});
-
-        // close & duplicate
-        pane.querySelector('.close')?.addEventListener('click', ()=> this.close(pane));
-        pane.querySelector('.dup')?.addEventListener('click', ()=>{
-          const r = pane.getBoundingClientRect(); this.spawn({ x: r.left+26, y: r.top+26 });
-        });
-
-        this.layer.appendChild(pane);
-        this.windows.add(pane);
-        this.bringToFront(pane);
-        return pane;
-      }
-      close(p){ if(this.windows.delete(p)) p.remove(); }
-      clear(){ [...this.windows].forEach(p=>p.remove()); this.windows.clear(); }
-      bringToFront(p){
-        const maxZ = [...this.windows].reduce((m,w)=>{
-          const z = parseInt(getComputedStyle(w).zIndex || '0',10);
-          return Math.max(m, isNaN(z)?0:z);
-        }, 10);
-        p.style.zIndex = String(maxZ+1);
-      }
-      _tick(){
-        // drift + bounce
-        const bw = this.bounds.w, bh = this.bounds.h;
-        this.windows.forEach(p=>{
-          if(p.classList.contains('is-dragging')) return;
-          if(!this.driftOn) return;
-
-          const rect = p.getBoundingClientRect();
-          let x = rect.left, y = rect.top;
-          let vx = Number(p.dataset.vx||0.3), vy = Number(p.dataset.vy||0.2);
-          const w = rect.width, h = rect.height;
-
-          x += vx; y += vy;
-
-          if(x<=0){ x=0; vx=Math.abs(vx); }
-          else if(x+w>=bw){ x=bw-w; vx=-Math.abs(vx); }
-          if(y<=0){ y=0; vy=Math.abs(vy); }
-          else if(y+h>=bh){ y=bh-h; vy=-Math.abs(vy); }
-
-          p.style.left = x+'px'; p.style.top = y+'px';
-          p.dataset.vx = vx; p.dataset.vy = vy;
-        });
-        this._raf = requestAnimationFrame(this._tick);
-      }
-      pause(){ this.driftOn=false; }
-      play(){ this.driftOn=true; }
-      toggle(){ this.driftOn ? this.pause() : this.play(); }
-    }
-
-    WM = new WindowManager(wmLayer);
-
-    // HUD2 control hooks
-    document.getElementById('spawnBtn')?.addEventListener('click', ()=> WM.spawn());
-    document.getElementById('clearBtn')?.addEventListener('click', ()=> WM.clear());
-    const driftBtn = document.getElementById('driftBtn');
-    driftBtn?.addEventListener('click', ()=>{
-      WM.toggle();
-      driftBtn.textContent = WM.driftOn ? 'Pause drift' : 'Play drift';
-    });
-
-    // Gentle first-time seeding
-    WM.spawn({ x: 56,  y: 80  });
-    WM.spawn({ x: 380, y: 160 });
-    WM.spawn({ x: 720, y: 120 });
-
-    return WM;
-  }
-
-  // Start at HUD1
-  setHUD(1);
-
-})();
-</script>
-</body>
-</html>
+}
+grantCamBtn.addEventListener('click', initStream
