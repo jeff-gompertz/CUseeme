@@ -1,1 +1,50 @@
+/* shell_theme_retro4.5.css — Aqua Glass / Off-White Theme */
 
+:root {
+  --hud-bg: rgba(255, 255, 255, 0.35);
+  --hud-fg: #222;
+  --hud-ac: #0077cc;
+  --hud-border: rgba(0, 0, 0, 0.08);
+  --hud-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --bg-color: #f6f6f3;
+}
+
+body {
+  background: var(--bg-color);
+  color: var(--hud-fg);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+}
+
+.hudShell {
+  background: var(--hud-bg);
+  border: 1px solid var(--hud-border);
+  border-radius: 12px;
+  box-shadow: var(--hud-shadow);
+  backdrop-filter: blur(12px);
+  padding: 14px 18px;
+  transition: all 0.4s ease;
+}
+
+button, .btn {
+  background: rgba(255,255,255,0.25);
+  border: 1px solid var(--hud-border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+button:hover, .btn:hover {
+  background: rgba(255,255,255,0.45);
+}
+
+.ticker {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  font-size: 11px;
+  font-family: "Courier New", monospace;
+  color: #cc5500;
+  padding: 8px 12px;
+}
