@@ -48,3 +48,41 @@ button:hover, .btn:hover {
   color: #cc5500;
   padding: 8px 12px;
 }
+/* === Retro 4.5 Aqua Glass HUD styling === */
+#hudShell {
+  position: absolute;
+  top: 2vh; right: 3vw;
+  background: rgba(240, 245, 255, 0.6);
+  border-radius: 18px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  padding: 1.6em 1.8em;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: inline-block;
+  text-align: center;
+  transition: all .3s ease;
+}
+
+/* Soft frosted buttons */
+.hud-btn {
+  background: rgba(255,255,255,0.3);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+  color: #222;
+  padding: 0.5em 1.2em;
+  font-family: "VT323", monospace;
+  font-size: 1.05em;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all .2s ease;
+}
+.hud-btn:hover {
+  background: rgba(255,255,255,0.55);
+  box-shadow: 0 0 6px rgba(0,0,0,0.08);
+}
+
+/* --- Text + index color tuning --- */
+#hudHeader { color: #334; }
+#hudIndex { color: rgba(80,80,80,0.5); }
+.tline { color: #e35b00; } /* orange ticker text */
+
