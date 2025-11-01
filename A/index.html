@@ -173,16 +173,32 @@ window.addEventListener('click',unlockTTS,{once:true});
 /* =========================================================
 MODE > SHIFT (HUD Swap Framework)
 ========================================================= */
-const huds=[...document.querySelectorAll('.hud-panel')];
-const hudIndex=document.getElementById('hudIndex');
-let currentHUD=0;
-document.getElementById('hudHeader').addEventListener('click',()=>{
-huds[currentHUD].classList.remove('active');
-currentHUD=(currentHUD+1)%huds.length;
-huds[currentHUD].classList.add('active');
-hudIndex.textContent=`HUD ${currentHUD+1} / ${huds.length}`;
-addTicker(`HUD switched → ${currentHUD+1}`);
+/* =========================================================
+MODE > SHIFT  (HUD Swap Framework + Page Loader)
+========================================================= */
+const huds = [...document.querySelectorAll('.hud-panel')];
+const hudIndex = document.getElementById('hudIndex');
+let currentHUD = 0;
+
+document.getElementById('hudHeader').addEventListener('click', () => {
+  huds[currentHUD].classList.remove('active');
+  currentHUD = (currentHUD + 1) % huds.length;
+  huds[currentHUD].classList.add('active');
+  hudIndex.textContent = `HUD ${currentHUD + 1} / ${huds.length}`;
+  addTicker(`HUD switched → ${currentHUD + 1}`);
+
+  // --- load next page when HUD 2 becomes active ---
+  if (currentHUD === 1) {
+    const frame = document.getElementById('multiWindowFrame');
+    if (frame && !frame.dataset.loaded) {
+      frame.src = "A/multiwindow_HUDcontrol.html";   // your target page
+      frame.dataset.loaded = "true";                  // prevents reloading every click
+    }
+  }
 });
+
+
+  
 </script>
 </body>
 </html>
