@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe Modular v1.9.7 — Voice + Semantic Ticker</title>
+
+<style>
+:root {
+  --hud-glass: rgba(255,255,255,0.45);
+  --hud-shadow-dark: rgba(0,0,0,0.15);
+  --hud-shadow-light: rgba(255,255,255,0.8);
+  --hud-text: #1b1d22;
+  --bg: #f9fafc;
+  --ticker: #ff3a2f;
+}
+html,body {
+  height:100%; margin:0;
+  background:var(--bg);
+  font-family:"VT323",ui-monospace,Menlo,Consolas,monospace;
+  overflow:hidden;
+  color:#222;
+}
+
+/* ----- Docked HUD ----- */
+#hudWrapper {
+  position:fixed; top:0; left:0; right:0;
+  display:flex; justify-content:center;
+  z-index:1000; padding:8px 0;
+}
+#hudShell {
+  background:var(--hud-glass);
+  border-radius:14px;
+  backdrop-filter:blur(14px) saturate(1.2);
+  -webkit-backdrop-filter:blur(14px) saturate(1.2);
+  box-shadow:4px 4px 10px var(--hud-shadow-dark),
+             -4px -4px 10px var(--hud-shadow-light);
+  padding:12px 18px;
+  text-align:center; min-width:260px;
+}
+.hud-btn {
+  font-family:"VT323",monospace;
+  font-size:17px; margin:4px;
+  background:#f2f6fa; border:none; border-radius:10px;
+  box-shadow:2px 2px 6px rgba(0,0,0,0.15),
+             -2px -2px 6px rgba(255,255,255,0.8);
+  padding:8px 12px; cursor:pointer;
+  transition:all .3s ease;
+}
+.hud-btn:hover { transform:translateY(-1px); color:#ff6a2f; }
+
+#hudHeader { font-size:20px; margin-bottom:6px; }
+
+/* ----- Prompt + Ticker ----- */
+#promptWrap {
+  position:fixed; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  pointer-events:none;
+}
+#promptBox {
+  pointer-events:auto;
+  display:flex; align-items:center;
+  padding:10px 18px; gap:10px;
+  background:rgba(255,255,255,0.55);
+  border-radius:12px;
+  box-shadow:6px 6px 14px rgba(0,0,0,0.1),
+             -6px -6px 14px rgba(255,255,255,0.7);
+}
+#input {
+  background:transparent; border:none; outline:none;
+  font:inherit; font-size:18px; color:#111;
+  width:26ch;
+}
+
+#ticker {
+  position:fixed; left:16px; bottom:14px;
+  width:45vw; max-width:700px;
+  display:flex; flex-direction:column-reverse;
+  font-size:18px; color:var(--ticker);
+  line-height:1.25; overflow:hidden;
+}
+.tline { opacity:.95; margin:0; animation:fadeIn .6s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:none;} }
+</style>
+</head>
+<body>
+
+<!-- ===== Docked HUD ===== -->
+<div id="hudWrapper">
+  <div id="hudShell">
+    <div id="hudHeader">Mode &gt; Shift</div>
+    <button class="hud-btn" id="btnVoice">🎤 Voice</button>
+    <button class="hud-btn" id="btnClear">🧹 Clear</button>
+  </div>
+</div>
+
+<!-- ===== Prompt + Ticker ===== -->
+<div id="promptWrap">
+  <div id="promptBox">
+    <input id="input" type="text" placeholder="Say or type something…" />
+  </div>
+</div>
+<div id="ticker"></div>
+
+<script>
+/* =========================================================
+Ticker + Prompt + Voice-to-Text + Semantic Layer
+========================================================= */
+const ticker=document.getElementById('ticker');
+function addTicker(t){
+  const l=document.createElement('div');
+  l.className='tline'; l.textContent=t;
+  ticker.prepend(l);
+  if(ticker.children.length>80)ticker.removeChild(ticker.lastChild);
+}
+
+// --- Text input & enter key ---
+const input=document.getElementById('input');
+input.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    const msg=input.value.trim();
+    if(msg){
+      addTicker('> '+msg);
+      processSemantic(msg);
+      speak(msg); // optional: echo back
+      input.value='';
+    }
+  }
+});
+
+// --- Voice-to-text for prompt field ---
+function enableVoiceInput(){
+  if(!('webkitSpeechRecognition'in window)){
+    addTicker('⚠️ Voice input not supported');
+    return;
+  }
+  const recog=new webkitSpeechRecognition();
+  recog.lang='en-US';
+  recog.interimResults=true;
+  recog.continuous=false;
+
+  recog.onresult=(e)=>{
+    const transcript=Array.from(e.results)
+      .map(r=>r[0].transcript).join('');
+    input.value=transcript;
+  };
+  recog.onerror=e=>addTicker('🎤 Error: '+e.error);
+  recog.onend=()=>addTicker('🎤 Listening stopped');
+  recog.start();
+  addTicker('🎤 Listening…');
+}
+document.getElementById('btnVoice').onclick=enableVoiceInput;
+
+// --- Optional Text-to-Speech ---
+function speak(t){
+  if(!('speechSynthesis'in window))return;
+  const u=new SpeechSynthesisUtterance(t);
+  u.lang='en-US'; u.rate=1.05; u.pitch=0.9;
+  speechSynthesis.speak(u);
+}
+
+// --- Semantic System Stub ---
+function processSemantic(text){
+  const msg=text.toLowerCase();
+  if(msg.includes('memory'))addTicker('💭 recalling memory fragment');
+  if(msg.includes('signal'))addTicker('📡 tuning signal');
+  if(msg.includes('mirror'))addTicker('↺ reflection mode');
+  if(msg.includes('feedback'))addTicker('🌊 entering feedback loop');
+  if(msg.includes('hello'))addTicker('👋 system acknowledges presence');
+  // extend later with relational map or associative net
+}
+
+// --- Utility: clear ticker ---
+document.getElementById('btnClear').onclick=()=>ticker.innerHTML='';
+
+// --- Boot message ---
+['v1.9.7 docked mode ready','voice+semantic layer online','awaiting input…']
+.forEach((m,i)=>setTimeout(()=>addTicker(m),400*i));
+</script>
+
+</body>
+</html>
