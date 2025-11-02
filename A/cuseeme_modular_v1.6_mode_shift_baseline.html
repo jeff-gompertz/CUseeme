@@ -35,16 +35,34 @@ html,body{
 /* =========================================================
 HUD Shell (Retro4.4 Aqua)
 ========================================================= */
-#hudWrapper{
-  position:fixed; top:24px; right:32px; z-index:1000;
-  display:block; width:340px;
+
+#hudWrapper {
+  position: fixed;
+  top: 24px;
+  right: 32px;
+  z-index: 1000;
+  display: grid;          /* previously 'block' */
+  gap: 14px;
+  width: auto;            /* let it size naturally */
+  background: none;
 }
-.hud-panel{
-  position:absolute; inset:0;
-  opacity:0; pointer-events:none;
-  transition:opacity .3s ease;
+
+/* Panels now flow properly and keep full height */
+.hud-panel {
+  display: none;
+  position: relative;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
 }
-.hud-panel.active{ opacity:1; pointer-events:auto; }
+
+.hud-panel.active {
+  display: block;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+
 
 #hudShell{
   background:var(--hud-glass);
