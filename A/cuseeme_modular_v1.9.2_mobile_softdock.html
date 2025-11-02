@@ -364,7 +364,7 @@ v1.9.3 — Unified Drag Patch (HUD + MiniWindows)
 ========================================================= */
 
 // 🟢 Make HUD draggable (free floating)
-  /* 
+
 (function enableHUDDrag() {
   const hud = document.getElementById('hudShell');
   let startX = 0, startY = 0, offsetX = 0, offsetY = 0, dragging = false;
@@ -398,7 +398,7 @@ v1.9.3 — Unified Drag Patch (HUD + MiniWindows)
   hud.addEventListener('touchstart', startDrag, { passive: false });
   window.addEventListener('touchmove', onDrag, { passive: false });
   window.addEventListener('touchend', endDrag);
-})();   */
+})();  
 
 // 🟢 Make MiniWindows draggable (free floating)
 (function enableMiniWindowDrag() {
