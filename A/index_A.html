@@ -74,5 +74,34 @@ footer{
 </div>
 
 <iframe name="preview" src="cuseeme_modular_v1.8_compact_lumen.html"></iframe>
+<script>
+// --- Auto-populate file list from GitHub /A/ directory ---
+(async ()=>{
+  const sidebar = document.getElementById('sidebar');
+  const resp = await fetch('https://api.github.com/repos/jeff-gompertz/CUseeme/contents/A');
+  const files = await resp.json();
+  const links = files
+    .filter(f => f.name.endsWith('.html') && f.name !== 'index_A.html')
+    .sort((a,b)=>a.name.localeCompare(b.name));
+
+  // Clear old manual links if you want
+  sidebar.innerHTML = `<h1>📁 CUSeeMe /A — Auto Index</h1>`;
+
+  for (const f of links){
+    const a = document.createElement('a');
+    a.className = 'filelink';
+    a.href = f.name;
+    a.textContent = f.name;
+    a.target = 'preview';
+    sidebar.appendChild(a);
+  }
+
+  const footer = document.createElement('footer');
+  footer.innerHTML = `Auto-indexed from GitHub • ${new Date().toLocaleString()}`;
+  sidebar.appendChild(footer);
+})();
+</script>
+
+  
 </body>
 </html>
