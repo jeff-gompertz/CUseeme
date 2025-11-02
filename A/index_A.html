@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CUSeeMe /A Folder — Version Preview Hub</title>
+<style>
+body{
+  margin:0;
+  font-family:ui-monospace, monospace;
+  background:#fafafa;
+  color:#111;
+  display:flex;
+  flex-direction:row;
+  height:100vh;
+  overflow:hidden;
+}
+#sidebar{
+  width:28%;
+  background:#f0f4f8;
+  border-right:1px solid rgba(0,0,0,0.1);
+  padding:20px;
+  overflow-y:auto;
+}
+#sidebar h1{
+  font-size:1.2rem;
+  margin-bottom:1rem;
+  color:#333;
+}
+.filelink{
+  display:block;
+  padding:8px 10px;
+  margin-bottom:6px;
+  border-radius:6px;
+  color:#004b8d;
+  text-decoration:none;
+  background:rgba(255,255,255,0.7);
+  transition:background .15s ease, color .15s ease;
+  word-break:break-all;
+}
+.filelink:hover{
+  background:#dff1ff;
+  color:#000;
+}
+iframe{
+  flex:1;
+  border:none;
+  width:72%;
+  height:100%;
+  background:#fff;
+}
+footer{
+  font-size:0.8rem;
+  color:#666;
+  margin-top:1rem;
+}
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <h1>📁 CUSeeMe /A — Version Index</h1>
+
+  <a class="filelink" target="preview" href="cuseeme_modular_v1.6_integrated.html">v1.6 Integrated</a>
+  <a class="filelink" target="preview" href="cuseeme_modular_v1.6_redux_mobile.html">v1.6 Redux Mobile</a>
+  <a class="filelink" target="preview" href="cuseeme_modular_v1.7_lumen.html">v1.7 Lumen</a>
+  <a class="filelink" target="preview" href="cuseeme_modular_v1.7.1_compact_lumen_refine.html">v1.7.1 Compact Lumen Refine</a>
+  <a class="filelink" target="preview" href="cuseeme_modular_v1.8_compact_lumen.html">v1.8 Compact Lumen</a>
+  <a class="filelink" target="preview" href="multiwindow_HUDcontrol.html">Multiwindow HUD Control</a>
+
+  <footer>
+    Updated manually — last sync: Nov 2 2025<br>
+    Click any file to load in right preview pane.
+  </footer>
+</div>
+
+<iframe name="preview" src="cuseeme_modular_v1.8_compact_lumen.html"></iframe>
+</body>
+</html>
