@@ -1,205 +1,229 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
+<meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe Modular v1.9.8 — Voice Stable Dock</title>
-
+<title>CUSeeMe v2.0 — Semantic Voice Core (Ticker + Speak)</title>
 <style>
-:root {
-  --hud-glass: rgba(255,255,255,0.45);
-  --hud-shadow-dark: rgba(0,0,0,0.15);
-  --hud-shadow-light: rgba(255,255,255,0.8);
-  --hud-text: #1b1d22;
-  --bg: #f9fafc;
-  --ticker: #ff3a2f;
-}
-html,body {
-  height:100%; margin:0;
-  background:var(--bg);
-  font-family:"VT323",ui-monospace,Menlo,Consolas,monospace;
-  overflow:hidden;
-  color:#222;
-}
+  :root{
+    --bg:#f9fafc;
+    --hud:#ffffffcc;
+    --ink:#1b1d22;
+    --soft-dark: rgba(0,0,0,.15);
+    --soft-light: rgba(255,255,255,.85);
+    --accent:#ff6a2f;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);
+    font-family:"VT323",ui-monospace,Menlo,Consolas,monospace;}
+  /* Layout: a small top bar (HUD) + big ticker that can fill entire page */
+  .wrap{
+    display:grid;
+    grid-template-rows:auto 1fr;
+    height:100vh;
+  }
 
-/* ----- Docked HUD ----- */
-#hudWrapper {
-  position:fixed; top:0; left:0; right:0;
-  display:flex; justify-content:center;
-  z-index:1000; padding:8px 0;
-}
-#hudShell {
-  background:var(--hud-glass);
-  border-radius:14px;
-  backdrop-filter:blur(14px) saturate(1.2);
-  -webkit-backdrop-filter:blur(14px) saturate(1.2);
-  box-shadow:4px 4px 10px var(--hud-shadow-dark),
-             -4px -4px 10px var(--hud-shadow-light);
-  padding:12px 18px;
-  text-align:center; min-width:260px;
-}
-.hud-btn {
-  font-family:"VT323",monospace;
-  font-size:17px; margin:4px;
-  background:#f2f6fa; border:none; border-radius:10px;
-  box-shadow:2px 2px 6px rgba(0,0,0,0.15),
-             -2px -2px 6px rgba(255,255,255,0.8);
-  padding:8px 12px; cursor:pointer;
-  transition:all .3s ease;
-}
-.hud-btn:hover { transform:translateY(-1px); color:#ff6a2f; }
+  /* Neumorphic, fixed header (not draggable) */
+  #hud{
+    position:sticky; top:0; z-index:10;
+    display:flex; gap:10px; align-items:center; padding:12px 14px;
+    background:var(--hud);
+    backdrop-filter: blur(14px) saturate(1.25);
+    -webkit-backdrop-filter: blur(14px) saturate(1.25);
+    box-shadow:
+      6px 6px 16px var(--soft-dark),
+      -6px -6px 16px var(--soft-light);
+    border-radius:14px;
+    margin:10px; 
+  }
+  #title{font-size:20px; letter-spacing:.4px; margin-right:6px; opacity:.85}
 
-#hudHeader { font-size:20px; margin-bottom:6px; }
+  /* Input and buttons */
+  #input{
+    flex:1; min-width:0;
+    border:none; outline:none; font:inherit; font-size:18px; color:#111;
+    background:#f2f6fa; border-radius:12px; padding:10px 12px;
+    box-shadow: inset 3px 3px 8px rgba(0,0,0,.12), inset -3px -3px 8px rgba(255,255,255,.8);
+  }
+  .btn{
+    font:inherit; font-size:17px; cursor:pointer;
+    border:none; border-radius:12px; padding:10px 12px; background:#f2f6fa; color:#222;
+    box-shadow: 4px 4px 10px rgba(0,0,0,.18), -4px -4px 10px rgba(255,255,255,.85);
+    transition:transform .2s ease, color .2s ease, box-shadow .2s ease;
+  }
+  .btn:hover{ transform:translateY(-1px); color:var(--accent); }
+  .btn:active{
+    box-shadow: inset 2px 2px 6px rgba(0,0,0,.18), inset -2px -2px 6px rgba(255,255,255,.85);
+    background: rgba(255,165,100,.15);
+  }
+  .btn.on{ color:#fff; background:var(--accent); }
 
-/* ----- Prompt + Ticker ----- */
-#promptWrap {
-  position:fixed; inset:0;
-  display:flex; align-items:center; justify-content:center;
-  pointer-events:none;
-}
-#promptBox {
-  pointer-events:auto;
-  display:flex; align-items:center;
-  padding:10px 18px; gap:10px;
-  background:rgba(255,255,255,0.55);
-  border-radius:12px;
-  box-shadow:6px 6px 14px rgba(0,0,0,0.1),
-             -6px -6px 14px rgba(255,255,255,0.7);
-}
-#input {
-  background:transparent; border:none; outline:none;
-  font:inherit; font-size:18px; color:#111;
-  width:26ch;
-}
+  /* Ticker fills page and grows upward from top (no constraint) */
+  #ticker{
+    margin:10px; padding:14px; overflow:auto; height:100%;
+    background:#fff; border-radius:14px;
+    box-shadow: inset 6px 6px 16px rgba(0,0,0,.08), inset -6px -6px 16px rgba(255,255,255,.9);
+  }
+  .tline{margin:0 0 6px 0; line-height:1.25; font-size:18px; word-wrap:break-word; }
+  .user{color:#0d3b66}
+  .sys{color:#ff3a2f}
+  .note{color:#666}
 
-#ticker {
-  position:fixed; left:16px; bottom:14px;
-  width:45vw; max-width:700px;
-  display:flex; flex-direction:column-reverse;
-  font-size:18px; color:var(--ticker);
-  line-height:1.25; overflow:hidden;
-}
-.tline { opacity:.95; margin:0; animation:fadeIn .6s ease; }
-@keyframes fadeIn { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:none;} }
+  /* Small help row */
+  #help{opacity:.7; font-size:16px}
 </style>
 </head>
 <body>
+<div class="wrap">
+  <div id="hud">
+    <div id="title">Semantic Voice</div>
+    <input id="input" placeholder="speak or type… then Enter" autocomplete="off" />
+    <button id="btnMic" class="btn" title="Start/Stop mic">🎙️ Mic</button>
+    <button id="btnMute" class="btn" title="Toggle spoken replies">🔊 Voice On</button>
+    <button id="btnClear" class="btn" title="Clear ticker">🧹 Clear</button>
+  </div>
 
-<!-- ===== Docked HUD ===== -->
-<div id="hudWrapper">
-  <div id="hudShell">
-    <div id="hudHeader">Mode &gt; Shift</div>
-    <button class="hud-btn" id="btnVoice">🎤 Voice</button>
-    <button class="hud-btn" id="btnClear">🧹 Clear</button>
+  <div id="ticker">
+    <p class="tline note">v2.0 online — voice+text → semantic core → ticker + spoken reply</p>
+    <p class="tline note" id="help">Tip: try “hello”, “time?”, “repeat after me …” or anything — I’ll echo.</p>
   </div>
 </div>
-
-<!-- ===== Prompt + Ticker ===== -->
-<div id="promptWrap">
-  <div id="promptBox">
-    <input id="input" type="text" placeholder="Say or type something…" />
-  </div>
-</div>
-<div id="ticker"></div>
 
 <script>
-/* =========================================================
-Ticker + Prompt + Voice + Semantic Layer (Stable iOS Build)
-========================================================= */
-const ticker=document.getElementById('ticker');
-function addTicker(t){
-  const l=document.createElement('div');
-  l.className='tline'; l.textContent=t;
-  ticker.prepend(l);
-  if(ticker.children.length>80)ticker.removeChild(ticker.lastChild);
+/* =============== Utilities =============== */
+const ticker = document.getElementById('ticker');
+function addTicker(html, cls="sys"){
+  const p = document.createElement('p');
+  p.className = `tline ${cls}`;
+  p.innerHTML = html;
+  ticker.appendChild(p);
+  // autoscroll to bottom
+  ticker.scrollTop = ticker.scrollHeight;
 }
 
-// --- Text input ---
-const input=document.getElementById('input');
-input.addEventListener('keydown',e=>{
-  if(e.key==='Enter'){
-    const msg=input.value.trim();
-    if(msg){
-      addTicker('> '+msg);
-      processSemantic(msg);
-      speak(msg);
-      input.value='';
-    }
-  }
+/* =============== Speech Synthesis (speak back) =============== */
+let speakEnabled = true;
+document.getElementById('btnMute').addEventListener('click', ()=>{
+  speakEnabled = !speakEnabled;
+  document.getElementById('btnMute').textContent = speakEnabled ? '🔊 Voice On' : '🔇 Voice Off';
+  addTicker(`Spoken replies ${speakEnabled?'enabled':'disabled'}`, 'note');
 });
-
-// --- Voice-to-text (iOS-stable looping recognition) ---
-let listening=false, recognition;
-
-function enableVoiceInput(){
-  if(!('webkitSpeechRecognition'in window)){
-    addTicker('⚠️ Voice input not supported');
-    return;
-  }
-
-  if(!recognition){
-    recognition=new webkitSpeechRecognition();
-    recognition.lang='en-US';
-    recognition.interimResults=true;
-    recognition.continuous=false;
-
-    recognition.onresult=(e)=>{
-      const transcript=Array.from(e.results)
-        .map(r=>r[0].transcript).join('');
-      input.value=transcript;
-    };
-
-    recognition.onerror=(e)=>addTicker('🎤 Error: '+e.error);
-
-    recognition.onend=()=>{
-      if(listening){
-        recognition.start(); // auto-restart
-      } else {
-        addTicker('🎤 Voice stopped');
-      }
-    };
-  }
-
-  // Toggle on/off
-  if(!listening){
-    listening=true;
-    document.getElementById('btnVoice').style.background='#ffebe5';
-    addTicker('🎤 Listening…');
-    recognition.start();
-  } else {
-    listening=false;
-    document.getElementById('btnVoice').style.background='';
-    recognition.stop();
-    addTicker('🎤 Voice paused');
-  }
+let voicesReady = false;
+function waitVoices(){
+  return new Promise(res=>{
+    const id = setInterval(()=>{
+      if (speechSynthesis.getVoices().length){ clearInterval(id); voicesReady=true; res(); }
+    },100);
+  });
 }
-document.getElementById('btnVoice').onclick=enableVoiceInput;
-
-// --- Text-to-speech (optional echo) ---
-function speak(t){
-  if(!('speechSynthesis'in window))return;
-  const u=new SpeechSynthesisUtterance(t);
-  u.lang='en-US'; u.rate=1.05; u.pitch=0.9;
+async function speak(text){
+  if(!speakEnabled || !('speechSynthesis' in window)) return;
+  if(!voicesReady) await waitVoices();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US';
+  u.rate = 1.02;
+  u.pitch = 0.95;
+  const v = speechSynthesis.getVoices();
+  u.voice = v.find(x=>/Samantha|Kate|Google US English/i.test(x.name)) || v[0];
   speechSynthesis.speak(u);
 }
 
-// --- Semantic stub ---
-function processSemantic(text){
-  const msg=text.toLowerCase();
-  if(msg.includes('memory'))addTicker('💭 recalling memory fragment');
-  if(msg.includes('signal'))addTicker('📡 tuning signal');
-  if(msg.includes('mirror'))addTicker('↺ reflection mode');
-  if(msg.includes('feedback'))addTicker('🌊 entering feedback loop');
-  if(msg.includes('hello'))addTicker('👋 system acknowledges presence');
+/* =============== Semantic Router =============== */
+/* Only updates ticker + speaks a reply. No side effects. */
+function semanticRouter(raw){
+  const text = (raw||'').trim();
+  if(!text) return;
+  // Log user input
+  addTicker('> ' + text, 'user');
+
+  const lower = text.toLowerCase();
+
+  // simple sample semantics (customize as you like)
+  if (lower === 'hello' || lower.startsWith('hi')) {
+    const reply = "Hello. I'm listening.";
+    addTicker(reply, 'sys'); speak(reply); return;
+  }
+  if (lower.includes('time')) {
+    const now = new Date();
+    const reply = 'Current time: ' + now.toLocaleTimeString();
+    addTicker(reply, 'sys'); speak(reply); return;
+  }
+  if (lower.startsWith('repeat after me')) {
+    const say = text.replace(/^repeat after me/i, '').trim();
+    const reply = say || '…say what?';
+    addTicker(reply, 'sys'); speak(reply); return;
+  }
+
+  // default echo
+  const reply = 'You said: ' + text;
+  addTicker(reply, 'sys'); speak(reply);
 }
 
-// --- Clear button ---
-document.getElementById('btnClear').onclick=()=>ticker.innerHTML='';
+/* =============== Text Input Handler =============== */
+const input = document.getElementById('input');
+input.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    semanticRouter(input.value);
+    input.value = '';
+  }
+});
 
-// --- Boot message ---
-['v1.9.8 docked voice system ready','voice input stabilized','awaiting input…']
-.forEach((m,i)=>setTimeout(()=>addTicker(m),400*i));
+/* =============== Voice Input via Web Speech (if available) =============== */
+const btnMic = document.getElementById('btnMic');
+let rec = null, listening = false;
+
+// Support vendor prefixed (Safari iOS: webkitSpeechRecognition when available)
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (!SR) {
+  btnMic.disabled = false; // still clickable to show a note
+  btnMic.addEventListener('click', ()=>{
+    addTicker('Microphone recognition not available on this browser. Typing still works.', 'note');
+  });
+} else {
+  rec = new SR();
+  rec.lang = 'en-US';
+  rec.interimResults = true;
+  rec.continuous = true;
+
+  rec.onstart = () => { listening = true; btnMic.classList.add('on'); addTicker('🎙️ Voice capture started', 'note'); };
+  rec.onend   = () => { listening = false; btnMic.classList.remove('on'); addTicker('⏹️ Voice capture stopped', 'note'); };
+
+  let interim = '';
+  rec.onresult = (evt)=>{
+    let finalChunk = '';
+    for (let i = evt.resultIndex; i < evt.results.length; i++) {
+      const t = evt.results[i][0].transcript;
+      if (evt.results[i].isFinal) finalChunk += t;
+      else interim = t;
+    }
+    if (interim) {
+      // show faint interim (optional)
+      // We’ll not spam ticker; could add inline status if desired.
+    }
+    if (finalChunk) {
+      semanticRouter(finalChunk);
+      interim = '';
+    }
+  };
+
+  rec.onerror = (e)=>{ addTicker('Voice error: ' + e.error, 'note'); };
+
+  btnMic.addEventListener('click', ()=>{
+    try{
+      if(!listening){ rec.start(); }
+      else { rec.stop(); }
+    }catch(err){
+      addTicker('Mic error: ' + (err.message||err), 'note');
+    }
+  });
+}
+
+/* =============== Clear Ticker =============== */
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  ticker.innerHTML = '';
+});
+
 </script>
-
 </body>
 </html>
