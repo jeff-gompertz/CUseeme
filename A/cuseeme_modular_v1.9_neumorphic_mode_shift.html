@@ -42,9 +42,14 @@ HUD Wrapper + Panels
   display: grid;
   gap: 10px;
   width: auto;
-  pointer-events: none; /* ← ADD THIS LINE */
+  pointer-events: auto; /* ← ADD THIS LINE */
 }
-
+ #hudWrapper::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* allows touch-through for transparent gaps */
+} 
 #hudShell{
   background: var(--hud-glass);
   border-radius: 18px;
