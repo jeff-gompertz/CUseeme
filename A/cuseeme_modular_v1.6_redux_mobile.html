@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>CUSeeMe Modular v1.6 Redux — Aqua-Glass (Mobile)</title>
+
+<style>
+/* =========================================================
+   Aqua-Glass Mobile Theme (compact, iOS-first)
+========================================================= */
+:root{
+  --bg: #f7f7f4;
+  --ink: #0f1824;
+
+  --hud-glass: rgba(185,225,255,.45);
+  --hud-bright: rgba(255,255,255,.70);
+  --hud-deep: rgba(0,45,90,.35);
+  --hud-shadow: 0 14px 44px rgba(0,50,90,.35);
+
+  --btn-bg: rgba(215,235,255,.38);
+  --btn-hi: rgba(255,255,255,.85);
+  --btn-lo: rgba(0,30,60,.28);
+  --glow: rgba(255,120,50,.7);
+  --glow-outer: rgba(255,150,80,.35);
+
+  --ticker: #ff3a2f;
+}
+
+/* Base */
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);
+  font-family: "VT323", ui-monospace, Menlo, Consolas, monospace; overflow:hidden;}
+
+@supports (font: -apple-system-body){
+  body{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+}
+
+/* (Optional) full-bleed backdrop camera; off by default */
+#cameraMain{ display:none; position:fixed; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
+
+/* ================= HUD shell (fixed, compact) ================= */
+#hudWrapper{ position:fixed; top:16px; right:16px; z-index:1000; }
+#hudShell{
+  min-width: 300px; max-width: min(92vw, 420px);
+  display:grid; gap:12px; padding:22px 20px 18px;
+  background: var(--hud-glass);
+  border:1px solid var(--hud-bright); border-radius:18px;
+  box-shadow: inset 0 1px 3px var(--hud-bright), inset 0 -1px 3px var(--hud-deep), var(--hud-shadow);
+  backdrop-filter: blur(18px) saturate(1.22);
+  -webkit-backdrop-filter: blur(18px) saturate(1.22);
+  color:var(--ink); text-align:center; letter-spacing:.3px;
+  transition:transform .22s ease, box-shadow .22s ease, opacity .22s ease;
+}
+#hudShell:hover{ transform:translateY(-1px); box-shadow: 0 16px 52px rgba(0,60,110,.45); }
+
+/* Header + counter */
+#hudHeader{ user-select:none; cursor:pointer; margin-bottom:8px; font-size:22px; color:rgba(20,30,45,.84);
+  text-shadow:0 1px 0 rgba(255,255,255,.6); }
+#hudHeader:hover{ text-shadow:0 0 6px rgba(255,120,50,.5); }
+#hudIndex{ position:absolute; top:6px; left:10px; font-size:12px; opacity:.55; }
+
+/* Panels */
+.hud-panel{ position:relative; opacity:0; pointer-events:none; transition:opacity .26s ease; }
+.hud-panel.active{ opacity:1; pointer-events:auto; }
+
+.hud-row{ display:flex; gap:10px; justify-content:space-between; }
+.hud-btn{
+  flex:1; font-size:16px; letter-spacing:.2px; font-weight:600; color:#132030;
+  background:var(--btn-bg); border:none; border-radius:10px; padding:9px 11px;
+  box-shadow: inset 1px 1px 2px var(--btn-hi), inset -1px -2px 3px var(--btn-lo), 0 3px 6px rgba(0,0,0,.08);
+  transition:transform .16s ease, box-shadow .16s ease, background .16s ease; cursor:pointer;
+}
+.hud-btn:active{ transform:translateY(0); }
+.hud-btn:hover{ transform:translateY(-1px); box-shadow: inset 1px 1px 2px var(--btn-hi), inset -1px -2px 3px var(--btn-lo), 0 5px 12px rgba(0,0,0,.14); }
+.hud-btn.active{
+  background: rgba(255,165,100,.15); color:#ff6a2f;
+  box-shadow: inset 0 0 4px var(--glow), 0 0 14px 3px var(--glow-outer), 0 2px 8px rgba(0,0,0,.2);
+}
+
+/* ================= Window Manager (HUD2) ================= */
+#wmLayer{ position:fixed; inset:0; z-index:900; pointer-events:none; opacity:0; visibility:hidden; transition:opacity .2s ease, visibility .2s ease; }
+#wmLayer.visible{ opacity:1; visibility:visible; }
+.miniWin{
+  position:absolute; width: 42vw; max-width: 360px; aspect-ratio: 9/16;
+  background: rgba(210,240,255,.28); border:1px solid rgba(255,255,255,.55); border-radius:16px;
+  box-shadow: inset 0 1px 2px rgba(255,255,255,.6), 0 18px 40px rgba(0,0,0,.24);
+  backdrop-filter: blur(12px);
+  overflow:hidden; cursor:grab; pointer-events:auto; z-index:1;
+}
+.miniWin:active{ cursor:grabbing; }
+.miniBar{ display:flex; align-items:center; justify-content:space-between; height:26px; padding:4px 10px; background:rgba(255,255,255,.18); font-size:12px; color:#222; user-select:none; cursor:grab; }
+.miniTitle{ font-weight:700; opacity:.75; }
+.miniBtns{ display:flex; gap:4px; }
+.win-dot{ width:6px; height:6px; border-radius:50%; background:#999; opacity:.7; }
+.miniInner{ position:relative; width:100%; height:calc(100% - 26px); }
+.miniVideo{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform: scaleX(-1); }
+
+/* ================= Ticker & Prompt ================= */
+#ticker{
+  position:fixed; left:16px; bottom:14px; z-index:950; width: clamp(260px, 46vw, 720px); max-height:50vh;
+  display:flex; flex-direction:column-reverse; overflow:hidden; color:var(--ticker); font-size:18px; line-height:1.25;
+}
+.tline{ opacity:.97; margin:0; animation:fadeIn .5s ease; }
+@keyframes fadeIn{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
+
+#promptWrap{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:960; }
+#promptBox{
+  pointer-events:auto; display:flex; gap:10px; align-items:center; padding:10px 16px;
+  background: rgba(240,250,255,.55); border:1px solid rgba(255,255,255,.6); border-radius:12px;
+  box-shadow: 0 8px 24px rgba(0,30,60,.18), inset 0 1px 1px rgba(255,255,255,.6);
+}
+#input{ background:transparent; border:none; outline:none; font:inherit; font-size:18px; color:#111; width:24ch; }
+#caret{ width:.5ch; height:1.2em; background:#222; animation:blink 1s step-end infinite; }
+@keyframes blink{ 50%{opacity:0} }
+
+#grantCam{ display:none; position:fixed; left:16px; bottom:70px; z-index:965;
+  padding:8px 12px; border-radius:10px; border:1px solid rgba(0,0,0,.15); background:#fff; box-shadow:0 8px 24px rgba(0,0,0,.18);
+  cursor:pointer; font-family:inherit; font-size:16px; }
+#grantCam.show{ display:inline-block; }
+
+/* ================= Mobile tweaks ================= */
+@media (max-width: 820px){
+  #hudShell{ min-width: 280px; padding:18px 16px 16px; }
+  .hud-btn{ font-size:15px; padding:8px 10px; }
+}
+@media (max-width: 430px){
+  #hudWrapper{ right:12px; top:12px; }
+  #hudShell{ min-width: 260px; }
+  .hud-btn{ font-size:14px; padding:8px 9px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Optional backdrop camera (kept hidden by default) -->
+<video id="cameraMain" autoplay muted playsinline></video>
+
+<!-- HUD -->
+<div id="hudWrapper">
+  <div id="hudShell">
+    <div id="hudIndex">HUD 1 / 3</div>
+    <div id="hudHeader" title="Tap to cycle HUDs">Mode &gt; Shift</div>
+
+    <!-- HUD 1 — Base Control -->
+    <section id="hud1" class="hud-panel active">
+      <div class="hud-row">
+        <button class="hud-btn" id="btnNewWindow">➕ New Window</button>
+        <button class="hud-btn" id="btnSpawn5">➕➕ Spawn 5</button>
+      </div>
+      <div class="hud-row">
+        <button class="hud-btn" id="btnGrid">▦ Grid Snap</button>
+        <button class="hud-btn" id="btnCloseAll">✕ Close All</button>
+      </div>
+      <div class="hud-row">
+        <button class="hud-btn" id="btnReverseCam">🔁 Reverse Cam</button>
+        <button class="hud-btn" id="btnVoice">🔊 Voice Off</button>
+      </div>
+    </section>
+
+    <!-- HUD 2 — Live Mini-Window Lab -->
+    <section id="hud2" class="hud-panel">
+      <div class="hud-row">
+        <button class="hud-btn" id="btnSpawn2_1">➕ New Window</button>
+        <button class="hud-btn" id="btnSpawn2_5">➕➕ Spawn 5</button>
+      </div>
+      <div class="hud-row">
+        <button class="hud-btn" id="btnGrid2">▦ Grid Snap</button>
+        <button class="hud-btn" id="btnClear2">✕ Close All</button>
+      </div>
+      <div class="hud-row">
+        <button class="hud-btn" id="btnReverseCam2">🔁 Reverse Cam</button>
+      </div>
+    </section>
+
+    <!-- HUD 3 — Placeholder / future module -->
+    <section id="hud3" class="hud-panel">
+      <div class="hud-row">
+        <button class="hud-btn" id="btnReserveA">Reserve A</button>
+        <button class="hud-btn" id="btnReserveB">Reserve B</button>
+      </div>
+      <div class="hud-row">
+        <button class="hud-btn" id="btnReserveC">Reserve C</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- WM layer (shared with HUD2) -->
+<div id="wmLayer" aria-hidden="true"></div>
+
+<!-- Ticker -->
+<div id="ticker"></div>
+
+<!-- Prompt -->
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" />
+  </div>
+</div>
+
+<button id="grantCam" title="Retry camera permission">Grant Camera</button>
+
+<script>
+/* =========================================================
+   Ticker
+========================================================= */
+const ticker = document.getElementById('ticker');
+function addTicker(txt){
+  const line = document.createElement('div');
+  line.className = 'tline';
+  line.textContent = txt;
+  ticker.prepend(line);
+  if (ticker.children.length > 120) ticker.removeChild(ticker.lastChild);
+}
+['v1.6 redux / aqua-glass','live camera substrate','hud shell ready','ticker: online']
+  .forEach((m,i)=>setTimeout(()=>addTicker(m), 220*i));
+
+/* =========================================================
+   Prompt → semantic reply (optional TTS)
+========================================================= */
+const input = document.getElementById('input');
+function semanticReply(s){
+  const t = (s||'').toLowerCase();
+  const greet=/(hello|hi|hey|yo|hola)/, video=/(video|camera|feed|frame|mirror|mini)/,
+        sys=/(link|signal|sync|handshake|latency|ping|bandwidth)/, size=/(bigger|smaller|zoom|scale)/,
+        ok=/(ok|okay|good|great|works|working)/, warn=/(error|fail|broken|issue|bug|stuck)/, ask=/(why|how|what|when|where)/;
+  if(greet.test(t)) return 'acknowledged: uplink active';
+  if(video.test(t)) return 'video path: stable; mirror channel ready';
+  if(sys.test(t))   return `field sync nominal; latency ${(Math.random()*40+20|0)}ms`;
+  if(size.test(t))  return 'scaler engaged: adjust via grid / spawn controls';
+  if(ok.test(t))    return 'status: green; continuing stream';
+  if(warn.test(t))  return 'diagnostic: retry suggested; check permissions';
+  if(ask.test(t))   return 'referencing local map: route prepared';
+  return `signal correlation ${Math.floor(Math.random()*100)}%`;
+}
+function submitPrompt(v){
+  const t = (v||'').trim(); if(!t) return;
+  addTicker('> '+t); input.value='';
+  const r = semanticReply(t);
+  setTimeout(()=>{ addTicker('< '+r); if(voiceOn) speak(r); }, 480);
+}
+input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); submitPrompt(input.value); }});
+
+/* =========================================================
+   TTS (off by default)
+========================================================= */
+let voiceOn = false, voicesReady=false;
+function primeVoices(){ return new Promise(res=>{ const id=setInterval(()=>{ const v=speechSynthesis.getVoices(); if(v && v.length){ clearInterval(id); voicesReady=true; res(); }}, 120); }); }
+speechSynthesis.onvoiceschanged = primeVoices;
+async function speak(t){
+  if(!voiceOn || !('speechSynthesis' in window)) return;
+  if(!voicesReady) await primeVoices();
+  const u = new SpeechSynthesisUtterance(t);
+  u.lang='en-US'; u.rate=1.05; u.pitch=0.9; u.volume=0.9;
+  const v = speechSynthesis.getVoices();
+  u.voice = v.find(x=>/samantha/i.test(x.name)) || v.find(x=>/google/i.test(x.name)) || v[0];
+  speechSynthesis.speak(u);
+}
+// iOS unlock
+function unlockTTS(){ try{ speechSynthesis.speak(new SpeechSynthesisUtterance('')); speechSynthesis.cancel(); }catch(e){} window.removeEventListener('touchstart',unlockTTS); window.removeEventListener('click',unlockTTS); }
+window.addEventListener('touchstart',unlockTTS,{once:true});
+window.addEventListener('click',unlockTTS,{once:true});
+document.getElementById('btnVoice').addEventListener('click', ()=>{
+  voiceOn = !voiceOn; const b = document.getElementById('btnVoice');
+  b.textContent = voiceOn ? '🔊 Voice On' : '🔊 Voice Off';
+  b.classList.toggle('active', voiceOn);
+  addTicker('voice: ' + (voiceOn?'on':'off'));
+  if(voiceOn) speak('Voice enabled');
+});
+
+/* =========================================================
+   Camera substrate (single shared stream)
+========================================================= */
+let mediaStream=null, facing='user';  // 'user' | 'environment'
+const grantCam = document.getElementById('grantCam');
+async function initStream(){
+  if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:facing } }, audio:false });
+    grantCam.classList.remove('show'); addTicker(`camera: ${facing==='user'?'front':'back'} ready`);
+    document.querySelectorAll('.miniVideo').forEach(v=> v.srcObject = mediaStream);
+    const main = document.getElementById('cameraMain'); if(main) main.srcObject = mediaStream;
+  }catch(e){ addTicker('⚠ camera denied/unavailable'); grantCam.classList.add('show'); }
+}
+grantCam.addEventListener('click', initStream);
+document.getElementById('btnReverseCam').addEventListener('click', async()=>{ facing = (facing==='user')?'environment':'user'; await initStream(); });
+document.getElementById('btnReverseCam2')?.addEventListener('click', async()=>{ facing = (facing==='user')?'environment':'user'; await initStream(); });
+
+/* =========================================================
+   Window Manager (HUD2)
+========================================================= */
+const wmLayer = document.getElementById('wmLayer');
+let winCount=0;
+
+function makeMiniWindow({x=80,y=80}={}){
+  winCount++;
+  const el = document.createElement('div');
+  el.className='miniWin';
+  el.style.left=x+'px'; el.style.top=y+'px';
+  el.innerHTML = `
+    <div class="miniBar">
+      <div class="miniTitle">subject_${String(winCount).padStart(4,'0')}</div>
+      <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+    </div>
+    <div class="miniInner">
+      <video class="miniVideo" autoplay muted playsinline></video>
+    </div>`;
+  wmLayer.appendChild(el);
+
+  const v = el.querySelector('.miniVideo'); if(mediaStream) v.srcObject = mediaStream;
+
+  // Drag
+  const bar = el.querySelector('.miniBar');
+  let drag=false, sx=0, sy=0, sl=0, st=0;
+  function start(e){ drag=true; const r=el.getBoundingClientRect(); sl=r.left; st=r.top;
+    sx=(e.touches?e.touches[0].clientX:e.clientX); sy=(e.touches?e.touches[0].clientY:e.clientY);
+    document.addEventListener('pointermove',move); document.addEventListener('pointerup',stop);
+    document.addEventListener('touchmove',move,{passive:false}); document.addEventListener('touchend',stop);
+    el.style.zIndex = String(Date.now()%1e7);
+  }
+  function move(e){ if(!drag) return; const cx=(e.touches?e.touches[0].clientX:e.clientX), cy=(e.touches?e.touches[0].clientY:e.clientY);
+    el.style.left = (sl + (cx-sx))+'px'; el.style.top = (st + (cy-sy))+'px'; e.preventDefault?.(); }
+  function stop(){ drag=false; document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',stop); document.removeEventListener('touchmove',move); document.removeEventListener('touchend',stop); }
+  bar.addEventListener('pointerdown',start); bar.addEventListener('touchstart',start,{passive:false});
+  return el;
+}
+
+function gridSnap(){
+  const wins=[...wmLayer.querySelectorAll('.miniWin')]; if(!wins.length) return;
+  const cols = Math.ceil(Math.sqrt(wins.length));
+  const gap = 14, margin = 18, usableW = innerWidth - margin*2;
+  const colW = Math.min(usableW/cols - gap, 330);
+  const colH = colW * (16/9);
+  let x = margin, y = 110, c = 0;
+  wins.forEach(el=>{
+    el.style.width = colW+'px'; el.style.left = x+'px'; el.style.top = y+'px';
+    c++; if(c>=cols){ c=0; x=margin; y+= colH + gap; } else { x+= colW + gap; }
+  });
+}
+
+function clearWindows(){ wmLayer.innerHTML=''; winCount=0; }
+
+/* HUD1 hooks control the same WM so you can work from either HUD */
+document.getElementById('btnNewWindow').addEventListener('click', ()=>{ ensureHUD2Layer(); makeMiniWindow({ x: 60+Math.random()*140, y: 100+Math.random()*120 }); });
+document.getElementById('btnSpawn5').addEventListener('click', ()=>{ ensureHUD2Layer(); const sx=60+Math.random()*40, sy=120+Math.random()*40; for(let i=0;i<5;i++) makeMiniWindow({ x:sx+i*24, y:sy+i*18 }); });
+document.getElementById('btnGrid').addEventListener('click', gridSnap);
+document.getElementById('btnCloseAll').addEventListener('click', clearWindows);
+
+document.getElementById('btnSpawn2_1').addEventListener('click', ()=> makeMiniWindow({ x: 60+Math.random()*140, y: 110+Math.random()*120 }) );
+document.getElementById('btnSpawn2_5').addEventListener('click', ()=>{ const sx=60+Math.random()*40, sy=120+Math.random()*40; for(let i=0;i<5;i++) makeMiniWindow({ x:sx+i*24, y:sy+i*18 }); });
+document.getElementById('btnGrid2').addEventListener('click', gridSnap);
+document.getElementById('btnClear2').addEventListener('click', clearWindows);
+
+function ensureHUD2Layer(){
+  // show the layer even if user is still on HUD1
+  wmLayer.classList.add('visible'); wmLayer.setAttribute('aria-hidden','false');
+}
+
+/* =========================================================
+   HUD cycling (tap header / Shift key)
+========================================================= */
+const panels = [...document.querySelectorAll('.hud-panel')];
+const hudIndex = document.getElementById('hudIndex');
+function setHUD(n){
+  const total = panels.length;
+  panels.forEach(p=>p.classList.remove('active'));
+  panels[n-1].classList.add('active');
+  hudIndex.textContent = `HUD ${n} / ${total}`;
+  // Toggle WM visibility depending on HUD
+  if(n===2){ wmLayer.classList.add('visible'); wmLayer.setAttribute('aria-hidden','false'); }
+  else { wmLayer.classList.remove('visible'); wmLayer.setAttribute('aria-hidden','true'); }
+  window.__HUD__ = n;
+}
+function cycleHUD(){ const n = window.__HUD__ || 1; setHUD(n===1?2:n===2?3:1); }
+document.getElementById('hudHeader').addEventListener('click', cycleHUD);
+window.addEventListener('keydown', e=>{ if(e.key === 'Shift') cycleHUD(); if(e.key==='1') setHUD(1); if(e.key==='2') setHUD(2); if(e.key==='3') setHUD(3); });
+
+/* =========================================================
+   Boot
+========================================================= */
+(async ()=>{
+  setHUD(1);
+  await initStream();
+
+  // Gentle default: seed a few windows if user goes to HUD2
+  // (kept inert until HUD2 is shown)
+})();
+</script>
+</body>
+</html>
