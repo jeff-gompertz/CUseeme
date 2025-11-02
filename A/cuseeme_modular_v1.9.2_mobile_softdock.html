@@ -44,7 +44,6 @@ HUD Wrapper + Panels
   gap:10px;
   width:auto;
 }
-
 #hudShell {
   background:var(--hud-glass);
   border-radius:18px;
@@ -59,15 +58,13 @@ HUD Wrapper + Panels
   min-width:260px;
   transition:all .3s ease;
   pointer-events:none;
-  position: fixed;                 /* ✅ ensures consistent anchor during drag */
-  will-change: left, top;          /* ✅ optimizes smooth motion in Safari */
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);     /* ✅ centers on screen at start */
-  will-change: left, top;
-                                    /* ✅ matches wrapper visual intent/* ✅ prevents 0,0 fallback in Safari */
+  position: fixed;              /* ✅ only once */
+  top: 20px;                    /* ✅ visible default anchor */
+  left: 50%;                    /* ✅ centers horizontally */
+  transform: translateX(-50%);  /* ✅ keeps it centered */
+  will-change: left, top;       /* ✅ smooth motion */
 }
+
 #hudShell * { pointer-events:auto; }
 
 #hudShell:hover { transform:translateY(-1px); }
