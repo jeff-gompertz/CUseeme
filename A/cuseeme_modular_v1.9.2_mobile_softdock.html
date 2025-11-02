@@ -59,6 +59,8 @@ HUD Wrapper + Panels
   min-width:260px;
   transition:all .3s ease;
   pointer-events:none;
+  position: fixed;                 /* ✅ ensures consistent anchor during drag */
+  will-change: left, top;          /* ✅ optimizes smooth motion in Safari */
 }
 #hudShell * { pointer-events:auto; }
 
@@ -332,18 +334,17 @@ Draggable HUD + Soft Dock
 v1.9.3 — Unified Drag Patch (HUD + MiniWindows)
 ========================================================= */
 
-// 🟢 Make HUD draggable (free floating)
-
+// 🟢 Make HUD draggable (anchor-safe version for mobile/tablet)
 (function enableHUDDrag() {
   const hud = document.getElementById('hudShell');
   let startX = 0, startY = 0, offsetX = 0, offsetY = 0, dragging = false;
 
   function startDrag(e) {
-    if (e.target.closest('button')) return; // ✅ let buttons work normally
+    if (e.target.closest('button')) return; // allow button taps
     dragging = true;
     const point = e.touches ? e.touches[0] : e;
-    startX = point.clientX - offsetX;
-    startY = point.clientY - offsetY;
+    startX = point.clientX - hud.offsetLeft;
+    startY = point.clientY - hud.offsetTop;
     hud.style.transition = 'none';
     e.preventDefault();
   }
@@ -353,20 +354,23 @@ v1.9.3 — Unified Drag Patch (HUD + MiniWindows)
     const point = e.touches ? e.touches[0] : e;
     offsetX = point.clientX - startX;
     offsetY = point.clientY - startY;
-    hud.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+    hud.style.position = 'fixed';
+    hud.style.left = `${offsetX}px`;
+    hud.style.top  = `${offsetY}px`;
   }
 
   function endDrag() {
     dragging = false;
-    hud.style.transition = 'transform 0.25s ease';
+    hud.style.transition = 'all 0.25s ease';
   }
-// ✅ Unified pointer events (covers iPad + phone + desktop)
-hud.addEventListener('pointerdown', startDrag);
-window.addEventListener('pointermove', onDrag);
-window.addEventListener('pointerup', endDrag);
+
+  // ✅ Unified pointer events for iPad / phone
+  hud.addEventListener('pointerdown', startDrag);
+  window.addEventListener('pointermove', onDrag);
+  window.addEventListener('pointerup', endDrag);
+})();
 
 
-})();  
 
 // 🟢 Make MiniWindows draggable (free floating)
 (function enableMiniWindowDrag() {
