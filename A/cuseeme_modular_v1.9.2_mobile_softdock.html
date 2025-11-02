@@ -61,9 +61,12 @@ HUD Wrapper + Panels
   pointer-events:none;
   position: fixed;                 /* ✅ ensures consistent anchor during drag */
   will-change: left, top;          /* ✅ optimizes smooth motion in Safari */
-  top: 20px;                       /* ✅ default visible position */
-  right: 24px;                     /* ✅ matches wrapper visual intent */
-  left: auto;                      /* ✅ prevents 0,0 fallback in Safari */
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);     /* ✅ centers on screen at start */
+  will-change: left, top;
+                                    /* ✅ matches wrapper visual intent/* ✅ prevents 0,0 fallback in Safari */
 }
 #hudShell * { pointer-events:auto; }
 
