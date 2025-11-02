@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe Modular v1.6 — Mode Shift</title>
+<title>CUSeeMe Modular v1.6 — Core Base (Mode-Shift Restored)</title>
 
 <style>
 :root {
@@ -21,86 +21,76 @@
   --ticker: #ff3a2f;
 }
 
-html,body {
-  height: 100%;
-  margin: 0;
+html,body{
+  height:100%; margin:0;
   background: var(--bg);
   font-family: "VT323", ui-monospace, Menlo, Consolas, monospace;
-  color: #222;
-  overflow: hidden;
+  color:#222;
+  overflow:hidden;
 }
 
 /* =========================================================
 HUD — Aqua Glass shell
 ========================================================= */
-#hudShell {
-  position: fixed;
-  top: 24px; right: 32px;
-  z-index: 1000;
-  padding: 28px 26px 26px;
-  min-width: 320px;
-  background: var(--hud-glass);
-  border-radius: 20px;
-  border: 1px solid var(--hud-border-light);
+#hudShell{
+  position:fixed;
+  top:24px; right:32px;
+  z-index:1000;
+  padding:28px 26px 26px;
+  min-width:320px;
+  background:var(--hud-glass);
+  border-radius:20px;
+  border:1px solid var(--hud-border-light);
   box-shadow:
     inset 0 1px 3px var(--hud-border-light),
-    inset -1px -2px 3px var(--hud-border-dark),
+    inset 0 -1px 3px var(--hud-border-dark),
     var(--hud-shadow);
-  backdrop-filter: blur(20px) saturate(1.25);
-  -webkit-backdrop-filter: blur(20px) saturate(1.25);
-  color: var(--hud-text);
-  text-align: center;
+  backdrop-filter:blur(20px) saturate(1.25);
+  -webkit-backdrop-filter:blur(20px) saturate(1.25);
+  color:var(--hud-text);
+  text-align:center;
 }
 
-#hudHeader {
-  display: block;
-  margin-bottom: 10px;
-  font-size: 24px;
-  color: rgba(20,30,45,0.8);
-  text-shadow: 0 1px 0 rgba(255,255,255,0.6);
-  user-select: none;
-  cursor: pointer;
+#hudHeader{
+  display:block;
+  margin-bottom:10px;
+  font-size:24px;
+  color:rgba(20,30,45,0.8);
+  text-shadow:0 1px 0 rgba(255,255,255,0.6);
+  user-select:none;
+  cursor:pointer;
 }
-
-#hudIndex {
-  position: absolute;
-  top: 6px; left: 10px;
-  font-size: 12px;
-  opacity: .55;
+#hudIndex{
+  position:absolute;
+  top:6px; left:10px;
+  font-size:12px;
+  opacity:.55;
 }
-
-.hud-row {
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-}
-
-.hud-btn {
-  flex: 1;
-  font-family: "VT323", monospace;
-  font-size: 17px;
-  color: #132030;
-  background: var(--btn-bg);
-  border: none;
-  border-radius: 10px;
+.hud-row{ display:flex; gap:12px; justify-content:space-between; }
+.hud-btn{
+  flex:1;
+  font-family:"VT323", monospace;
+  font-size:17px;
+  color:#132030;
+  background:var(--btn-bg);
+  border:none;
+  border-radius:10px;
   box-shadow:
     inset 1px 1px 2px var(--btn-inset-light),
     inset -1px -2px 3px var(--btn-inset-dark),
     0 3px 6px rgba(0,0,0,0.08);
-  padding: 10px 12px;
-  cursor: pointer;
-  transition: all .22s ease;
+  padding:10px 12px;
+  cursor:pointer;
+  transition:all .22s ease;
 }
-
-.hud-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 5px 12px rgba(0,0,0,0.15);
+.hud-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 5px 12px rgba(0,0,0,0.15);
 }
-
-.hud-btn.active {
-  background: rgba(255,165,100,0.15);
-  color: #ff6a2f;
-  font-weight: 600;
+.hud-btn.active{
+  background:rgba(255,165,100,0.15);
+  color:#ff6a2f;
+  font-weight:600;
   box-shadow:
     inset 0 0 4px var(--btn-glow),
     0 0 14px 3px var(--btn-glow-outer),
@@ -111,57 +101,57 @@ HUD — Aqua Glass shell
 HUD Panel Switching
 ========================================================= */
 .hud-panel {
-  position: absolute; inset: 0;
-  opacity: 0; pointer-events: none;
-  transition: opacity .3s ease;
+  position:absolute; inset:0;
+  opacity:0; pointer-events:none;
+  transition:opacity .3s ease;
 }
 .hud-panel.active {
-  opacity: 1; pointer-events: auto;
+  opacity:1; pointer-events:auto;
 }
 
 /* =========================================================
 Ticker
 ========================================================= */
-#ticker {
-  position: fixed; left: 16px; bottom: 14px; z-index: 900;
-  width: 45vw; max-width: 700px; max-height: 50vh;
-  display: flex; flex-direction: column-reverse; overflow: hidden;
-  color: var(--ticker);
-  font-size: 18px; line-height: 1.25;
+#ticker{
+  position:fixed; left:16px; bottom:14px; z-index:900;
+  width:45vw; max-width:700px; max-height:50vh;
+  display:flex; flex-direction:column-reverse; overflow:hidden;
+  color:var(--ticker);
+  font-size:18px; line-height:1.25;
 }
-.tline { opacity: .95; margin: 0; animation: fadeIn .6s ease; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+.tline{ opacity:.95; margin:0; animation:fadeIn .6s ease; }
+@keyframes fadeIn{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
 
 /* =========================================================
 Mini windows
 ========================================================= */
-.miniWin {
-  position: absolute;
-  width: 22vw; max-width: 380px; aspect-ratio: 9/16;
-  background: rgba(210,240,255,0.25);
-  border: 1px solid rgba(255,255,255,0.55);
-  border-radius: 16px;
-  backdrop-filter: blur(12px);
+.miniWin{
+  position:absolute;
+  width:22vw; max-width:380px; aspect-ratio:9/16;
+  background:rgba(210,240,255,0.25);
+  border:1px solid rgba(255,255,255,0.55);
+  border-radius:16px;
+  backdrop-filter:blur(12px);
   box-shadow:
     inset 0 1px 2px rgba(255,255,255,0.6),
     0 18px 40px rgba(0,0,0,0.25);
-  overflow: hidden;
-  cursor: grab;
-  z-index: 500;
+  overflow:hidden;
+  cursor:grab;
+  z-index:500;
 }
-.miniWin:active { cursor: grabbing; }
-.miniBar {display:flex;align-items:center;justify-content:space-between;padding:4px 10px;height:26px;background:rgba(255,255,255,0.18);font-size:12px;color:#222;user-select:none;}
-.miniInner {position:relative;width:100%;height:calc(100% - 26px);}
-.miniVideo {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);}
+.miniWin:active{ cursor:grabbing; }
+.miniBar{display:flex;align-items:center;justify-content:space-between;padding:4px 10px;height:26px;background:rgba(255,255,255,0.18);font-size:12px;color:#222;user-select:none;}
+.miniInner{position:relative;width:100%;height:calc(100% - 26px);}
+.miniVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);}
 
 /* =========================================================
 Prompt bar
 ========================================================= */
-#promptWrap {position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:800;}
-#promptBox {pointer-events:auto;display:flex;gap:10px;align-items:center;padding:10px 16px;background:rgba(240,250,255,.55);border:1px solid rgba(255,255,255,.6);border-radius:12px;box-shadow:0 8px 24px rgba(0,30,60,.18);}
-#input {background:transparent;border:none;outline:none;font:inherit;font-size:18px;color:#111;width:24ch;}
-#caret {width:.5ch;height:1.2em;background:#222;animation:blink 1s step-end infinite;}
-@keyframes blink {50%{opacity:0}}
+#promptWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:800;}
+#promptBox{pointer-events:auto;display:flex;gap:10px;align-items:center;padding:10px 16px;background:rgba(240,250,255,.55);border:1px solid rgba(255,255,255,.6);border-radius:12px;box-shadow:0 8px 24px rgba(0,30,60,.18);}
+#input{background:transparent;border:none;outline:none;font:inherit;font-size:18px;color:#111;width:24ch;}
+#caret{width:.5ch;height:1.2em;background:#222;animation:blink 1s step-end infinite;}
+@keyframes blink{50%{opacity:0}}
 </style>
 </head>
 
@@ -215,7 +205,7 @@ Ticker + Camera + Voice + Windows
 ========================================================= */
 const ticker=document.getElementById('ticker');
 function addTicker(t){const l=document.createElement('div');l.className='tline';l.textContent=t;ticker.prepend(l);if(ticker.children.length>80)ticker.removeChild(ticker.lastChild);}
-['index: v1.6 mode-shift','retro4.4 aqua loaded','rear camera default','hud functional','voice system ready']
+['index: v1.6 core base','retro4.4 aqua loaded','rear camera default','hud functional','voice system ready']
 .forEach((m,i)=>setTimeout(()=>addTicker(m),250*i));
 
 let mediaStream=null,facing='environment';
@@ -229,7 +219,8 @@ async function initStream(){
 }
 
 let winCount=0,spawnUsed=false;
-function makeMiniWindow({x=80,y=80}={}){winCount++;const el=document.createElement('div');el.className='miniWin';el.style.left=x+'px';el.style.top=y+'px';el.innerHTML=`<div class="miniBar"><div class="miniTitle">subject_${String(winCount).padStart(4,'0')}</div></div><div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>`;document.body.appendChild(el);const v=el.querySelector('.miniVideo');if(mediaStream)v.srcObject=mediaStream;const bar=el.querySelector('.miniBar');let dragging=false,sx=0,sy=0,sl=0,st=0;function start(e){dragging=true;const r=el.getBoundingClientRect();sl=r.left;st=r.top;sx=(e.touches?e.touches[0].clientX:e.clientX);sy=(e.touches?e.touches[0].clientY:e.clientY);document.addEventListener('pointermove',move);document.addEventListener('pointerup',stop);}function move(e){if(!dragging)return;const cx=(e.touches?e.touches[0].clientX:e.clientX);const cy=(e.touches?e.touches[0].clientY:e.clientY);el.style.left=(sl+(cx-sx))+'px';el.style.top=(st+(cy-sy))+'px';e.preventDefault?.();}function stop(){dragging=false;document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',stop);}bar.addEventListener('pointerdown',start);}
+function makeMiniWindow({x=80,y=80}={}){winCount++;const el=document.createElement('div');el.className='miniWin';el.style.left=x+'px';el.style.top=y+'px';el.innerHTML=`<div class="miniBar"><div class="miniTitle">subject_${String(winCount).padStart(4,'0')}</div><div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div></div><div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>`;document.body.appendChild(el);const v=el.querySelector('.miniVideo');if(mediaStream)v.srcObject=mediaStream;const bar=el.querySelector('.miniBar');let dragging=false,sx=0,sy=0,sl=0,st=0;function start(e){dragging=true;const r=el.getBoundingClientRect();sl=r.left;st=r.top;sx=(e.touches?e.touches[0].clientX:e.clientX);sy=(e.touches?e.touches[0].clientY:e.clientY);document.addEventListener('pointermove',move);document.addEventListener('pointerup',stop);document.addEventListener('touchmove',move,{passive:false});document.addEventListener('touchend',stop);}function move(e){if(!dragging)return;const cx=(e.touches?e.touches[0].clientX:e.clientX);const cy=(e.touches?e.touches[0].clientY:e.clientY);el.style.left=(sl+(cx-sx))+'px';el.style.top=(st+(cy-sy))+'px';e.preventDefault?.();}function stop(){dragging=false;document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',stop);document.removeEventListener('touchmove',move);document.removeEventListener('touchend',stop);}bar.addEventListener('pointerdown',start);bar.addEventListener('touchstart',start,{passive:false});return el;}
+
 const btnSpawn5=document.getElementById('btnSpawn5'),btnCloseAll=document.getElementById('btnCloseAll'),btnReverseCam=document.getElementById('btnReverseCam'),btnVoice=document.getElementById('btnVoice');
 btnSpawn5.addEventListener('click',()=>{if(spawnUsed)return addTicker('spawn blocked: already active');spawnUsed=true;const startX=60+Math.random()*40,startY=120+Math.random()*40;for(let i=0;i<5;i++)makeMiniWindow({x:startX+i*26,y:startY+i*18});addTicker('spawned 5 windows');});
 btnCloseAll.addEventListener('click',()=>{document.querySelectorAll('.miniWin').forEach(n=>n.remove());winCount=0;spawnUsed=false;addTicker('all windows closed');});
