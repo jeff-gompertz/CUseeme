@@ -233,12 +233,144 @@ Prompt bar — centered input
 
 <script>
 /* =========================================================
-Ticker, Camera, Controls, Voice identical to v1.6
+Ticker, Camera, Controls, Voice — full from v1.6
 ========================================================= */
+const ticker=document.getElementById('ticker');
+function addTicker(txt){
+  const line=document.createElement('div');
+  line.className='tline';
+  line.textContent=txt;
+  ticker.prepend(line);
+  if(ticker.children.length>80)ticker.removeChild(ticker.lastChild);
+}
+['index: v1.7 mode dynamic','retro4.4 aqua loaded','rear camera default','multi-HUD active']
+.forEach((m,i)=>setTimeout(()=>addTicker(m),250*i));
 
-// (same JS from v1.6 for camera/voice/spawn — omitted for brevity here)
-// You can paste your previous v1.6 functional block here if needed.
+let mediaStream=null;
+let facing='environment';
+async function initStream(){
+  if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+  try{
+    mediaStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:facing}}, audio:false
+    });
+    addTicker(`camera: ${facing==='user'?'front':'rear'} feed ready`);
+    document.querySelectorAll('.miniVideo').forEach(v=>v.srcObject=mediaStream);
+  }catch(e){ addTicker('⚠ camera denied/unavailable'); }
+}
 
+let winCount=0, spawnUsed=false;
+function makeMiniWindow({x=80,y=80}={}){
+  winCount++;
+  const el=document.createElement('div');
+  el.className='miniWin';
+  el.style.left=x+'px';
+  el.style.top=y+'px';
+  el.innerHTML=`
+    <div class="miniBar">
+      <div class="miniTitle">subject_${String(winCount).padStart(4,'0')}</div>
+      <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+    </div>
+    <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>`;
+  document.body.appendChild(el);
+  const v=el.querySelector('.miniVideo');
+  if(mediaStream)v.srcObject=mediaStream;
+
+  const bar=el.querySelector('.miniBar');
+  let dragging=false,sx=0,sy=0,sl=0,st=0;
+  function start(e){
+    dragging=true;
+    const r=el.getBoundingClientRect(); sl=r.left; st=r.top;
+    sx=(e.touches?e.touches[0].clientX:e.clientX);
+    sy=(e.touches?e.touches[0].clientY:e.clientY);
+    document.addEventListener('pointermove',move);
+    document.addEventListener('pointerup',stop);
+    document.addEventListener('touchmove',move,{passive:false});
+    document.addEventListener('touchend',stop);
+  }
+  function move(e){
+    if(!dragging)return;
+    const cx=(e.touches?e.touches[0].clientX:e.clientX);
+    const cy=(e.touches?e.touches[0].clientY:e.clientY);
+    el.style.left=(sl+(cx-sx))+'px';
+    el.style.top=(st+(cy-sy))+'px';
+    e.preventDefault?.();
+  }
+  function stop(){
+    dragging=false;
+    document.removeEventListener('pointermove',move);
+    document.removeEventListener('pointerup',stop);
+    document.removeEventListener('touchmove',move);
+    document.removeEventListener('touchend',stop);
+  }
+  bar.addEventListener('pointerdown',start);
+  bar.addEventListener('touchstart',start,{passive:false});
+  return el;
+}
+
+const btnSpawn5=document.getElementById('btnSpawn5');
+const btnCloseAll=document.getElementById('btnCloseAll');
+const btnReverseCam=document.getElementById('btnReverseCam');
+const btnVoice=document.getElementById('btnVoice');
+
+btnSpawn5.addEventListener('click',()=>{
+  if(spawnUsed)return addTicker('spawn blocked: already active');
+  spawnUsed=true;
+  const startX=60+Math.random()*40, startY=120+Math.random()*40;
+  for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*26,y:startY+i*18});
+  addTicker('spawned 5 windows');
+});
+
+btnCloseAll.addEventListener('click',()=>{
+  document.querySelectorAll('.miniWin').forEach(n=>n.remove());
+  winCount=0; spawnUsed=false;
+  addTicker('all windows closed');
+});
+
+btnReverseCam.addEventListener('click',async()=>{
+  facing=(facing==='user')?'environment':'user';
+  await initStream();
+});
+
+let voiceOn=false,voicesReady=false;
+function primeVoices(){return new Promise(res=>{
+  const tid=setInterval(()=>{
+    const v=speechSynthesis.getVoices();
+    if(v&&v.length){clearInterval(tid);voicesReady=true;res();}
+  },100);
+});}
+async function speak(t){
+  if(!voiceOn||!('speechSynthesis'in window))return;
+  if(!voicesReady)await primeVoices();
+  const u=new SpeechSynthesisUtterance(t);
+  u.lang='en-US'; u.rate=1.05; u.pitch=0.9; u.volume=0.85;
+  const v=speechSynthesis.getVoices();
+  u.voice=v.find(x=>/samantha/i.test(x.name))||v.find(x=>/google/i.test(x.name))||v[0];
+  speechSynthesis.speak(u);
+}
+btnVoice.addEventListener('click',()=>{
+  voiceOn=!voiceOn;
+  btnVoice.classList.toggle('active',voiceOn);
+  addTicker(`voice: ${voiceOn?'enabled':'disabled'}`);
+  if(voiceOn)speak('voice system online');
+});
+
+const input=document.getElementById('input');
+function handleSubmit(v){
+  const t=(v||'').trim();
+  if(!t)return;
+  addTicker('> '+t);
+  input.value='';
+  if(voiceOn)setTimeout(()=>speak('okay'),500);
+}
+input.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();handleSubmit(input.value);}
+});
+
+(async()=>{
+  await initStream();
+  for(let i=0;i<5;i++) makeMiniWindow({x:80+i*22,y:80+i*18});
+})();
 </script>
 
 <script>
@@ -257,7 +389,8 @@ function showHUD(i){
   currentHUD = (i + huds.length) % huds.length;
   huds[currentHUD].classList.add('active');
   updateHUDLabel();
-  console.log("Switched to HUD", currentHUD + 1);
+  addTicker(`HUD switched → ${currentHUD + 1}`);
+  if (voiceOn && typeof speak === 'function') speak(`HUD ${currentHUD + 1} active`);
 }
 document.getElementById('hudHeader').addEventListener('click',()=>showHUD(currentHUD + 1));
 updateHUDLabel();
