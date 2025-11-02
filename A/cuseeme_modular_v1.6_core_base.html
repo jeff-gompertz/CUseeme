@@ -361,5 +361,32 @@ Init
   for(let i=0;i<5;i++) makeMiniWindow({x:80+i*22,y:80+i*18});
 })();
 </script>
+<script>
+// =========================================================
+// MODE > SHIFT (HUD Swap Framework)
+// =========================================================
+const huds = [...document.querySelectorAll('.hud-panel')];
+const hudIndex = document.getElementById('hudIndex');
+let currentHUD = 0;
+
+document.getElementById('hudHeader').addEventListener('click', () => {
+  huds[currentHUD].classList.remove('active');
+  currentHUD = (currentHUD + 1) % huds.length;
+  huds[currentHUD].classList.add('active');
+  hudIndex.textContent = `HUD ${currentHUD + 1} / ${huds.length}`;
+  
+  // --- Optional ticker feedback ---
+  addTicker(`HUD switched → ${currentHUD + 1}`);
+
+  // --- Optional voice feedback ---
+  /*
+  if (voiceOn && typeof speak === 'function') {
+    speak(`HUD ${currentHUD + 1} active`);
+  }
+  */
+});
+</script>
+
+  
 </body>
 </html>
