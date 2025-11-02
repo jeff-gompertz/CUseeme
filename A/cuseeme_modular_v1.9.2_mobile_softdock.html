@@ -328,37 +328,6 @@ document.getElementById('hudHeader').addEventListener('click',()=>{
 Draggable HUD + Soft Dock
 ========================================================= */
 
-  
-const hud=document.getElementById('hudShell');
-let drag=false,offsetX=0,offsetY=0,screenW=window.innerWidth,screenH=window.innerHeight;
-
-hud.addEventListener('pointerdown',e=>{
-  drag=true;
-  offsetX=e.clientX-hud.getBoundingClientRect().left;
-  offsetY=e.clientY-hud.getBoundingClientRect().top;
-  hud.setPointerCapture(e.pointerId);
-  hud.style.transition='none';
-});
-
-hud.addEventListener('pointermove',e=>{
-  if(!drag)return;
-  hud.style.position='fixed';
-  hud.style.top=`${e.clientY-offsetY}px`;
-  hud.style.left=`${e.clientX-offsetX}px`;
-  hud.style.right='auto';
-});
-
-hud.addEventListener('pointerup',e=>{
-  drag=false;
-  hud.releasePointerCapture(e.pointerId);
-  const rect=hud.getBoundingClientRect();
-  const margin=12;
-  const snapX=(rect.left+rect.width/2>screenW/2)?screenW-rect.width-margin:margin;
-  const snapY=Math.min(Math.max(rect.top,margin),screenH-rect.height-margin);
-  hud.style.transition='all 0.45s cubic-bezier(0.23,1,0.32,1)';
-  hud.style.left=`${snapX}px`;
-  hud.style.top=`${snapY}px`;
-});
 /* =========================================================
 v1.9.3 — Unified Drag Patch (HUD + MiniWindows)
 ========================================================= */
