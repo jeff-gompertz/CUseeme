@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe Modular v1.9.7 — Voice + Semantic Ticker</title>
+<title>CUSeeMe Modular v1.9.8 — Voice Stable Dock</title>
 
 <style>
 :root {
@@ -104,7 +104,7 @@ html,body {
 
 <script>
 /* =========================================================
-Ticker + Prompt + Voice-to-Text + Semantic Layer
+Ticker + Prompt + Voice + Semantic Layer (Stable iOS Build)
 ========================================================= */
 const ticker=document.getElementById('ticker');
 function addTicker(t){
@@ -114,7 +114,7 @@ function addTicker(t){
   if(ticker.children.length>80)ticker.removeChild(ticker.lastChild);
 }
 
-// --- Text input & enter key ---
+// --- Text input ---
 const input=document.getElementById('input');
 input.addEventListener('keydown',e=>{
   if(e.key==='Enter'){
@@ -122,36 +122,60 @@ input.addEventListener('keydown',e=>{
     if(msg){
       addTicker('> '+msg);
       processSemantic(msg);
-      speak(msg); // optional: echo back
+      speak(msg);
       input.value='';
     }
   }
 });
 
-// --- Voice-to-text for prompt field ---
+// --- Voice-to-text (iOS-stable looping recognition) ---
+let listening=false, recognition;
+
 function enableVoiceInput(){
   if(!('webkitSpeechRecognition'in window)){
     addTicker('⚠️ Voice input not supported');
     return;
   }
-  const recog=new webkitSpeechRecognition();
-  recog.lang='en-US';
-  recog.interimResults=true;
-  recog.continuous=false;
 
-  recog.onresult=(e)=>{
-    const transcript=Array.from(e.results)
-      .map(r=>r[0].transcript).join('');
-    input.value=transcript;
-  };
-  recog.onerror=e=>addTicker('🎤 Error: '+e.error);
-  recog.onend=()=>addTicker('🎤 Listening stopped');
-  recog.start();
-  addTicker('🎤 Listening…');
+  if(!recognition){
+    recognition=new webkitSpeechRecognition();
+    recognition.lang='en-US';
+    recognition.interimResults=true;
+    recognition.continuous=false;
+
+    recognition.onresult=(e)=>{
+      const transcript=Array.from(e.results)
+        .map(r=>r[0].transcript).join('');
+      input.value=transcript;
+    };
+
+    recognition.onerror=(e)=>addTicker('🎤 Error: '+e.error);
+
+    recognition.onend=()=>{
+      if(listening){
+        recognition.start(); // auto-restart
+      } else {
+        addTicker('🎤 Voice stopped');
+      }
+    };
+  }
+
+  // Toggle on/off
+  if(!listening){
+    listening=true;
+    document.getElementById('btnVoice').style.background='#ffebe5';
+    addTicker('🎤 Listening…');
+    recognition.start();
+  } else {
+    listening=false;
+    document.getElementById('btnVoice').style.background='';
+    recognition.stop();
+    addTicker('🎤 Voice paused');
+  }
 }
 document.getElementById('btnVoice').onclick=enableVoiceInput;
 
-// --- Optional Text-to-Speech ---
+// --- Text-to-speech (optional echo) ---
 function speak(t){
   if(!('speechSynthesis'in window))return;
   const u=new SpeechSynthesisUtterance(t);
@@ -159,7 +183,7 @@ function speak(t){
   speechSynthesis.speak(u);
 }
 
-// --- Semantic System Stub ---
+// --- Semantic stub ---
 function processSemantic(text){
   const msg=text.toLowerCase();
   if(msg.includes('memory'))addTicker('💭 recalling memory fragment');
@@ -167,14 +191,13 @@ function processSemantic(text){
   if(msg.includes('mirror'))addTicker('↺ reflection mode');
   if(msg.includes('feedback'))addTicker('🌊 entering feedback loop');
   if(msg.includes('hello'))addTicker('👋 system acknowledges presence');
-  // extend later with relational map or associative net
 }
 
-// --- Utility: clear ticker ---
+// --- Clear button ---
 document.getElementById('btnClear').onclick=()=>ticker.innerHTML='';
 
 // --- Boot message ---
-['v1.9.7 docked mode ready','voice+semantic layer online','awaiting input…']
+['v1.9.8 docked voice system ready','voice input stabilized','awaiting input…']
 .forEach((m,i)=>setTimeout(()=>addTicker(m),400*i));
 </script>
 
