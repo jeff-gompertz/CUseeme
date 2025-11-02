@@ -339,6 +339,7 @@ v1.9.3 — Unified Drag Patch (HUD + MiniWindows)
   let startX = 0, startY = 0, offsetX = 0, offsetY = 0, dragging = false;
 
   function startDrag(e) {
+    if (e.target.closest('button')) return; // ✅ let buttons work normally
     dragging = true;
     const point = e.touches ? e.touches[0] : e;
     startX = point.clientX - offsetX;
@@ -359,14 +360,12 @@ v1.9.3 — Unified Drag Patch (HUD + MiniWindows)
     dragging = false;
     hud.style.transition = 'transform 0.25s ease';
   }
+// ✅ Unified pointer events (covers iPad + phone + desktop)
+hud.addEventListener('pointerdown', startDrag);
+window.addEventListener('pointermove', onDrag);
+window.addEventListener('pointerup', endDrag);
 
-  hud.addEventListener('mousedown', startDrag);
-  window.addEventListener('mousemove', onDrag);
-  window.addEventListener('mouseup', endDrag);
 
-  hud.addEventListener('touchstart', startDrag, { passive: false });
-  window.addEventListener('touchmove', onDrag, { passive: false });
-  window.addEventListener('touchend', endDrag);
 })();  
 
 // 🟢 Make MiniWindows draggable (free floating)
