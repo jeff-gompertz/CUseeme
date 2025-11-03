@@ -10,6 +10,7 @@
 </head>
 <body>
   <video id="cameraMain" autoplay muted playsinline></video>
+
   <div id="hudWrapper">
     <div id="hudShell">
       <div id="hudHeader">Mode &gt; Shift</div>
@@ -23,13 +24,17 @@
       </div>
     </div>
   </div>
+
   <div id="ticker"></div>
+
   <div id="promptWrap">
     <div id="promptBox">
       <div id="caret"></div>
       <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" />
     </div>
   </div>
+
+  <!-- 🧠 Core system scripts -->
   <script src="../js/core.js"></script>
   <script src="../js/hud.js"></script>
   <script src="../js/miniwindows.js"></script>
@@ -38,42 +43,39 @@
   <script src="../js/semantic.js"></script>
 
   <!-- 🟢 Bloople RSS Injection -->
-<div id="rssSource" style="display:none;"></div>
-<script src="//rss.bloople.net/?url=https%3A%2F%2Ffeeds.bbci.co.uk%2Fnews%2Fworld%2Frss.xml&showtitle=false&type=js"></script>
+  <div id="rssSource" style="display:none;"></div>
+  <script src="//rss.bloople.net/?url=https%3A%2F%2Ffeeds.bbci.co.uk%2Fnews%2Fworld%2Frss.xml&showtitle=false&type=js"></script>
 
-<!-- 🟢 Semantic System -->
-<script src="js/semantic.js"></script>
-
+  <!-- 🧩 RSS → Ticker + Voice integration -->
   <style>
-/* Hide default Bloople RSS output */
-#rssSource, #rssSource * {
-  display: none !important;
-}
-</style>
+  /* Hide default Bloople RSS output */
+  #rssSource, #rssSource * {
+    display: none !important;
+  }
+  </style>
 
-<script>
-// Pull headlines from Bloople’s injected HTML and feed them into ticker + voice
-setTimeout(() => {
-  const rssContainer = document.querySelector('body'); // Bloople injects directly into body
-  const links = Array.from(rssContainer.querySelectorAll('a')).map(a => a.textContent);
-  const ticker = document.getElementById('ticker');
+  <script>
+  // Pull headlines from Bloople’s injected HTML and feed them into ticker + voice
+  setTimeout(() => {
+    const rssContainer = document.querySelector('body'); // Bloople injects directly into body
+    const links = Array.from(rssContainer.querySelectorAll('a')).map(a => a.textContent);
+    const ticker = document.getElementById('ticker');
 
-  links.slice(0, 10).forEach((headline, i) => {
-    setTimeout(() => {
-      const line = document.createElement('div');
-      line.textContent = headline;
-      ticker.prepend(line);
+    links.slice(0, 10).forEach((headline, i) => {
+      setTimeout(() => {
+        const line = document.createElement('div');
+        line.textContent = headline;
+        ticker.prepend(line);
 
-      // Optional: speak the headline
-      const utter = new SpeechSynthesisUtterance(headline);
-      utter.lang = 'en-GB';
-      utter.voice = speechSynthesis.getVoices().find(v => /en-GB|Angela/i.test(v.name)) || null;
-      speechSynthesis.speak(utter);
-    }, i * 5000);
-  });
-}, 2000);
-</script>
+        // Optional: speak the headline
+        const utter = new SpeechSynthesisUtterance(headline);
+        utter.lang = 'en-GB';
+        utter.voice = speechSynthesis.getVoices().find(v => /en-GB|Angela/i.test(v.name)) || null;
+        speechSynthesis.speak(utter);
+      }, i * 5000);
+    });
+  }, 2000);
+  </script>
 
-  
 </body>
 </html>
