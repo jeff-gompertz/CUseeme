@@ -1,19 +1,13 @@
-window.CUSeeMe = {
-  version: "2.0.0",
-  addTicker(msg) {
-    const ticker = document.getElementById('ticker');
-    const line = document.createElement('div');
-    line.className = 'tline';
-    line.textContent = msg;
-    ticker.prepend(line);
-    if (ticker.children.length > 80) ticker.removeChild(ticker.lastChild);
-  },
-  init() {
-    this.addTicker(`CUSeeMe Modular v${this.version} ready`);
-    if (window.initCamera) initCamera();
-    if (window.initHUD) initHUD();
-    if (window.initVoice) initVoice();
-    if (window.initSemantic) initSemantic();
+// === CAMERA BACKGROUND ===
+(async () => {
+  const cam = document.getElementById("camera");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: false,
+    });
+    cam.srcObject = stream;
+  } catch (e) {
+    console.warn("Camera unavailable:", e);
   }
-};
-window.addEventListener('DOMContentLoaded', () => CUSeeMe.init());
+})();
