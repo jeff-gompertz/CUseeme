@@ -3,50 +3,56 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>HUD Base Test — CUSeeMe Aqua Shell</title>
+<title>HUD Base Test</title>
 
-<!-- ✅ Load shared HUD module -->
-<link rel="stylesheet" href="./css/hud_base.css">
-
-<style>
-body {
-  margin: 0;
-  height: 100vh;
-  background: #f7f7f4;
-  font-family: "VT323", monospace;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  overflow: hidden;
-}
-#note {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  color: #ff3a2f;
-  font-size: 16px;
-}
-</style>
+<!-- Link to your correct CSS -->
+<link rel="stylesheet" href="hud_base.css">
 </head>
 <body>
 
-<!-- ✅ HUD Structure -->
+<!-- HUD Wrapper -->
 <div id="hudWrapper">
   <div id="hudIndex">HUD 1 / 2</div>
   <div id="hudShell">
     <div id="hudHeader">Mode &gt; Shift</div>
-    <div class="hud-row">
-      <button class="hud-btn">➕ Spawn 5</button>
-      <button class="hud-btn">🔁 Reverse Cam</button>
+
+    <!-- HUD 1 -->
+    <div id="hud1" class="hud-panel active">
+      <div class="hud-row">
+        <button class="hud-btn">➕ Spawn 5</button>
+        <button class="hud-btn">🔁 Reverse Cam</button>
+      </div>
+      <div class="hud-row">
+        <button class="hud-btn">🔊 Voice</button>
+        <button class="hud-btn">✕ Close All</button>
+      </div>
     </div>
-    <div class="hud-row">
-      <button class="hud-btn">🔊 Voice</button>
-      <button class="hud-btn">✕ Close All</button>
+
+    <!-- HUD 2 -->
+    <div id="hud2" class="hud-panel">
+      <div class="hud-row">
+        <button class="hud-btn">📡 Stream Status</button>
+        <button class="hud-btn">🗺 Network Map</button>
+      </div>
+      <div class="hud-row">
+        <button class="hud-btn">🔧 Diagnostics</button>
+        <button class="hud-btn">↩ Return</button>
+      </div>
     </div>
   </div>
 </div>
 
-<div id="note">HUD Base Test — Loaded from /css/hud_base.css</div>
+<!-- Optional: tiny test script to toggle HUD panels -->
+<script>
+const huds = [...document.querySelectorAll('.hud-panel')];
+let currentHUD = 0;
+document.getElementById('hudHeader').addEventListener('click', () => {
+  huds[currentHUD].classList.remove('active');
+  currentHUD = (currentHUD + 1) % huds.length;
+  huds[currentHUD].classList.add('active');
+  document.getElementById('hudIndex').textContent = `HUD ${currentHUD + 1} / ${huds.length}`;
+});
+</script>
 
 </body>
 </html>
