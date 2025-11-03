@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CUSeeMe Modular v2.6 — Semantic HUD</title>
+
+<!-- Locked HUD visual style -->
+<link rel="stylesheet" href="css/hud_base.css">
+
+<style>
+:root {
+  --bg:#f9fafc;
+  --ink:#1b1d22;
+  --rss-blue:#ffffff;
+  --overlay:#ff3a2f;
+}
+
+html,body{
+  height:100%;
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"VT323",ui-monospace,Menlo,Consolas,monospace;
+  overflow:hidden;
+}
+
+/* Hide raw Bloople output (BBC RSS links) */
+body > a,
+body > b,
+body > h1,
+body > p {
+  display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+
+/* HUD tweaks: tiny mobile nudge */
+@media (max-width:480px){
+  #hudWrapper{ margin-top:4px; }
+}
+
+/* Input inside HUD */
+#input{
+  width:18ch;
+  background:rgba(255,255,255,.6);
+  border:1px solid rgba(0,0,0,.1);
+  border-radius:10px;
+  padding:8px 10px;
+  font:inherit;
+  color:#111;
+  outline:none;
+}
+
+/* Ticker overlay — infinite scroll upwards */
+#semanticOverlay{
+  position:fixed;
+  left:5%;
+  bottom:10px;
+  width:90%;
+  color:var(--overlay);
+  font-size:18px;
+  line-height:1.4;
+  pointer-events:none;
+  overflow:visible;
+  z-index:500;
+}
+.tline{
+  margin:0;
+  animation:floatUp 16s linear forwards;
+}
+@keyframes floatUp {
+  0% { transform:translateY(0); opacity:1; }
+  100% { transform:translateY(-200vh); opacity:1; }
+}
+</style>
+</head>
+
+<body>
+<!-- HUD Container -->
+<div id="hudWrapper">
+  <div id="hudIndex">HUD 1 / 1</div>
+  <div id="hudShell">
+    <div id="hudHeader">Semantic Feed — BBC Reactive</div>
+    <input id="input" type="text" placeholder="speak or type… then Enter">
+    <div class="hud-row">
+      <button id="micBtn" class="hud-btn">🎙️ Mic</button>
+      <button id="voiceBtn" class="hud-btn">🗣️ Voice On</button>
+      <button id="clearBtn" class="hud-btn">🧹 Clear</button>
+    </div>
+  </div>
+</div>
+
+<!-- Semantic overlay -->
+<div id="semanticOverlay"></div>
+
+<!-- BBC RSS Feed (hidden but active) -->
+<script src="//rss.bloople.net/?url=https%3A%2F%2Ffeeds.bbci.co.uk%2Fnews%2Fworld%2Frss.xml&showtitle=true&type=js"></script>
+
+<script>
+let overlay = document.getElementById("semanticOverlay");
+let input = document.getElementById("input");
+let micBtn = document.getElementById("micBtn");
+let voiceBtn = document.getElementById("voiceBtn");
+let clearBtn = document.getElementById("clearBtn");
+let listening = false;
+let recognition;
+
+// Voice input
+if ('webkitSpeechRecognition' in window) {
+  recognition = new webkitSpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = "en-US";
+
+  recognition.onresult = (e)=>{
+    let transcript = e.results[0][0].transcript.trim();
+    appendSemanticLine("You said: " + transcript);
+  };
+  recognition.onend = ()=>{ micBtn.classList.remove("active"); };
+}
+
+micBtn.onclick = ()=>{
+  if (!recognition) return;
+  micBtn.classList.add("active");
+  recognition.start();
+};
+
+voiceBtn.onclick = ()=>{
+  listening = !listening;
+  voiceBtn.classList.toggle("active");
+};
+
+clearBtn.onclick = ()=>{
+  overlay.innerHTML = "";
+};
+
+// Add typed or spoken line
+input.addEventListener("keydown", (e)=>{
+  if (e.key === "Enter"){
+    appendSemanticLine(input.value);
+    input.value = "";
+  }
+});
+
+function appendSemanticLine(text){
+  let line = document.createElement("div");
+  line.className = "tline";
+  line.textContent = text;
+  overlay.appendChild(line);
+}
+</script>
+</body>
+</html>
