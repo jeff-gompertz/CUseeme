@@ -22,12 +22,16 @@
     color:var(--ink);
     font-family:"VT323",ui-monospace,Menlo,Consolas,monospace;
   }
-
-  /* Soften raw Bloople output (keep visible) */
-  body > a, body > b, body > h1, body > p {
-    color: var(--rss-blue) !important;
-    text-decoration: underline;
-  }
+  
+/* Hide raw Bloople output (BBC RSS links) */
+body > a,
+body > b,
+body > h1,
+body > p {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
 
   /* HUD tweaks: tiny mobile nudge for breathing room */
   @media (max-width: 480px){
