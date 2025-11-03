@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HUD Base Test — CUSeeMe Aqua Shell</title>
+
+<!-- ✅ Load shared HUD module -->
+<link rel="stylesheet" href="./css/hud_base.css">
+
+<style>
+body {
+  margin: 0;
+  height: 100vh;
+  background: #f7f7f4;
+  font-family: "VT323", monospace;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: hidden;
+}
+#note {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  color: #ff3a2f;
+  font-size: 16px;
+}
+</style>
+</head>
+<body>
+
+<!-- ✅ HUD Structure -->
+<div id="hudWrapper">
+  <div id="hudIndex">HUD 1 / 2</div>
+  <div id="hudShell">
+    <div id="hudHeader">Mode &gt; Shift</div>
+    <div class="hud-row">
+      <button class="hud-btn">➕ Spawn 5</button>
+      <button class="hud-btn">🔁 Reverse Cam</button>
+    </div>
+    <div class="hud-row">
+      <button class="hud-btn">🔊 Voice</button>
+      <button class="hud-btn">✕ Close All</button>
+    </div>
+  </div>
+</div>
+
+<div id="note">HUD Base Test — Loaded from /css/hud_base.css</div>
+
+</body>
+</html>
