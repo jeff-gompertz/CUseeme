@@ -1,117 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>CUSeeMe Modular v2 — Neumorphic Semantic System</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>CUSeeMe Modular v2 — Semantic Feed System</title>
   <link rel="stylesheet" href="../css/global.css">
   <link rel="stylesheet" href="../css/neumorphic.css">
   <link rel="stylesheet" href="../css/hud.css">
 </head>
 <body>
-  <video id="cameraMain" autoplay muted playsinline></video>
+  <video id="camera" autoplay muted playsinline></video>
 
-  <div id="hudWrapper">
-    <div id="hudShell">
-      <div id="hudHeader">Mode &gt; Shift</div>
-      <div class="hud-row">
-        <button class="hud-btn" id="btnSpawn5">➕ Spawn 5</button>
-        <button class="hud-btn" id="btnReverseCam">🔁 Reverse Cam</button>
+  <div id="promptWrap">
+    <form id="promptForm" autocomplete="off" spellcheck="false">
+      <div id="promptBox">
+        <div id="caret"></div>
+        <input id="input" type="text" placeholder="type here…" />
       </div>
-      <div class="hud-row">
-        <button class="hud-btn" id="btnVoice">🎙️ Voice</button>
-        <button class="hud-btn" id="btnCloseAll">✕ Close All</button>
-      </div>
-    </div>
+    </form>
   </div>
 
   <div id="ticker"></div>
 
-  <div id="promptWrap">
-    <div id="promptBox">
-      <div id="caret"></div>
-      <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" />
-    </div>
-  </div>
-
-  <!-- 🧠 Core system scripts -->
+  <!-- JS modules -->
   <script src="../js/core.js"></script>
-  <script src="../js/hud.js"></script>
-  <script src="../js/miniwindows.js"></script>
   <script src="../js/ticker.js"></script>
   <script src="../js/voice.js"></script>
   <script src="../js/semantic.js"></script>
-
-  <!-- 🟢 Bloople RSS Injection -->
-  <div id="rssSource" style="display:none;"></div>
-  <script src="//rss.bloople.net/?url=https%3A%2F%2Ffeeds.bbci.co.uk%2Fnews%2Fworld%2Frss.xml&showtitle=false&type=js"></script>
-
-<style>
-/* Hide the raw Bloople RSS list completely */
-body > a,
-body > b,
-body > h1,
-body > p {
-  display: none !important;
-}
-#rssSource, #rssSource * {
-  display: none !important;
-}
-
-/* Style for the semantic ticker area */
-#ticker {
-  position: relative;
-  margin: 2rem auto;
-  width: 90%;
-  max-width: 800px;
-  font-family: "Courier New", monospace;
-  color: #111;
-  line-height: 1.5;
-}
-#ticker div {
-  background: rgba(255,255,255,0.6);
-  backdrop-filter: blur(10px);
-  margin: 0.25rem 0;
-  padding: 0.5rem 1rem;
-  border-radius: 10px;
-  box-shadow: inset 0 1px 3px rgba(255,255,255,0.5),
-              0 2px 6px rgba(0,0,0,0.15);
-}
-</style>
-
-<script>
-function speakHeadline(text) {
-  const speak = () => {
-    const voices = speechSynthesis.getVoices();
-    const voice = voices.find(v => /en-GB|UK|Female|Angela/i.test(v.name)) || voices[0];
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'en-GB';
-    utter.voice = voice;
-    speechSynthesis.speak(utter);
-  };
-
-  if (speechSynthesis.getVoices().length === 0) {
-    speechSynthesis.addEventListener('voiceschanged', speak, { once: true });
-  } else {
-    speak();
-  }
-}
-
-setTimeout(() => {
-  const rssContainer = document.body;
-  const links = Array.from(rssContainer.querySelectorAll('a')).map(a => a.textContent);
-  const ticker = document.getElementById('ticker');
-
-  links.slice(0, 8).forEach((headline, i) => {
-    setTimeout(() => {
-      const line = document.createElement('div');
-      line.textContent = headline;
-      ticker.prepend(line);
-      speakHeadline(headline);
-    }, i * 6000);
-  });
-}, 2000);
-</script>
-
+  <script src="../js/wpfeed.js"></script>
 </body>
 </html>
