@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe Modular v1.8 — Retro4.4 + Semantic Voice</title>
+
+<style>
+/* =========================================================
+CUSeeMe Retro4.4 — Aqua Glass HUD (Semantic Voice Merge)
+========================================================= */
+:root {
+  --hud-glass: rgba(185, 225, 255, 0.45);
+  --hud-border-light: rgba(255, 255, 255, 0.65);
+  --hud-border-dark: rgba(0, 45, 90, 0.35);
+  --hud-shadow: 0 12px 45px rgba(0, 50, 90, 0.35);
+  --hud-text: #1b1d22;
+  --btn-bg: rgba(215, 235, 255, 0.35);
+  --btn-inset-light: rgba(255,255,255,0.8);
+  --btn-inset-dark: rgba(0,30,60,0.3);
+  --btn-glow: rgba(255,120,50,0.7);
+  --btn-glow-outer: rgba(255,150,80,0.35);
+  --bg: #f7f7f4;
+  --ticker: #ff3a2f;
+}
+
+html,body{
+  height:100%; margin:0;
+  background: var(--bg);
+  font-family: "VT323", ui-monospace, Menlo, Consolas, monospace;
+  color:#222;
+  overflow:hidden;
+}
+
+/* =========================================================
+HUD — Aqua Glass shell (Retro4.4)
+========================================================= */
+#hudShell{
+  position:fixed;
+  top:24px; right:32px;
+  z-index:1000;
+  display:grid;
+  gap:14px;
+  padding:28px 26px 26px;
+  min-width:320px;
+  background:var(--hud-glass);
+  border-radius:20px;
+  border:1px solid var(--hud-border-light);
+  box-shadow:
+    inset 0 1px 3px var(--hud-border-light),
+    inset 0 -1px 3px var(--hud-border-dark),
+    var(--hud-shadow);
+  backdrop-filter:blur(20px) saturate(1.25);
+  -webkit-backdrop-filter:blur(20px) saturate(1.25);
+  color:var(--hud-text);
+  text-align:center;
+}
+#hudHeader{
+  display:block;
+  margin-bottom:10px;
+  font-size:24px;
+  color:rgba(20,30,45,0.8);
+  text-shadow:0 1px 0 rgba(255,255,255,0.6);
+  user-select:none;
+  cursor:pointer;
+}
+.hud-row{ display:flex; gap:12px; justify-content:space-between; }
+.hud-btn{
+  flex:1;
+  font-family:"VT323", monospace;
+  font-size:17px;
+  color:#132030;
+  background:var(--btn-bg);
+  border:none;
+  border-radius:10px;
+  box-shadow:
+    inset 1px 1px 2px var(--btn-inset-light),
+    inset -1px -2px 3px var(--btn-inset-dark),
+    0 3px 6px rgba(0,0,0,0.08);
+  padding:10px 12px;
+  cursor:pointer;
+  transition:all .22s ease;
+}
+.hud-btn.active{
+  background:rgba(255,165,100,0.15);
+  color:#ff6a2f;
+  font-weight:600;
+  box-shadow:
+    inset 0 0 4px var(--btn-glow),
+    0 0 14px 3px var(--btn-glow-outer),
+    0 2px 8px rgba(0,0,0,0.2);
+}
+
+/* =========================================================
+Ticker — bottom-left semantic/diagnostic feed
+========================================================= */
+#ticker{
+  position:fixed; left:16px; bottom:14px; z-index:900;
+  width:45vw; max-width:700px; max-height:50vh;
+  display:flex; flex-direction:column-reverse; overflow:hidden;
+  color:var(--ticker);
+  font-size:18px; line-height:1.25;
+}
+.tline{ opacity:.95; margin:0; animation:fadeIn .6s ease; }
+@keyframes fadeIn{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
+
+/* =========================================================
+Prompt Bar — centered semantic input
+========================================================= */
+#promptWrap{
+  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+  pointer-events:none; z-index:800;
+}
+#promptBox{
+  pointer-events:auto; display:flex; gap:10px; align-items:center;
+  padding:10px 16px;
+  background:rgba(240,250,255,.55);
+  border:1px solid rgba(255,255,255,.6); border-radius:12px;
+  box-shadow:0 8px 24px rgba(0,30,60,.18);
+}
+#input{
+  background:transparent; border:none; outline:none;
+  font:inherit; font-size:18px; color:#111;
+  width:24ch;
+}
+#caret{ width:.5ch; height:1.2em; background:#222; animation:blink 1s step-end infinite; }
+@keyframes blink{ 50%{opacity:0} }
+</style>
+</head>
+<body>
+
+<!-- CAMERA -->
+<video id="cameraMain" autoplay muted playsinline></video>
+
+<!-- HUD -->
+<div id="hudShell">
+  <div id="hudHeader">Semantic Mode</div>
+  <div class="hud-row">
+    <button class="hud-btn" id="btnMic">🎙️ Mic</button>
+    <button class="hud-btn active" id="btnVoice">🔊 Voice On</button>
+  </div>
+  <div class="hud-row">
+    <button class="hud-btn" id="btnSpawn">➕ Spawn 5</button>
+    <button class="hud-btn" id="btnClose">✕ Close</button>
+  </div>
+</div>
+
+<!-- TICKER -->
+<div id="ticker"></div>
+
+<!-- PROMPT -->
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" placeholder="type or speak…" spellcheck="false" autocomplete="off" />
+  </div>
+</div>
+
+<script>
+/* =========================================================
+SEMANTIC VOICE CORE + CAMERA + MINI WINDOWS
+========================================================= */
+const ticker=document.getElementById('ticker');
+function addTicker(txt,cls="sys"){
+  const line=document.createElement('div');
+  line.className='tline '+cls;
+  line.textContent=txt;
+  ticker.prepend(line);
+  if(ticker.children.length>80)ticker.removeChild(ticker.lastChild);
+}
+
+/* === CAMERA === */
+let stream=null;
+async function initCamera(){
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    document.getElementById('cameraMain').srcObject=stream;
+    addTicker("🎥 Camera online");
+  }catch(e){ addTicker("⚠ Camera denied or unavailable"); }
+}
+initCamera();
+
+/* === SPEECH SYNTHESIS === */
+let voiceOn=true,voicesReady=false;
+async function ensureVoices(){
+  return new Promise(res=>{
+    const chk=setInterval(()=>{
+      const v=speechSynthesis.getVoices();
+      if(v.length){voicesReady=true;clearInterval(chk);res();}
+    },100);
+  });
+}
+async function speak(txt){
+  if(!voiceOn)return;
+  if(!voicesReady)await ensureVoices();
+  const u=new SpeechSynthesisUtterance(txt);
+  u.lang='en-US'; u.rate=1.02; u.pitch=0.95;
+  const v=speechSynthesis.getVoices();
+  u.voice=v.find(x=>/Samantha|Google US/i.test(x.name))||v[0];
+  speechSynthesis.speak(u);
+}
+
+/* === SEMANTIC ROUTER === */
+function semanticRouter(raw){
+  const text=(raw||'').trim(); if(!text)return;
+  addTicker("> "+text,"user");
+  const lower=text.toLowerCase();
+  let reply="";
+
+  if(lower.startsWith("hello")||lower.startsWith("hi")){
+    reply="Hello. I’m listening.";
+  }else if(lower.includes("time")){
+    reply="Current time: "+new Date().toLocaleTimeString();
+  }else if(lower.startsWith("repeat after me")){
+    reply=text.replace(/^repeat after me/i,"").trim()||"say what?";
+  }else{
+    reply="You said: "+text;
+  }
+
+  addTicker(reply,"sys");
+  speak(reply);
+}
+
+/* === TEXT INPUT === */
+const input=document.getElementById('input');
+input.addEventListener('keydown',e=>{
+  if(e.key==="Enter"){e.preventDefault();semanticRouter(input.value);input.value="";}
+});
+
+/* === VOICE INPUT === */
+const btnMic=document.getElementById('btnMic');
+let rec=null,listening=false;
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(SR){
+  rec=new SR();
+  rec.lang='en-US'; rec.interimResults=true; rec.continuous=true;
+  rec.onstart=()=>{listening=true;btnMic.classList.add("active");addTicker("🎙️ Voice capture started");};
+  rec.onend=()=>{listening=false;btnMic.classList.remove("active");addTicker("⏹️ Voice capture stopped");};
+  rec.onresult=(e)=>{
+    let finalChunk="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=e.results[i][0].transcript;
+      if(e.results[i].isFinal)finalChunk+=t;
+    }
+    if(finalChunk)semanticRouter(finalChunk);
+  };
+  btnMic.addEventListener('click',()=>{
+    try{if(!listening){rec.start();}else{rec.stop();}}catch(err){addTicker("Mic error: "+err.message);}
+  });
+}else{
+  btnMic.addEventListener('click',()=>addTicker("⚠ Voice input not supported on this browser"));
+}
+
+/* === VOICE TOGGLE === */
+document.getElementById('btnVoice').addEventListener('click',()=>{
+  voiceOn=!voiceOn;
+  const btn=document.getElementById('btnVoice');
+  btn.textContent=voiceOn?"🔊 Voice On":"🔇 Voice Off";
+  btn.classList.toggle("active",voiceOn);
+  addTicker(`Voice ${voiceOn?"enabled":"disabled"}`);
+});
+
+/* === MINI WINDOW SPAWNER === */
+function makeMiniWindow(x=60,y=60){
+  const el=document.createElement('div');
+  el.className='miniWin';
+  el.style.left=x+"px";
+  el.style.top=y+"px";
+  el.style.position="absolute";
+  el.style.width="20vw";
+  el.style.aspectRatio="9/16";
+  el.style.background="rgba(210,240,255,0.25)";
+  el.style.border="1px solid rgba(255,255,255,0.55)";
+  el.style.borderRadius="16px";
+  el.style.backdropFilter="blur(12px)";
+  el.style.boxShadow="0 18px 40px rgba(0,0,0,0.25)";
+  const v=document.createElement('video');
+  v.autoplay=true;v.muted=true;v.playsInline=true;v.srcObject=stream;
+  v.style.width="100%";v.style.height="100%";v.style.objectFit="cover";v.style.transform="scaleX(-1)";
+  el.appendChild(v);
+  document.body.appendChild(el);
+}
+document.getElementById('btnSpawn').addEventListener('click',()=>{
+  for(let i=0;i<5;i++)makeMiniWindow(80+i*24,120+i*18);
+  addTicker("spawned 5 mini windows");
+});
+document.getElementById('btnClose').addEventListener('click',()=>{
+  document.querySelectorAll('.miniWin').forEach(w=>w.remove());
+  addTicker("closed all mini windows");
+});
+</script>
+</body>
+</html>
