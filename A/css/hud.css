@@ -1,0 +1,9 @@
+#hudWrapper { position: fixed; top: 20px; right: 24px; z-index: 1000; }
+#hudShell {
+  background: rgba(255,255,255,0.45);
+  border-radius: 18px;
+  padding: 22px 24px;
+  box-shadow: 6px 6px 16px rgba(0,0,0,0.15), -6px -6px 16px rgba(255,255,255,0.8);
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
+}

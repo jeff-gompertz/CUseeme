@@ -1,0 +1,18 @@
+body {
+  font-family: 'VT323', monospace;
+  background: #f8f9fc;
+  color: #222;
+}
+.hud-btn {
+  background: #f2f6fa;
+  border-radius: 12px;
+  box-shadow: 4px 4px 10px rgba(0,0,0,0.18), -4px -4px 10px rgba(255,255,255,0.85);
+  border: none;
+  padding: 10px 14px;
+  font-size: 17px;
+  transition: all 0.3s ease;
+}
+.hud-btn:hover {
+  color: #ff6a2f;
+  transform: translateY(-1px);
+}
