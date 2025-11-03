@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe Modular — Auto Index</title>
+<style>
+:root {
+  --bg:#f9fafc;
+  --ink:#1b1d22;
+  --accent:#ff6a2f;
+  --soft-dark: rgba(0,0,0,.12);
+  --soft-light: rgba(255,255,255,.9);
+}
+html,body{
+  height:100%;margin:0;
+  font-family:"VT323",ui-monospace,Menlo,Consolas,monospace;
+  background:var(--bg);color:var(--ink);
+  display:flex;align-items:center;justify-content:center;
+}
+main{
+  background:#fff;
+  border-radius:18px;
+  padding:40px 60px;
+  box-shadow:
+    8px 8px 20px var(--soft-dark),
+    -8px -8px 20px var(--soft-light);
+  text-align:center;
+  max-width:600px;
+}
+h1{
+  font-size:28px;
+  letter-spacing:.5px;
+  margin:0 0 1rem 0;
+}
+p{margin:.5rem 0 2rem;color:#444;}
+ul{
+  list-style:none;padding:0;margin:0;
+  display:grid;gap:.8rem;
+}
+a{
+  display:block;
+  font-size:20px;
+  text-decoration:none;
+  color:var(--ink);
+  background:#f2f6fa;
+  border-radius:10px;
+  padding:12px 16px;
+  box-shadow:
+    inset 2px 2px 5px rgba(255,255,255,.8),
+    inset -2px -2px 5px rgba(0,0,0,.1),
+    0 3px 6px rgba(0,0,0,.08);
+  transition:all .2s ease;
+}
+a:hover{
+  transform:translateY(-1px);
+  color:var(--accent);
+  box-shadow:
+    0 6px 12px rgba(0,0,0,.15),
+    inset 1px 1px 3px rgba(255,255,255,.7);
+}
+footer{
+  margin-top:2rem;
+  opacity:.6;
+  font-size:16px;
+}
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,106,47,.4); }
+  50% { box-shadow: 0 0 10px 3px rgba(255,106,47,.6); }
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>🧠 CUSeeMe Modular — Version Index</h1>
+  <p>Automatically listing builds in <code>/A/</code> folder</p>
+
+  <ul id="fileList"><li>Loading builds…</li></ul>
+
+  <footer>Retro4.4 Neumorphic Index</footer>
+</main>
+
+<script>
+// Auto-scan for local HTML files in /A/ (works on GitHub Pages or live servers)
+async function loadFiles() {
+  const list = document.getElementById('fileList');
+  try {
+    const res = await fetch('.');
+    const text = await res.text();
+    const files = [...text.matchAll(/href="([^"]+\.html)"/g)]
+      .map(m => m[1])
+      .filter(name => !name.includes('index.html'));
+
+    list.innerHTML = '';
+
+    if (files.length === 0) {
+      list.innerHTML = '<li>No builds found.</li>';
+      return;
+    }
+
+    files.forEach(name => {
+      const item = document.createElement('li');
+      const link = document.createElement('a');
+      link.href = name;
+      link.textContent = name.replace('.html','');
+      link.target = '_blank';
+      item.appendChild(link);
+      list.appendChild(item);
+    });
+
+    // Add subtle pulse to latest file
+    const newest = list.lastElementChild?.querySelector('a');
+    if (newest) newest.style.animation = 'pulse 3s infinite';
+
+  } catch (e) {
+    list.innerHTML = `<li style="color:#a00;">⚠ Unable to auto-list files.<br>(${e.message})</li>`;
+  }
+}
+loadFiles();
+</script>
+</body>
+</html>
