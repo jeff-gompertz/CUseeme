@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CUSeeMe Modular v2.3 — Semantic HUD</title>
+
+<!-- Locked HUD look -->
+<link rel="stylesheet" href="css/global.css">
+<link rel="stylesheet" href="css/hud_base.css">
+
+<style>
+body {
+  background: #f7f7f4;
+  margin: 0;
+  overflow: hidden;
+  font-family: "VT323", monospace;
+}
+#hudWrapper {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+}
+#hudIndex {
+  position: absolute;
+  top: 4px;
+  left: 10px;
+  font-size: 12px;
+  opacity: .55;
+}
+#ticker {
+  position: fixed;
+  left: 16px;
+  bottom: 12px;
+  z-index: 800;
+  width: 45vw;
+  max-width: 700px;
+  color: #ff3a2f;
+  font-size: 18px;
+  font-family: "VT323", monospace;
+  line-height: 1.25;
+  display: flex;
+  flex-direction: column-reverse;
+}
+.tline {
+  opacity: 0.95;
+  margin: 0;
+  animation: fadeIn .6s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+
+<div id="hudWrapper">
+  <div id="hudIndex">HUD 1 / 1</div>
+  <div id="hudShell">
+    <div id="hudHeader">Semantic Mode</div>
+    <div id="hud1" class="hud-panel active">
+      <div class="hud-row">
+        <button class="hud-btn" id="btnMic">🎙 Mic</button>
+        <button class="hud-btn" id="btnVoice">🗣 Voice On</button>
+      </div>
+      <div class="hud-row">
+        <button class="hud-btn" id="btnClear">🧹 Clear</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Prompt + ticker -->
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" placeholder="type or speak…" spellcheck="false" autocomplete="off">
+  </div>
+</div>
+
+<div id="ticker"></div>
+
+<script>
+// === ticker ===
+const ticker = document.getElementById('ticker');
+function addTicker(txt) {
+  const line = document.createElement('div');
+  line.className = 'tline';
+  line.textContent = txt;
+  ticker.prepend(line);
+  if (ticker.children.length > 50) ticker.removeChild(ticker.lastChild);
+}
+
+// === speech ===
+let voiceOn = true;
+function speak(t) {
+  if (!voiceOn) return;
+  const u = new SpeechSynthesisUtterance(t);
+  u.lang = 'en-US';
+  u.rate = 1.05;
+  u.pitch = 0.9;
+  speechSynthesis.speak(u);
+}
+document.getElementById('btnVoice').addEventListener('click', () => {
+  voiceOn = !voiceOn;
+  addTicker(`voice: ${voiceOn ? 'on' : 'off'}`);
+  speak(voiceOn ? 'voice system online' : 'voice disabled');
+});
+
+// === mic ===
+let recognizing = false;
+let recognition;
+if ('webkitSpeechRecognition' in window) {
+  recognition = new webkitSpeechRecognition();
+  recognition.lang = 'en-US';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.onresult = e => {
+    const text = e.results[0][0].transcript.trim();
+    addTicker('🎙 ' + text);
+    speak(text);
+  };
+}
+document.getElementById('btnMic').addEventListener('click', () => {
+  if (!recognition) return;
+  if (!recognizing) recognition.start();
+  recognizing = !recognizing;
+  addTicker(recognizing ? '🎙 mic active' : '🎙 mic stopped');
+});
+
+// === prompt ===
+const input = document.getElementById('input');
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const t = input.value.trim();
+    if (t) {
+      addTicker('> ' + t);
+      speak(t);
+      input.value = '';
+    }
+  }
+});
+
+// === BBC feed ===
+async function loadFeed() {
+  try {
+    const res = await fetch('https://feeds.bbci.co.uk/news/rss.xml');
+    const txt = await res.text();
+    const items = [...txt.matchAll(/<title>(.*?)<\/title>/g)]
+      .map(m => m[1])
+      .filter(t => !t.includes('BBC News'));
+    for (let i = 0; i < 8; i++) {
+      addTicker(items[i]);
+      speak(items[i]);
+      await new Promise(r => setTimeout(r, 3000));
+    }
+  } catch (e) {
+    addTicker('⚠️ Feed unavailable');
+  }
+}
+loadFeed();
+
+addTicker('v2.3 online – semantic-only HUD');
+
+</script>
+</body>
+</html>
