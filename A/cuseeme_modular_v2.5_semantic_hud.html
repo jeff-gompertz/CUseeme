@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe v2.5 — Semantic Feed (HUD + Reactive Overlay)</title>
+
+<!-- Locked HUD look -->
+<link rel="stylesheet" href="css/hud_base.css" />
+
+<style>
+  :root{
+    --bg:#f9fafc;
+    --ink:#1b1d22;
+    --rss-blue:#9fc2ff;      /* softened BBC blue */
+    --overlay:#ff3a2f;       /* semantic orange */
+  }
+  html,body{
+    height:100%;
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"VT323",ui-monospace,Menlo,Consolas,monospace;
+  }
+
+  /* Soften raw Bloople output (keep visible) */
+  body > a, body > b, body > h1, body > p {
+    color: var(--rss-blue) !important;
+    text-decoration: underline;
+  }
+
+  /* HUD tweaks: tiny mobile nudge for breathing room */
+  @media (max-width: 480px){
+    #hudWrapper{ margin-top: 4px; }
+  }
+
+  /* Input inside HUD */
+  #input{
+    width: 18ch;
+    background: rgba(255,255,255,.6);
+    border: 1px solid rgba(0,0,0,.1);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font: inherit;
+    color: #111;
+    outline: none;
+  }
+
+  /* Ticker/overlay: infinite upwards, no limit */
+  #semanticOverlay{
+    position: fixed;
+    left: 10px;
+    bottom: 10px;
+    width: calc(100% - 20px);
+    max-width: 820px;
+    z-index: 600;              /* below HUD, above RSS */
+    pointer-events: none;
+    display: flex;
+    flex-direction: column-reverse; /* newest at bottom, grows upward */
+    gap: 4px;
+  }
+  .oline{
+    margin: 0;
+    font-size: clamp(18px, 3.8vw, 28px);
+    line-height: 1.05;
+    color: var(--overlay);
+    letter-spacing: .5px;
+  }
+
+  /* Small system notes (optional) */
+  #diag{
+    position: fixed;
+    left: 10px;
+    bottom: 10px;
+    z-index: 599;
+    color: var(--overlay);
+    opacity: .85;
+    font-size: 14px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- HUD -->
+<div id="hudWrapper">
+  <div id="hudIndex">HUD 1 / 1</div>
+  <div id="hudShell">
+    <div id="hudHeader">Semantic Feed — BBC Reactive</div>
+
+    <input id="input" placeholder="speak or type… then Enter" autocomplete="off" />
+
+    <div class="hud-row">
+      <button id="btnMic"   class="hud-btn" title="Start/Stop mic">🎙️ Mic</button>
+      <button id="btnVoice" class="hud-btn" title="Toggle spoken replies">🔊 Voice On</button>
+      <button id="btnClear" class="hud-btn" title="Clear overlay">🧹 Clear</button>
+    </div>
+  </div>
+</div>
+
+<!-- Orange semantic overlay (infinite) -->
+<div id="semanticOverlay"></div>
+<div id="diag"></div>
+
+<!-- Bloople BBC RSS (kept visible / softened) -->
+<div id="rssSource" style="display:none;"></div>
+<script src="//rss.bloople.net/?url=https%3A%2F%2Ffeeds.bbci.co.uk%2Fnews%2Fworld%2Frss.xml&showtitle=true&type=js"></script>
+
+<script>
+/* ===================== Utilities ===================== */
+const overlay = document.getElementById('semanticOverlay');
+const diag = document.getElementById('diag');
+
+function addLine(text){
+  const p = document.createElement('p');
+  p.className = 'oline';
+  p.textContent = text;
+  overlay.prepend(p);             // newest at bottom, grows upward
+  // NOTE: no trimming — infinite by design
+}
+
+function note(t){ diag.textContent = t; setTimeout(()=>{diag.textContent=''}, 2000); }
+
+/* ================= Speech Synthesis ================== */
+let speakEnabled = true, voicesReady = false;
+const btnVoice = document.getElementById('btnVoice');
+
+btnVoice.addEventListener('click', ()=>{
+  speakEnabled = !speakEnabled;
+  btnVoice.classList.toggle('active', speakEnabled);
+  btnVoice.textContent = speakEnabled ? '🔊 Voice On' : '🔇 Voice Off';
+  note(`voice ${speakEnabled ? 'enabled' : 'disabled'}`);
+});
+
+function waitVoices(){
+  return new Promise(res=>{
+    const id = setInterval(()=>{
+      if (speechSynthesis.getVoices().length){ clearInterval(id); voicesReady=true; res(); }
+    },100);
+  });
+}
+
+async function speak(text){
+  if(!speakEnabled || !('speechSynthesis' in window)) return;
+  if(!voicesReady) await waitVoices();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US';
+  u.rate = 1.03;
+  u.pitch = 0.95;
+  const v = speechSynthesis.getVoices();
+  u.voice = v.find(x=>/Samantha|Kate|Google US English/i.test(x.name)) || v[0];
+  speechSynthesis.speak(u);
+}
+
+/* =============== BBC Headlines Cache ================= */
+let headlines = [];
+function harvestHeadlines(){
+  const anchors = Array.from(document.body.querySelectorAll(':scope > a'));
+  headlines = anchors.map(a => a.textContent.trim()).filter(Boolean);
+}
+setTimeout(harvestHeadlines, 1500);    // allow Bloople to render
+
+/* ============ Reactive Blend Composer ================ */
+function pickHeadlines(n=2){
+  if (headlines.length === 0) return [];
+  const pool = [...headlines];
+  const out = [];
+  while(out.length < n && pool.length){
+    const i = Math.floor(Math.random() * pool.length);
+    out.push(pool.splice(i,1)[0]);
+  }
+  return out;
+}
+
+function reactiveCompose(userText){
+  const picks = pickHeadlines(2);
+  const mash = [
+    userText,
+    picks[0] ? `— ${picks[0]}` : '',
+    picks[1] ? `↯ ${picks[1]}` : ''
+  ].filter(Boolean).join('   ');
+  return mash;
+}
+
+/* ============ Input: typing + Enter ================== */
+const input = document.getElementById('input');
+input.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    const t = input.value.trim();
+    if(!t) return;
+    const out = reactiveCompose(t);
+    addLine(out);
+    speak(out);
+    input.value = '';
+  }
+});
+
+/* =============== Voice Recognition =================== */
+const btnMic = document.getElementById('btnMic');
+let rec=null, listening=false;
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (!SR) {
+  btnMic.addEventListener('click', ()=> note('mic not available on this browser'));
+} else {
+  rec = new SR();
+  rec.lang = 'en-US';
+  rec.continuous = true;
+  rec.interimResults = true;
+
+  rec.onstart = ()=>{ listening=true; btnMic.classList.add('active'); note('🎙️ capture started'); };
+  rec.onend   = ()=>{ listening=false; btnMic.classList.remove('active'); note('⏹ capture stopped'); };
+
+  let interim='';
+  rec.onresult = (evt)=>{
+    let finalChunk='';
+    for(let i=evt.resultIndex;i<evt.results.length;i++){
+      const t = evt.results[i][0].transcript;
+      if (evt.results[i].isFinal) finalChunk += t;
+      else interim = t;
+    }
+    if(finalChunk){
+      const out = reactiveCompose(finalChunk.trim());
+      addLine(out);
+      speak(out);
+      interim='';
+    }
+  };
+  rec.onerror = e => note('voice error: '+e.error);
+
+  btnMic.addEventListener('click', ()=>{
+    try{
+      if(!listening) rec.start();
+      else rec.stop();
+    }catch(err){ note('mic error: '+(err.message||err)); }
+  });
+}
+
+/* =================== Clear Overlay =================== */
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  overlay.innerHTML = '';
+  note('overlay cleared');
+});
+
+</script>
+</body>
+</html>
