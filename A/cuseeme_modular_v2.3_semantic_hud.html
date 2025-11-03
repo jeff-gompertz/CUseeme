@@ -1,0 +1,193 @@
+<!-- cuseeme_modular_v2.3_semantic_hud.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CUSeeMe v2.3 — Semantic Mode (HUD Locked)</title>
+
+  <!-- Locked HUD look -->
+  <link rel="stylesheet" href="../css/hud_base.css" />
+
+  <style>
+    /* Page basics (no camera layer here) */
+    html,body{height:100%;margin:0;background:#f7f7f4;font-family:"VT323",ui-monospace,monospace;color:#1b1d22;}
+
+    /* Ticker pane */
+    #ticker{
+      position:fixed; left:16px; bottom:14px; z-index:900;
+      width:45vw; max-width:700px; max-height:55vh;
+      display:flex; flex-direction:column-reverse; overflow:hidden;
+      color:#ff3a2f; font-size:18px; line-height:1.25;
+    }
+    .tline{ opacity:.95; margin:0; animation:fadeIn .6s ease; }
+    @keyframes fadeIn{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
+
+    /* Prompt bar */
+    #promptWrap{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:800; }
+    #promptBox{
+      pointer-events:auto; display:flex; gap:10px; align-items:center;
+      padding:10px 16px; background:rgba(240,250,255,.55);
+      border:1px solid rgba(255,255,255,.6); border-radius:12px;
+      box-shadow:0 8px 24px rgba(0,30,60,.18);
+    }
+    #input{ background:transparent; border:none; outline:none; font:inherit; font-size:18px; color:#111; width:28ch; }
+    #caret{ width:.5ch; height:1.2em; background:#222; animation:blink 1s step-end infinite; }
+    @keyframes blink{ 50%{opacity:0} }
+
+    /* Hide raw Bloople output entirely */
+    body > a, body > b, body > h1, body > p { display:none !important; }
+    #rssSource, #rssSource * { display:none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- HUD (locked visuals from hud_base.css) -->
+  <div id="hudWrapper">
+    <div id="hudIndex">HUD 1 / 1</div>
+    <div id="hudShell">
+      <div id="hudHeader">Semantic Mode</div>
+
+      <div class="hud-row">
+        <button id="btnMic"   class="hud-btn" title="Start/Stop mic">🎙️ Mic</button>
+        <button id="btnMute"  class="hud-btn" title="Toggle spoken replies">🔊 Voice On</button>
+      </div>
+      <div class="hud-row">
+        <button id="btnClear" class="hud-btn" title="Clear ticker">🧹 Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ticker -->
+  <div id="ticker"></div>
+
+  <!-- Prompt -->
+  <div id="promptWrap">
+    <div id="promptBox">
+      <div id="caret"></div>
+      <input id="input" type="text" placeholder="speak or type… then Enter" spellcheck="false" autocomplete="off" />
+    </div>
+  </div>
+
+  <!-- BBC feed via Bloople (no CORS); we read the injected anchors -->
+  <div id="rssSource" style="display:none;"></div>
+  <script src="//rss.bloople.net/?url=https%3A%2F%2Ffeeds.bbci.co.uk%2Fnews%2Fworld%2Frss.xml&showtitle=false&type=js"></script>
+
+  <script>
+    /* ---------- Ticker helpers ---------- */
+    const ticker = document.getElementById('ticker');
+    function addLine(txt, cls='sys'){
+      const el=document.createElement('p');
+      el.className='tline ' + cls;
+      el.textContent = txt;
+      ticker.prepend(el);
+      if(ticker.children.length>100) ticker.removeChild(ticker.lastChild);
+    }
+    addLine('v2.3 online — semantic-only HUD (no camera/miniwindows)', 'note');
+
+    /* ---------- Speech synthesis (voice out) ---------- */
+    let speakEnabled = true, voicesReady = false;
+    document.getElementById('btnMute').addEventListener('click', ()=>{
+      speakEnabled = !speakEnabled;
+      document.getElementById('btnMute').textContent = speakEnabled ? '🔊 Voice On' : '🔇 Voice Off';
+      addLine(`Spoken replies ${speakEnabled?'enabled':'disabled'}`, 'note');
+    });
+    function waitVoices(){
+      return new Promise(res=>{
+        const id=setInterval(()=>{
+          if(speechSynthesis.getVoices().length){ clearInterval(id); voicesReady=true; res(); }
+        },100);
+      });
+    }
+    async function speak(text){
+      if(!speakEnabled || !('speechSynthesis' in window)) return;
+      if(!voicesReady) await waitVoices();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang='en-GB'; u.rate=1.02; u.pitch=0.95;
+      const v = speechSynthesis.getVoices();
+      u.voice = v.find(x=>/en-GB|UK|Samantha|Google UK/i.test(x.name)) || v[0];
+      speechSynthesis.speak(u);
+    }
+
+    /* ---------- Mic (voice in) ---------- */
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const btnMic = document.getElementById('btnMic');
+    let rec=null, listening=false;
+    if(!SR){
+      btnMic.addEventListener('click', ()=> addLine('Mic not available on this browser.', 'note'));
+    }else{
+      rec = new SR();
+      rec.lang='en-US'; rec.interimResults=true; rec.continuous=true;
+      rec.onstart = ()=>{ listening=true; btnMic.classList.add('active'); addLine('🎙️ Voice capture started','note'); };
+      rec.onend   = ()=>{ listening=false; btnMic.classList.remove('active'); addLine('⏹️ Voice capture stopped','note'); };
+      rec.onresult = (evt)=>{
+        let finalText='';
+        for(let i=evt.resultIndex;i<evt.results.length;i++){
+          if(evt.results[i].isFinal) finalText += evt.results[i][0].transcript;
+        }
+        if(finalText) semanticRouter(finalText);
+      };
+      rec.onerror = e=> addLine('Mic error: '+e.error,'note');
+      btnMic.addEventListener('click', ()=>{ if(!listening) rec.start(); else rec.stop(); });
+    }
+
+    /* ---------- RSS cache from Bloople-injected links ---------- */
+    let rssHeadlines = [];
+    function refreshRSS(){
+      const links = Array.from(document.querySelectorAll('body > a'));
+      rssHeadlines = links.map(a=>a.textContent).filter(Boolean);
+      if(rssHeadlines.length) addLine(`BBC headlines linked: ${rssHeadlines.length}`, 'note');
+    }
+    // give Bloople time to inject
+    setTimeout(refreshRSS, 1200);
+
+    /* ---------- Semantic core: blend user text with RSS ---------- */
+    function blendReaction(userText){
+      if(!rssHeadlines.length) return userText;
+      // pick a headline that shares a word with the user text; fallback to random
+      const words = userText.toLowerCase().split(/\W+/).filter(w=>w.length>3);
+      let pick = null;
+      if(words.length){
+        pick = rssHeadlines.find(h=>{
+          const L=h.toLowerCase();
+          return words.some(w=>L.includes(w));
+        });
+      }
+      if(!pick) pick = rssHeadlines[Math.floor(Math.random()*rssHeadlines.length)];
+      return `${userText}  —  ⟲ ${pick}`;
+    }
+
+    function semanticRouter(raw){
+      const text = (raw||'').trim();
+      if(!text) return;
+      addLine('> ' + text, 'user');
+
+      // simple intents
+      const lower=text.toLowerCase();
+      if(lower==='hello' || lower.startsWith('hi')){
+        const r="Hello. I'm listening.";
+        addLine(r); speak(r); return;
+      }
+      if(lower.includes('time')){
+        const r='Current time: ' + new Date().toLocaleTimeString();
+        addLine(r); speak(r); return;
+      }
+
+      // reactive blend with RSS
+      const blended = blendReaction(text);
+      addLine(blended);
+      speak(blended);
+    }
+
+    /* ---------- Text input ---------- */
+    const input = document.getElementById('input');
+    input.addEventListener('keydown', e=>{
+      if(e.key==='Enter'){ e.preventDefault(); semanticRouter(input.value); input.value=''; }
+    });
+
+    /* ---------- Clear ---------- */
+    document.getElementById('btnClear').addEventListener('click', ()=> { ticker.innerHTML=''; });
+
+  </script>
+</body>
+</html>
