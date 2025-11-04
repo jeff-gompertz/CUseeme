@@ -22,18 +22,18 @@ Matches your v1.7 baseline look/feel
   --ticker: #ff3a2f;
 }
 /* Disable all BBC hyperlink interactivity but keep visible for semantics */
+
 a {
   pointer-events: none !important;
   cursor: default !important;
   text-decoration: none !important;
-  body > a { color: rgba(150,200,255,0.4) !important; }
 }
 
-html,body{
-  height:100%; margin:0; background:var(--bg);
-  font-family:"VT323", ui-monospace, Menlo, Consolas, monospace; color:#222;
-  overflow:hidden;
+/* Soft cyan visible feed text */
+body > a {
+  color: rgba(150,200,255,0.4) !important;
 }
+
 
 /* ===== HUD (fixed, non-draggable) ===== */
 #hudShell{
@@ -79,12 +79,21 @@ html,body{
 }
 
 /* ===== Ticker (bottom-left; fills upward visually) ===== */
-#ticker{
+/* ===#ticker{
   position:fixed; left:16px; bottom:14px; z-index:900;
   width:45vw; max-width:700px; max-height:64vh;
   display:flex; flex-direction:column-reverse; overflow:hidden;
   color:var(--ticker); font-size:18px; line-height:1.25;
+}==== */
+  
+#ticker{
+  position:fixed; left:16px; bottom:14px; z-index:900;
+  width:45vw; max-width:700px;
+  display:flex; flex-direction:column-reverse;
+  overflow:visible;        /* 👈 allow it to grow infinitely upward */
+  height:auto;             /* 👈 remove container clip */
 }
+  
 .tline{ opacity:.95; margin:0; animation:fadeIn .6s ease; }
 .user{ color:#0d3b66; }
 .sys{ color:#ff3a2f; }
