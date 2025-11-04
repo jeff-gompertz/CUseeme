@@ -209,6 +209,16 @@ setTimeout(() => {
     a.removeAttribute('href');
   });
 }, 2500); // wait 2.5s to ensure feed anchors exist
+  
+// Force BBC headline color + visibility
+setTimeout(() => {
+  document.querySelectorAll('a').forEach(a => {
+    a.style.color = 'rgba(150,200,255,0.4)';
+    a.style.pointerEvents = 'none';
+    a.style.textDecoration = 'none';
+  });
+}, 3000);
+
 
 // ---------- Tiny keyword helper ----------
 function keywordsFrom(text){
