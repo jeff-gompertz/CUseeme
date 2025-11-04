@@ -21,6 +21,13 @@ Matches your v1.7 baseline look/feel
   --bg: #f7f7f4;
   --ticker: #ff3a2f;
 }
+/* Disable all BBC hyperlink interactivity but keep visible for semantics */
+a {
+  pointer-events: none !important;
+  cursor: default !important;
+  text-decoration: none !important;
+}
+  
 html,body{
   height:100%; margin:0; background:var(--bg);
   font-family:"VT323", ui-monospace, Menlo, Consolas, monospace; color:#222;
@@ -185,6 +192,13 @@ function harvestHeadlines(){
 }
 setTimeout(harvestHeadlines, 1500);
 setInterval(harvestHeadlines, 60000);
+
+// Disable BBC anchor links (keep visible but inert)
+setTimeout(() => {
+  document.querySelectorAll('a').forEach(a => {
+    a.removeAttribute('href');
+  });
+}, 2500); // wait 2.5s to ensure feed anchors exist
 
 // ---------- Tiny keyword helper ----------
 function keywordsFrom(text){
