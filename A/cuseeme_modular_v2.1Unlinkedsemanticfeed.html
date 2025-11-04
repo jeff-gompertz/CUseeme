@@ -138,7 +138,7 @@ function addLine(text, cls='sys'){
   el.className = `tline ${cls}`;
   el.textContent = text;
   ticker.prepend(el);
-  if(ticker.children.length > 80) ticker.removeChild(ticker.lastChild);
+  // if(ticker.children.length > 80) ticker.removeChild(ticker.lastChild);
 }
 addLine('v2.1 online — semantic core + BBC reactive blending', 'note');
 addLine('Mic optional. Typing always works. Say: "time?", "repeat after me …", or anything.', 'note');
