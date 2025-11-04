@@ -85,14 +85,25 @@ body > a {
   display:flex; flex-direction:column-reverse; overflow:hidden;
   color:var(--ticker); font-size:18px; line-height:1.25;
 }==== */
-  
+
 #ticker{
   position:fixed; left:16px; bottom:14px; z-index:900;
   width:45vw; max-width:700px;
   display:flex; flex-direction:column-reverse;
   overflow:visible;        /* 👈 allow it to grow infinitely upward */
   height:auto;             /* 👈 remove container clip */
+  color:var(--ticker); font-size:18px; line-height:1.25;
 }
+
+ /* ==== #ticker {
+  position:fixed; left:16px; bottom:14px; z-index:900;
+  width:45vw; max-width:700px;
+  display:flex; flex-direction:column-reverse;
+  overflow:visible;
+  height:auto;
+  pointer-events:none;
+}==== */
+
   
 .tline{ opacity:.95; margin:0; animation:fadeIn .6s ease; }
 .user{ color:#0d3b66; }
@@ -139,7 +150,9 @@ body > p {
 /* =========================================================
 v2.1 — Semantic Core + Reactive BBC Blender
 ========================================================= */
-
+// ---------- Voice engine warm-up ----------
+speechSynthesis.cancel(); // clears stale speech queue on reload
+  
 // ---------- Ticker ----------
 const ticker = document.getElementById('ticker');
 function addLine(text, cls='sys'){
