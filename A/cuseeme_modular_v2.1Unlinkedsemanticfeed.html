@@ -26,11 +26,12 @@ a {
   pointer-events: none !important;
   cursor: default !important;
   text-decoration: none !important;
+  body > a { color: rgba(150,200,255,0.4) !important; }
 }
-  
+
 html,body{
   height:100%; margin:0; background:var(--bg);
-  font-family:"VT323", ui-monospace, Menlo, Consolas, monospace; color:#fffff;
+  font-family:"VT323", ui-monospace, Menlo, Consolas, monospace; color:#222;
   overflow:hidden;
 }
 
@@ -336,6 +337,7 @@ if (!SR) {
       else interim = t;
     }
     if (finalChunk) {
+      document.getElementById("input").value = finalChunk;
       semanticRouter(finalChunk);
       interim = '';
     }
