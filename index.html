@@ -143,7 +143,7 @@ body > p {
   <div class="hud-row">
     <button id="btnMic"  class="hud-btn" title="Start/Stop mic">🎙️ Mic</button>
     <button id="btnMute" class="hud-btn" title="Toggle spoken replies">🔊 Voice On</button>
-    <button id="btnClear"class="hud-btn" title="Clear ticker">🧹 Clear</button>
+    <button id="btnNext" class="hud-btn" title="Next HUD">➡ Mode Shift</button>
   </div>
 </div>
 
@@ -390,10 +390,16 @@ if (!SR) {
   });
 }
 
-// ---------- Clear ----------
-document.getElementById('btnClear').addEventListener('click', ()=>{
-  ticker.innerHTML = '';
+// ---------- Mode Shift ----------
+const btnNext = document.getElementById('btnNext');
+btnNext.addEventListener('click', () => {
+  addLine('Mode shift → entering Scene 2: Video environment', 'note');
+  speak('Switching mode'); // optional voice cue
+  setTimeout(() => {
+    window.location.href = 'video_scene2_.html';
+  }, 800); // 👈 slight delay for readability,
 });
+  
 
 // ---------- First pulse ----------
 setTimeout(()=> addLine('BBC headlines linked. Waiting for your input…', 'note'), 1200);
