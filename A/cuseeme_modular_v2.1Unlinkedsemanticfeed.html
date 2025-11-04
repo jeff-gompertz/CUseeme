@@ -103,11 +103,14 @@ body > a {
   height:auto;
   pointer-events:none;
 }==== */
-
   
 .tline{ opacity:.95; margin:0; animation:fadeIn .6s ease; }
 .user{ color:#0d3b66; }
-.sys{ color:#ff3a2f; }
+  .sys{
+  color: #ff3a2f;
+  font-weight: 700;      /* 👈 makes orange ticker lines bold */
+  letter-spacing: 0.2px; /* optional: improves legibility */
+}
 .note{ color:#666; }
 @keyframes fadeIn{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
 
