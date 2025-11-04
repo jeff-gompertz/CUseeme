@@ -34,7 +34,6 @@ body > a {
   color: rgba(150,200,255,0.4) !important;
 }
 
-
 /* ===== HUD (fixed, non-draggable) ===== */
 #hudShell{
   position:fixed; top:24px; right:32px; z-index:1000;
@@ -104,15 +103,25 @@ body > a {
   pointer-events:none;
 }==== */
 
-  
 
   .tline{ opacity:.95; margin:0; animation:fadeIn .6s ease; }
 .user{ color:#0d3b66; }
+
   .sys{
   color: #ff3a2f;
-  font-weight: 700;      /* 👈 makes orange ticker lines bold */
-  letter-spacing: 0.2px; /* optional: improves legibility */
+  font-weight: 700;
+  font-size: 20px;     /* 👈 slightly larger orange text */
+  line-height: 1.5;    /* 👈 restore relaxed spacing between lines */
 }
+.note{ color:#666; }
+  
+  /* ====  .sys{
+  color: #ff3a2f;
+  font-weight: 700;      /* 👈 makes orange ticker lines bold 
+  letter-spacing: 0.2px; ==== *//* optional: improves legibility 
+} ==== */
+
+  
 .note{ color:#666; }
 @keyframes fadeIn{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
 
