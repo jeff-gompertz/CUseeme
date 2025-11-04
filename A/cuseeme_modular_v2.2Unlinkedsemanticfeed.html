@@ -389,11 +389,14 @@ if (!SR) {
     catch(err){ addLine('Mic error: ' + (err.message||err), 'note'); }
   });
 }
-
-// ---------- Clear ----------
-document.getElementById('btnClear').addEventListener('click', ()=>{
-  ticker.innerHTML = '';
+// ---------- Mode Shift ----------
+const btnNext = document.getElementById('btnNext');
+btnNext.addEventListener('click', () => {
+  addLine('Mode shift initiated — loading next scene...', 'note');
+  speak('Switching mode'); // optional voice cue
+  window.location.href = 'semantic_v2.2_hud_stable.html';  // ← update to your next scene file
 });
+
 
 // ---------- First pulse ----------
 setTimeout(()=> addLine('BBC headlines linked. Waiting for your input…', 'note'), 1200);
