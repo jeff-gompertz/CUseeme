@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>semantic_v2.6_hud_stable</title>
+
+<!-- Locked HUD look -->
+<link rel="stylesheet" href="css/hud_base.css" />
+
+<style>
+/* Additional layer: hide BBC injected links/text */
+a, p, h1, h2, h3, li {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+/* Ticker area fix — orange lines accumulate infinitely upward */
+#ticker {
+  position: fixed;
+  left: 16px;
+  bottom: 14px;
+  z-index: 900;
+  width: 45vw;
+  max-width: 700px;
+  display: flex;
+  flex-direction: column-reverse;
+  overflow: visible !important;
+  color: #ff3a2f;
+  font-size: 18px;
+  line-height: 1.25;
+}
+.tline {
+  opacity: 0.95;
+  margin: 0;
+  animation: fadeIn 0.6s ease;
+}
+@keyframes fadeIn {
+  from {opacity: 0; transform: translateY(8px);}
+  to {opacity: 1; transform: none;}
+}
+</style>
+</head>
+
+<body>
+
+<!-- [L1] HUD WRAPPER -->
+<div id="hudWrapper">
+  <div id="hudIndex">HUD 1 / 2</div>
+  <div id="hudShell">
+    <div id="hudHeader">Mode &gt; Shift</div>
+
+    <!-- HUD 1 -->
+    <div id="hud1" class="hud-panel active">
+      <div class="hud-row">
+        <button class="hud-btn" id="btnSpawn5">➕ Spawn 5</button>
+        <button class="hud-btn" id="btnReverseCam">🔁 Reverse Cam</button>
+      </div>
+      <div class="hud-row">
+        <button class="hud-btn" id="btnVoice">🎤 Voice</button>
+        <button class="hud-btn" id="btnCloseAll">✕ Close All</button>
+      </div>
+    </div>
+
+    <!-- HUD 2 -->
+    <div id="hud2" class="hud-panel">
+      <div class="hud-row">
+        <button class="hud-btn">📡 Stream Status</button>
+        <button class="hud-btn">🗺 Network Map</button>
+      </div>
+      <div class="hud-row">
+        <button class="hud-btn">🔧 Diagnostics</button>
+        <button class="hud-btn">↩ Return</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- [L3] TICKER -->
+<div id="ticker"></div>
+
+<!-- [L4] PROMPT -->
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" />
+  </div>
+</div>
+
+<script>
+/* =========================================================
+BBC Semantic Feed (hidden DOM, text-stream only)
+========================================================= */
+async function fetchBBC() {
+  try {
+    const res = await fetch("https://feeds.bbci.co.uk/news/rss.xml");
+    const text = await res.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, "text/xml");
+    const items = [...doc.querySelectorAll("item")];
+    items.forEach((it, i) => {
+      const headline = it.querySelector("title")?.textContent.trim();
+      if (headline) addTicker(`(bbc) ${headline}`);
+    });
+  } catch (e) {
+    addTicker("⚠ BBC feed unavailable");
+  }
+}
+
+/* =========================================================
+Ticker + Voice + Input logic
+========================================================= */
+const ticker = document.getElementById("ticker");
+function addTicker(txt) {
+  const line = document.createElement("div");
+  line.className = "tline";
+  line.textContent = txt;
+  ticker.prepend(line);
+}
+
+let voiceOn = false, voicesReady = false;
+function primeVoices() {
+  return new Promise(res => {
+    const tid = setInterval(() => {
+      const v = speechSynthesis.getVoices();
+      if (v && v.length) { clearInterval(tid); voicesReady = true; res(); }
+    }, 100);
+  });
+}
+async function speak(t) {
+  if (!voiceOn || !("speechSynthesis" in window)) return;
+  if (!voicesReady) await primeVoices();
+  const u = new SpeechSynthesisUtterance(t);
+  u.lang = "en-US"; u.rate = 1.05; u.pitch = 0.9; u.volume = 0.85;
+  const v = speechSynthesis.getVoices();
+  u.voice = v.find(x => /samantha/i.test(x.name)) || v.find(x => /google/i.test(x.name)) || v[0];
+  speechSynthesis.speak(u);
+}
+
+/* =========================================================
+HUD Controls (minimal active logic)
+========================================================= */
+const btnVoice = document.getElementById("btnVoice");
+btnVoice.addEventListener("click", () => {
+  voiceOn = !voiceOn;
+  btnVoice.classList.toggle("active", voiceOn);
+  addTicker(`voice: ${voiceOn ? "enabled" : "disabled"}`);
+  if (voiceOn) speak("voice system online");
+});
+
+const input = document.getElementById("input");
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const t = input.value.trim();
+    if (!t) return;
+    addTicker("> " + t);
+    input.value = "";
+    if (voiceOn) speak(t);
+  }
+});
+
+/* =========================================================
+HUD Panel Toggle
+========================================================= */
+const huds = [...document.querySelectorAll(".hud-panel")];
+const hudIndex = document.getElementById("hudIndex");
+let currentHUD = 0;
+
+function updateHUDLabel() {
+  hudIndex.textContent = `HUD ${currentHUD + 1} / ${huds.length}`;
+}
+function showHUD(i) {
+  huds[currentHUD].classList.remove("active");
+  currentHUD = (i + huds.length) % huds.length;
+  huds[currentHUD].classList.add("active");
+  updateHUDLabel();
+  addTicker(`HUD switched → ${currentHUD + 1}`);
+  if (voiceOn) speak(`HUD ${currentHUD + 1} active`);
+}
+document.getElementById("hudHeader").addEventListener("click", () => showHUD(currentHUD + 1));
+updateHUDLabel();
+
+/* =========================================================
+Initialize
+========================================================= */
+fetchBBC();
+addTicker("semantic_v2.6_hud_stable loaded");
+addTicker("bbc semantic feed active (hidden)");
+</script>
+
+</body>
+</html>
