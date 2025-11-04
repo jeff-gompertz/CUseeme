@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>semantic_v2.1.1_unlinked</title>
+
+<!-- Locked HUD -->
+<link rel="stylesheet" href="css/hud_base.css" />
+
+<style>
+:root {
+  --bg: #f9fafc;
+  --ink: #1b1d22;
+  --overlay: #ff3a2f;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "VT323", ui-monospace, Menlo, Consolas, monospace;
+  overflow-x: hidden;
+}
+
+/* ✅ Make RSS text visible but unclickable */
+a {
+  pointer-events: none !important;
+  cursor: default !important;
+  text-decoration: none !important;
+  color: inherit !important;
+}
+
+/* HUD tweaks */
+#hudWrapper {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+}
+
+/* Orange semantic overlay text */
+#semanticOverlay {
+  position: fixed;
+  left: 16px;
+  bottom: 14px;
+  z-index: 900;
+  width: 45vw;
+  max-width: 700px;
+  display: flex;
+  flex-direction: column-reverse;
+  color: var(--overlay);
+  font-size: 18px;
+  line-height: 1.25;
+}
+.tline {
+  opacity: 0.95;
+  margin: 0;
+  animation: fadeIn 0.6s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+</style>
+</head>
+
+<body>
+<div id="hudWrapper">
+  <div id="hudShell">
+    <div id="hudHeader">Mode &gt; Shift</div>
+    <div class="hud-row">
+      <button class="hud-btn" id="btnVoice">🎤 Voice</button>
+      <button class="hud-btn" id="btnClear">🧹 Clear</button>
+    </div>
+  </div>
+</div>
+
+<div id="semanticOverlay"></div>
+
+<script>
+const overlay = document.getElementById("semanticOverlay");
+
+function addLine(text) {
+  const div = document.createElement("div");
+  div.className = "tline";
+  div.textContent = text;
+  overlay.prepend(div);
+}
+
+/* Disable anchor navigation if any slipped through */
+document.querySelectorAll('a').forEach(a => a.removeAttribute('href'));
+
+/* Voice Recognition */
+let voiceEnabled = false;
+const btnVoice = document.getElementById("btnVoice");
+if ("webkitSpeechRecognition" in window) {
+  const recognition = new webkitSpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.lang = "en-US";
+
+  recognition.onresult = e => {
+    for (let i = e.resultIndex; i < e.results.length; ++i) {
+      if (e.results[i].isFinal) {
+        const phrase = e.results[i][0].transcript.trim();
+        addLine("> " + phrase);
+      }
+    }
+  };
+
+  btnVoice.onclick = () => {
+    voiceEnabled = !voiceEnabled;
+    btnVoice.classList.toggle("active", voiceEnabled);
+    addLine("voice: " + (voiceEnabled ? "enabled" : "disabled"));
+    if (voiceEnabled) recognition.start();
+    else recognition.stop();
+  };
+}
+
+/* Fetch BBC Feed */
+async function fetchBBC() {
+  try {
+    const res = await fetch("https://feeds.bbci.co.uk/news/rss.xml");
+    const text = await res.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, "application/xml");
+    const items = [...doc.querySelectorAll("item > title")];
+    if (items.length === 0) throw new Error("No titles found");
+    items.slice(0, 15).forEach(item => {
+      const title = item.textContent.trim();
+      addLine("BBC: " + title);
+    });
+    addLine(`BBC feed loaded (${items.length} items)`);
+  } catch (e) {
+    addLine("⚠ BBC feed unavailable");
+  }
+}
+
+addLine("semantic_v2.1.1_unlinked loaded");
+fetchBBC();
+</script>
+
+</body>
+</html>
