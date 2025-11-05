@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe — Video Scene 1</title>
+
+<!-- Shared HUD armature -->
+<link rel="stylesheet" href="A/theme_armature_v1.0.css">
+
+<style>
+/* Scene-specific tweaks (add your video, etc.) */
+#videoCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -1;
+  background: #000;
+}
+</style>
+</head>
+
+<body>
+
+<!-- Background Video Layer -->
+<video id="videoCanvas" autoplay muted loop playsinline>
+  <source src="A/media/video_scene1.mp4" type="video/mp4">
+</video>
+
+<!-- HUD -->
+<div id="hudShell">
+  <div id="hudHeader">HUD — Video Scene 1</div>
+  <div id="hudIndex">1 / 5</div>
+  <input id="input" placeholder="speak or type…" autocomplete="off" />
+
+  <div class="hud-row">
+    <button id="btnMic" class="hud-btn">🎙️ Mic</button>
+    <button id="btnMute" class="hud-btn">🔊 Voice On</button>
+    <button id="btnNext" class="hud-btn">➡ Next</button>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+Scene 1 HUD Logic
+========================================================= */
+let speakEnabled = true;
+
+function addLine(txt) {
+  console.log(txt); // Placeholder ticker output
+}
+
+function speak(text){
+  if (!speakEnabled || !('speechSynthesis' in window)) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-GB';
+  u.rate = 1.0;
+  u.pitch = 1.0;
+  speechSynthesis.speak(u);
+}
+
+document.getElementById('btnMute').addEventListener('click', ()=>{
+  speakEnabled = !speakEnabled;
+  const b = document.getElementById('btnMute');
+  b.textContent = speakEnabled ? '🔊 Voice On' : '🔇 Voice Off';
+  b.classList.toggle('active', speakEnabled);
+  addLine(`Voice ${speakEnabled?'enabled':'disabled'}`);
+});
+
+document.getElementById('btnNext').addEventListener('click', ()=>{
+  speak('Switching mode');
+  window.location.href = 'video_scene2_.html';
+});
+
+document.getElementById('btnMic').addEventListener('click', ()=>{
+  speak('Mic not active in this scene yet.');
+});
+</script>
+
+</body>
+</html>
