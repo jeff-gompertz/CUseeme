@@ -1,1 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HUD Modular Test</title>
 
+<!-- Load shared styles -->
+<link rel="stylesheet" href="../css/theme_base.css">
+<link rel="stylesheet" href="../css/theme_armature_v1.0.css">
+<link rel="stylesheet" href="../css/hud_theme_aqua_retro.css">
+
+<style>
+body {
+  background: var(--bg-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  overflow: hidden;
+}
+</style>
+</head>
+<body>
+
+<!-- HUD will be injected here -->
+<div id="hud-container"></div>
+
+<script>
+fetch('../css/modules/hud_shell.html')
+  .then(r => r.text())
+  .then(html => {
+    document.getElementById('hud-container').innerHTML = html;
+    const script = document.createElement('script');
+    script.src = '../js/hud_logic.js';
+    document.body.appendChild(script);
+  });
+</script>
+
+</body>
+</html>
