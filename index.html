@@ -16,7 +16,7 @@ Refined for v2.1 Unlinked — proper spacing & font balance
 
 
   
-:root {
+/* :root {
   --hud-glass: rgba(185, 225, 255, 0.45);
   --hud-border-light: rgba(255, 255, 255, 0.65);
   --hud-border-dark: rgba(0, 45, 90, 0.35);
@@ -27,7 +27,28 @@ Refined for v2.1 Unlinked — proper spacing & font balance
   --btn-inset-dark: rgba(0,30,60,0.3);
   --bg: #FAF9F6
   --ticker: #ff3a2f;
-}
+} */
+
+:root {
+  /* Background (environment) */
+  --bg-base: #ffffff;                  /* clean off-white wall */
+  --bg-haze: rgba(255, 255, 255, 0.05);/* optional ambient overlay */
+
+  /* HUD (interface glass) */
+  --hud-glass: rgba(185, 225, 255, 0.42);  /* aqua glass material */
+  --hud-border-light: rgba(255, 255, 255, 0.65);
+  --hud-border-dark: rgba(0, 45, 90, 0.35);
+  --hud-shadow: 0 12px 45px rgba(0, 50, 90, 0.35);
+  --hud-text: #1b1d22;
+
+  /* Buttons & accent tones */
+  --btn-bg: rgba(215, 235, 255, 0.35);
+  --btn-inset-light: rgba(255,255,255,0.8);
+  --btn-inset-dark: rgba(0,30,60,0.3);
+
+  /* Other */
+  --ticker: #ff3a2f;
+}  
 
 /* Disable all BBC hyperlink interactivity but keep visible for semantics */
 a {
