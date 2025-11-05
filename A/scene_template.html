@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CUSeeMe Scene Template</title>
+
+<style>
+html,body {
+  height:100%;
+  margin:0;
+  background:#ffffff;
+  font-family:"VT323", monospace;
+  color:#222;
+  overflow:hidden;
+  position:relative;
+}
+body::before {
+  content:"";
+  position:fixed;
+  inset:0;
+  background:rgba(255,255,255,0.1);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  z-index:0;
+}
+</style>
+</head>
+<body>
+
+<!-- HUD will load here -->
+<div id="hudContainer"></div>
+
+<script>
+// dynamically insert HUD
+fetch('hud_module.html')
+  .then(r => r.text())
+  .then(html => document.getElementById('hudContainer').innerHTML = html)
+  .catch(err => console.error('HUD load error:', err));
+</script>
+
+</body>
+</html>
