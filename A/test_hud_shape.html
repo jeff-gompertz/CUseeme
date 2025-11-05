@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HUD Shape Test</title>
+
+  <!-- Core CSS hierarchy -->
+  <link rel="stylesheet" href="css/hud_base.css">
+  <link rel="stylesheet" href="css/hud_theme_aqua_retro.css">
+
+  <style>
+    body {
+      background: #fff;
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+    #hud-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="hud-container"></div>
+
+  <script>
+    // Load HUD markup only (no logic or camera)
+    fetch('modules/hud_shell.html')
+      .then(r => r.text())
+      .then(html => {
+        document.getElementById('hud-container').innerHTML = html;
+      });
+  </script>
+
+</body>
+</html>
