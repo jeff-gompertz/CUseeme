@@ -6,9 +6,9 @@
 <title>HUD Modular Test</title>
 
 <!-- Load shared styles -->
-<link rel="stylesheet" href="../css/theme_base.css">
-<link rel="stylesheet" href="../css/theme_armature_v1.0.css">
-<link rel="stylesheet" href="../css/hud_theme_aqua_retro.css">
+<link rel="stylesheet" href="css/theme_base.css">
+<link rel="stylesheet" href="css/theme_armature_v1.0.css">
+<link rel="stylesheet" href="css/hud_theme_aqua_retro.css">
 
 <style>
 body {
@@ -27,7 +27,7 @@ body {
 <div id="hud-container"></div>
 
 <script>
-fetch('../modules/hud_shell.html')
+fetch('modules/hud_shell.html')
   .then(r => r.text())
   .then(html => {
     document.getElementById('hud-container').innerHTML = html;
