@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Viewport Math Proof — CUSeeMe Armature</title>
+
+<!-- Load your shared armature + theme system -->
+<link rel="stylesheet" href="css/theme_base.css">
+<link rel="stylesheet" href="css/theme_armature_v1.0.css">
+<link rel="stylesheet" href="css/theme_hud.css">
+
+<style>
+/* =========================================================
+Viewport Math Proof Overlay
+========================================================= */
+body {
+  background: #fff;
+  color: #111;
+  font-family: "VT323", monospace;
+  overflow: hidden;
+}
+
+/* ⛶ general shape styling for reference blocks */
+.vblock {
+  position: fixed;
+  width: 180px; height: 100px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.12),
+              inset 0 1px 2px rgba(255,255,255,0.6);
+  font-size: 20px;
+  font-weight: 500;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: rgba(185,225,255,0.35);
+}
+
+/* Corner + center positions */
+#tl { top: 4vh; left: 4vw; }
+#tr { top: 4vh; right: 4vw; }
+#bl { bottom: 4vh; left: 4vw; }
+#br { bottom: 4vh; right: 4vw; }
+#center {
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 220px; height: 120px;
+  background: rgba(255,165,100,0.15);
+  color: #ff3a2f;
+  box-shadow: 0 0 18px rgba(255,165,100,0.3);
+}
+
+/* Label overlay */
+label {
+  position: fixed;
+  top: 1vh; left: 50%;
+  transform: translateX(-50%);
+  color: #999;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+</style>
+</head>
+<body>
+
+<label>Viewport Grid Verification — v1.0</label>
+
+<!-- Corner + center test blocks -->
+<div id="tl" class="vblock">Top Left</div>
+<div id="tr" class="vblock">Top Right</div>
+<div id="center" class="vblock">Center</div>
+<div id="bl" class="vblock">Bottom Left</div>
+<div id="br" class="vblock">Bottom Right</div>
+
+<!-- Optional: use your HUD core -->
+<script src="js/hud_core.js"></script>
+
+</body>
+</html>
