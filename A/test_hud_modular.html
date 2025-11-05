@@ -27,7 +27,7 @@ body {
 <div id="hud-container"></div>
 
 <script>
-fetch('../css/modules/hud_shell.html')
+fetch('../modules/hud_shell.html')
   .then(r => r.text())
   .then(html => {
     document.getElementById('hud-container').innerHTML = html;
