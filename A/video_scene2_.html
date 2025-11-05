@@ -24,8 +24,8 @@ CUSeeMe Retro4.4 — Aqua Glass HUD (Self-contained version)
   --ticker: #ff3a2f;
 }*/
 
-  :root {
-  --hud-glass: rgba(240, 240, 245, 0.38);   /* neutral frosted glass, less blue */
+/*  :root {
+  --hud-glass: rgba(240, 240, 245, 0.38);   /* neutral frosted glass, less blue 
   --hud-border-light: rgba(255, 255, 255, 0.65);
   --hud-border-dark: rgba(0, 45, 90, 0.25);
   --hud-shadow: 0 12px 45px rgba(0, 40, 80, 0.25);
@@ -33,7 +33,28 @@ CUSeeMe Retro4.4 — Aqua Glass HUD (Self-contained version)
   --btn-bg: rgba(230, 240, 255, 0.35);
   --btn-inset-light: rgba(255,255,255,0.8);
   --btn-inset-dark: rgba(0,30,60,0.3);
-  --bg: #f9fafb;                           /* ✳️ new neutral off-white background */
+  --bg: #f9fafb;                            ✳️ new neutral off-white background 
+  --ticker: #ff3a2f;
+}*/
+
+:root {
+  /* Background (environment) */
+  --bg-base: #f9fafb;                  /* clean off-white wall */
+  --bg-haze: rgba(255, 255, 255, 0.25);/* optional ambient overlay */
+
+  /* HUD (interface glass) */
+  --hud-glass: rgba(185, 225, 255, 0.42);  /* aqua glass material */
+  --hud-border-light: rgba(255, 255, 255, 0.65);
+  --hud-border-dark: rgba(0, 45, 90, 0.35);
+  --hud-shadow: 0 12px 45px rgba(0, 50, 90, 0.35);
+  --hud-text: #1b1d22;
+
+  /* Buttons & accent tones */
+  --btn-bg: rgba(215, 235, 255, 0.35);
+  --btn-inset-light: rgba(255,255,255,0.8);
+  --btn-inset-dark: rgba(0,30,60,0.3);
+
+  /* Other */
   --ticker: #ff3a2f;
 }
 
@@ -45,6 +66,11 @@ html,body{
   overflow:hidden;
 }
 
+  
+
+
+
+  
 /* =========================================================
 HUD — Aqua Glass shell (Retro4.4)
 ========================================================= */
