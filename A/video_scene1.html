@@ -1,83 +1,197 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe — Video Scene 1</title>
-
-<!-- Shared HUD armature -->
-<link rel="stylesheet" href="css/theme_armature_v1.0.css">
+<title>HUD — Video Scene 1</title>
 
 <style>
-/* Scene-specific tweaks (add your video, etc.) */
-#videoCanvas {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: -1;
-  background: #000;
+/* =========================
+   Theme Armature (minimal)
+   ========================= */
+:root{
+  /* Background */
+  --bg-base:#ffffff;                 /* pure white */
+  --bg-haze: rgba(255,255,255,0.04); /* almost neutral/imperceptible */
+
+  /* Retro4.4 Aqua HUD */
+  --hud-glass: rgba(185,225,255,.45);
+  --hud-border-light: rgba(255,255,255,.65);
+  --hud-border-dark:  rgba(  0, 45, 90,.35);
+  --hud-shadow:       0 12px 45px rgba(0,50,90,.35);
+  --hud-text:#1b1d22;
+
+  --btn-bg: rgba(215,235,255,.35);
+  --btn-inset-light: rgba(255,255,255,.8);
+  --btn-inset-dark:  rgba(0,30,60,.3);
+  --btn-glow:        rgba(255,165,100,.25);
+  --btn-glow-outer:  rgba(255,165,100,.15);
 }
+
+html,body{
+  height:100%; margin:0;
+  background:var(--bg-base);
+  font-family:"VT323", ui-monospace, Menlo, Consolas, monospace;
+  color:#222;
+  overflow:hidden;
+  position:relative;
+}
+
+/* optional, *very* light ambient haze; set alpha to 0 to disable entirely */
+body::before{
+  content:"";
+  position:fixed; inset:0;
+  background:var(--bg-haze);
+  /* keep blur tiny or remove if you like */
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index:0;
+}
+
+/* =========================
+   Live video layer
+   ========================= */
+#videoLive{
+  position:fixed; inset:0;
+  width:100%; height:100%;
+  object-fit:cover;
+  background:#000;      /* shows while camera permission pending */
+  z-index:1;            /* above haze, below HUD */
+}
+
+/* =========================
+   HUD — Retro4.4 (the “best HUD”)
+   ========================= */
+#hudShell{
+  position:fixed; top:24px; right:32px; z-index:1000;
+  display:grid; gap:14px; padding:28px 26px 26px;
+  min-width:360px; max-width:560px;
+  background:var(--hud-glass);
+  border-radius:20px;
+  border:1px solid var(--hud-border-light);
+  box-shadow:
+    inset 0 1px 3px var(--hud-border-light),
+    inset 0 -1px 3px var(--hud-border-dark),
+    var(--hud-shadow);
+  backdrop-filter:blur(20px) saturate(1.25);
+  -webkit-backdrop-filter:blur(20px) saturate(1.25);
+  color:var(--hud-text);
+  text-align:center;
+}
+#hudHeader{
+  display:block; margin-bottom:8px;
+  font-size:24px; color:rgba(20,30,45,.85);
+  text-shadow:0 1px 0 rgba(255,255,255,.6);
+  user-select:none;
+}
+#hudIndex{
+  position:absolute; top:6px; left:10px;
+  font-size:12px; opacity:.55; user-select:none;
+}
+.hud-row{ display:flex; gap:12px; }
+.hud-btn{
+  flex:1; font:inherit; font-size:17px; cursor:pointer;
+  color:#132030; background:var(--btn-bg); border:none; border-radius:12px;
+  padding:14px 12px;
+  box-shadow:
+    inset 1px 1px 2px var(--btn-inset-light),
+    inset -1px -2px 3px var(--btn-inset-dark),
+    0 3px 6px rgba(0,0,0,.08);
+  transition:all .22s ease;
+}
+.hud-btn:hover{ transform:translateY(-1px); }
+.hud-btn.on{
+  background:rgba(255,165,100,.18);
+  color:#ff6a2f; font-weight:600;
+  box-shadow:0 0 0 2px var(--btn-glow) inset, 0 0 14px 3px var(--btn-glow-outer);
+}
+#input{
+  width:100%; font:inherit; font-size:18px; color:#111;
+  background:rgba(255,255,255,.6);
+  border:1px solid rgba(0,30,60,.15);
+  border-radius:10px; padding:10px 12px; outline:none;
+}
+
+/* tiny status/ticker (bottom-left) */
+#log{ position:fixed; left:12px; bottom:10px; z-index:1000; color:#ff3a2f; }
 </style>
 </head>
-
 <body>
 
-<!-- Background Video Layer -->
-<video id="videoCanvas" autoplay muted loop playsinline>
-  <source src="A/media/video_scene1.mp4" type="video/mp4">
-</video>
+<!-- live video -->
+<video id="videoLive" autoplay playsinline muted></video>
 
 <!-- HUD -->
 <div id="hudShell">
-  <div id="hudHeader">HUD — Video Scene 1</div>
   <div id="hudIndex">1 / 5</div>
-  <input id="input" placeholder="speak or type…" autocomplete="off" />
+  <div id="hudHeader">HUD — Video Scene 1</div>
+  <input id="input" placeholder="speak or type..." autocomplete="off" />
 
   <div class="hud-row">
-    <button id="btnMic" class="hud-btn">🎙️ Mic</button>
-    <button id="btnMute" class="hud-btn">🔊 Voice On</button>
-    <button id="btnNext" class="hud-btn">➡ Next</button>
+    <button id="btnMic"   class="hud-btn">🎙️ Mic</button>
+    <button id="btnVoice" class="hud-btn on">🔊 Voice On</button>
+    <button id="btnFlip"  class="hud-btn">🔄 Reverse Cam</button>
+    <button id="btnNext"  class="hud-btn">→ Next</button>
   </div>
 </div>
 
+<div id="log"></div>
+
 <script>
-/* =========================================================
-Scene 1 HUD Logic
-========================================================= */
-let speakEnabled = true;
+/* ============== helpers ============== */
+const log = (t)=>{ const p=document.createElement('div'); p.textContent=t; document.getElementById('log').prepend(p); };
 
-function addLine(txt) {
-  console.log(txt); // Placeholder ticker output
+/* ============== live camera (back by default) ============== */
+const video = document.getElementById('videoLive');
+let currentFacing = 'environment';  // start on back camera
+let stream = null;
+
+async function startCamera(facing='environment'){
+  // stop any prior stream
+  if(stream){
+    stream.getTracks().forEach(tr=>tr.stop());
+    stream = null;
+  }
+  try{
+    const constraints = {
+      audio:false,
+      video:{
+        facingMode: { ideal: facing },   // prefers back camera
+        width:  { ideal: 1920 },
+        height: { ideal: 1080 }
+      }
+    };
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = stream;
+    await video.play().catch(()=>{ /* iOS will still play due to autoplay+muted+playsinline */ });
+    log('camera: '+facing);
+  }catch(err){
+    log('⚠️ camera error: '+(err.message||err));
+  }
 }
 
-function speak(text){
-  if (!speakEnabled || !('speechSynthesis' in window)) return;
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'en-GB';
-  u.rate = 1.0;
-  u.pitch = 1.0;
-  speechSynthesis.speak(u);
-}
-
-document.getElementById('btnMute').addEventListener('click', ()=>{
-  speakEnabled = !speakEnabled;
-  const b = document.getElementById('btnMute');
-  b.textContent = speakEnabled ? '🔊 Voice On' : '🔇 Voice Off';
-  b.classList.toggle('active', speakEnabled);
-  addLine(`Voice ${speakEnabled?'enabled':'disabled'}`);
+// flip camera
+document.getElementById('btnFlip').addEventListener('click', ()=>{
+  currentFacing = (currentFacing === 'environment') ? 'user' : 'environment';
+  startCamera(currentFacing);
 });
 
+// kick off immediately (requires HTTPS + permission)
+startCamera('environment');
+
+/* ============== voice toggle shell (UI only for now) ============== */
+const btnVoice = document.getElementById('btnVoice');
+let speakEnabled = true;
+btnVoice.addEventListener('click', ()=>{
+  speakEnabled = !speakEnabled;
+  btnVoice.classList.toggle('on', speakEnabled);
+  btnVoice.textContent = speakEnabled ? '🔊 Voice On' : '🔇 Voice Off';
+});
+
+/* ============== nav to Scene 2 (you already wired this earlier) ============== */
 document.getElementById('btnNext').addEventListener('click', ()=>{
-  speak('Switching mode');
   window.location.href = 'video_scene2_.html';
 });
-
-document.getElementById('btnMic').addEventListener('click', ()=>{
-  speak('Mic not active in this scene yet.');
-});
 </script>
-
 </body>
 </html>
