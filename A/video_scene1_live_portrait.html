@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Video Scene 1 — Live Portrait Floating</title>
+
+<!-- Shared styles -->
+<link rel="stylesheet" href="css/theme_base.css">
+<link rel="stylesheet" href="css/theme_armature_v1.0.css">
+<link rel="stylesheet" href="css/hud_theme_aqua_retro.css">
+
+<style>
+html, body {
+  height: 100%;
+  margin: 0;
+  background: #ffffff;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Floating portrait video window */
+#cameraBox {
+  position: relative;
+  width: 28vw;
+  aspect-ratio: 9 / 16;
+  max-width: 380px;
+  border-radius: 22px;
+  background: rgba(240, 245, 250, 0.8);
+  box-shadow:
+    inset 1px 1px 2px rgba(255,255,255,0.8),
+    inset -2px -3px 6px rgba(0,0,0,0.15),
+    0 20px 40px rgba(0,0,0,0.15);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+  z-index: 1;
+}
+
+#cameraMain {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  border-radius: inherit;
+}
+
+/* HUD container floating over it */
+#hudContainer {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+}
+</style>
+</head>
+
+<body>
+
+<div id="cameraBox">
+  <video id="cameraMain" autoplay muted playsinline></video>
+  <div id="hudContainer"></div>
+</div>
+
+<script>
+// Load HUD dynamically
+fetch('hud_module.html')
+  .then(r => r.text())
+  .then(html => document.getElementById('hudContainer').innerHTML = html)
+  .catch(err => console.error('HUD load error:', err));
+
+// Live rear-facing camera feed
+async function initCam() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: false
+    });
+    document.getElementById('cameraMain').srcObject = stream;
+  } catch (err) {
+    console.error('Camera error:', err);
+  }
+}
+initCam();
+</script>
+
+</body>
+</html>
