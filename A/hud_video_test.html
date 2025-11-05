@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HUD + Live Video Test</title>
+
+<link rel="stylesheet" href="css/theme_base.css">
+<link rel="stylesheet" href="css/theme_armature_v1.0.css">
+<link rel="stylesheet" href="css/hud.css">
+
+<style>
+body {
+  background: #fff;
+  font-family: "VT323", monospace;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* ===== Live rear camera feed ===== */
+#videoFeed {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 38vw;       /* portrait shape */
+  height: 70vh;
+  object-fit: cover;
+  border-radius: 18px;
+  box-shadow: 0 12px 45px rgba(0,0,0,0.25);
+  background: #000;
+  z-index: 0;
+}
+
+/* ===== HUD (upper center, fixed) ===== */
+#hudShell {
+  position: fixed;
+  top: 4vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: grid;
+  gap: 12px;
+  padding: 22px 20px 18px;
+  width: 360px;
+  background: rgba(185,225,255,0.45);
+  border: 1px solid rgba(255,255,255,0.6);
+  border-radius: 18px;
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.8),
+              0 10px 28px rgba(0,0,0,0.15);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  text-align: center;
+}
+#hudHeader { font-size: 22px; color: #132030; user-select: none; }
+.hud-row { display: flex; gap: 10px; justify-content: center; }
+.hud-btn {
+  flex: 1; font: inherit; font-size: 17px;
+  color:#132030; background: rgba(255,255,255,0.6);
+  border:none; border-radius:10px;
+  padding:10px 12px; cursor:pointer;
+  transition:all .25s ease;
+  box-shadow: inset 1px 1px 2px rgba(255,255,255,0.7),
+              inset -1px -2px 3px rgba(0,0,0,0.15);
+}
+.hud-btn:hover { transform:translateY(-1px); }
+
+/* simple corner markers for reference */
+.corner {
+  position: fixed;
+  width: 140px; height: 80px;
+  display: flex; align-items:center; justify-content:center;
+  background: rgba(185,225,255,0.35);
+  border-radius: 12px;
+  color:#111; font-size: 18px;
+}
+#tl { top:4vh; left:4vw; }
+#tr { top:4vh; right:4vw; }
+</style>
+</head>
+<body>
+
+<!-- Camera video -->
+<video id="videoFeed" autoplay playsinline muted></video>
+
+<!-- HUD panel -->
+<div id="hudShell">
+  <div id="hudHeader">HUD — Video Scene Test</div>
+  <input id="input" placeholder="speak or type…" autocomplete="off" />
+  <div class="hud-row">
+    <button id="btnMic" class="hud-btn">🎙️ Mic</button>
+    <button id="btnVoice" class="hud-btn">🔊 Voice On</button>
+    <button id="btnNext" class="hud-btn">→ Next</button>
+  </div>
+</div>
+
+<!-- Top corner refs -->
+<div id="tl" class="corner">Top Left</div>
+<div id="tr" class="corner">Top Right</div>
+
+<script>
+// ===== Rear camera feed =====
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+      audio: false
+    });
+    document.getElementById("videoFeed").srcObject = stream;
+  } catch (err) {
+    console.warn("Camera access error:", err);
+  }
+}
+startCamera();
+</script>
+
+</body>
+</html>
