@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>HUD — Aqua Retro 4.4 (inline)</title>
+
+<style>
+  /* ===== Page base (neutral, no haze) ===== */
+  :root{
+    --bg:#ffffff;               /* clean white */
+  }
+  html,body{
+    height:100%;
+    margin:0;
+    background:var(--bg);
+    font-family:"VT323", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    color:#132030;
+  }
+  /* center the HUD on the page */
+  body{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+
+  /* =========================================================
+     HUD Theme — Aqua Retro 4.4 (finalized proportions)
+     ========================================================= */
+  #hudShell{
+    position:relative;                 /* centered by body flex */
+    display:grid;
+    gap:18px;
+    padding:34px 36px;
+    min-width:420px;
+    background:rgba(200,230,255,0.45);
+    border-radius:22px;
+    border:1px solid rgba(255,255,255,0.7);
+    box-shadow:
+      inset 0 1px 2px rgba(255,255,255,0.9),
+      inset 0 -1px 3px rgba(0,50,100,0.25),
+      0 15px 45px rgba(0,40,90,0.35);
+    backdrop-filter:blur(22px) saturate(1.2);
+    -webkit-backdrop-filter:blur(22px) saturate(1.2);
+    text-align:center;
+    transition:transform .25s ease, box-shadow .25s ease;
+  }
+  #hudShell:hover{ transform:translateY(-1px); }
+
+  #hudIndex{
+    position:absolute; top:6px; left:10px;
+    font-size:12px; opacity:.55; user-select:none;
+  }
+  #hudHeader{
+    font-size:20px; font-weight:500;
+    color:rgba(30,40,50,0.85);
+    text-shadow:0 1px 0 rgba(255,255,255,0.6);
+    user-select:none;
+  }
+
+  .hud-row{ display:flex; gap:12px; justify-content:space-between; }
+
+  .hud-btn{
+    flex:1;
+    font:inherit; font-size:17px;
+    color:#132030;
+    background:rgba(255,255,255,0.65);
+    border:none; border-radius:10px;
+    padding:10px 12px; cursor:pointer;
+    box-shadow:
+      inset 1px 1px 2px rgba(255,255,255,0.4),
+      inset -1px -2px 3px rgba(0,0,0,0.2),
+      0 3px 6px rgba(0,0,0,0.08);
+    transition:all .22s ease;
+  }
+  .hud-btn:hover{ transform:translateY(-1px); box-shadow:0 5px 12px rgba(0,0,0,0.15); }
+  .hud-btn.active{
+    background:rgba(255,165,100,0.18);
+    color:#ff6a2f; font-weight:600;
+    box-shadow:
+      inset 0 0 4px rgba(255,165,100,0.5),
+      0 0 14px 3px rgba(255,165,100,0.2),
+      0 2px 8px rgba(0,0,0,0.2);
+  }
+
+  /* Input bar (kept, but inert — purely visual) */
+  #hudInput{
+    width:100%;
+    background:rgba(255,255,255,0.7);
+    border:1px solid rgba(0,30,60,0.15);
+    border-radius:10px;
+    padding:10px 12px;
+    outline:none;
+  }
+</style>
+</head>
+<body>
+
+  <!-- Minimal HUD shell (no JS, no external assets) -->
+  <div id="hudShell">
+    <div id="hudIndex">HUD 1 / 5</div>
+    <div id="hudHeader">HUD — Aqua Retro Test</div>
+
+    <input id="hudInput" placeholder="type here…" disabled>
+
+    <div class="hud-row">
+      <button class="hud-btn">🎙️ Mic</button>
+      <button class="hud-btn active">🎧 Voice</button>
+      <button class="hud-btn">➡ Next</button>
+    </div>
+  </div>
+
+</body>
+</html>
