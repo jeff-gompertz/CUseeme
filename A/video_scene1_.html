@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>HUD Video 1 — Clean White Environment</title>
+<title>Video Scene 1 — Clean White HUD</title>
 
 <style>
 /* =========================================================
-HUD Video 1 — Refined Minimal White Environment
+Video Scene 1 — Minimal white environment, soft HUD glass
 ========================================================= */
 
-/* ---------- Root variables (white theme) ---------- */
+/* ---------- Root variables ---------- */
 :root {
-  --bg-base: #ffffff;                         /* pure white canvas */
-  --bg-haze: rgba(255, 255, 255, 0.05);       /* ultra-light neutral veil */
-  --hud-glass: rgba(220, 240, 255, 0.35);     /* faint aqua glass HUD */
+  --bg-base: #ffffff;                         /* pure white background */
+  --bg-haze: rgba(255, 255, 255, 0.05);       /* faint neutral veil */
+  --hud-glass: rgba(220, 240, 255, 0.35);     /* light aqua glass tone */
   --hud-border-light: rgba(255, 255, 255, 0.55);
   --hud-border-dark: rgba(0, 45, 90, 0.25);
   --hud-shadow: 0 8px 30px rgba(0, 50, 90, 0.25);
@@ -25,7 +25,7 @@ HUD Video 1 — Refined Minimal White Environment
   --ticker: #ff3a2f;
 }
 
-/* ---------- Base + faint haze ---------- */
+/* ---------- Background ---------- */
 html, body {
   height: 100%;
   margin: 0;
@@ -40,7 +40,7 @@ body::before {
   position: fixed;
   inset: 0;
   background: var(--bg-haze);
-  backdrop-filter: blur(2px);       /* barely visible blur */
+  backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   z-index: 0;
 }
@@ -99,15 +99,6 @@ body::before {
   width: 100%; height: 100%; object-fit: cover;
   display: block;
 }
-
-/* ---------- Notes/Ticker (optional future use) ---------- */
-#ticker {
-  position: fixed; left: 16px; bottom: 14px; z-index: 900;
-  width: 45vw; max-width: 700px;
-  color: var(--ticker);
-  font-size: 18px; line-height: 1.5;
-  pointer-events: none;
-}
 </style>
 </head>
 
@@ -115,7 +106,7 @@ body::before {
 
 <!-- HUD -->
 <div id="hudShell">
-  <div id="hudHeader">HUD Video 1</div>
+  <div id="hudHeader">Video Scene 1</div>
   <div class="hud-row">
     <button id="btnNext" class="hud-btn" title="Switch Scene">➡ Switch Scene</button>
   </div>
@@ -131,9 +122,8 @@ body::before {
 
 <script>
 /* ---------- Mode Shift ---------- */
-const btnNext = document.getElementById('btnNext');
-btnNext.addEventListener('click', () => {
-  window.location.href = 'hud_video2.html';
+document.getElementById('btnNext').addEventListener('click', () => {
+  window.location.href = 'video_scene2_.html';
 });
 </script>
 
