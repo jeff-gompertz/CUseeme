@@ -58,14 +58,35 @@ CUSeeMe Retro4.4 — Aqua Glass HUD (Self-contained version)
   --ticker: #ff3a2f;
 }
 
-html,body{
+/*html,body{
   height:100%; margin:0;
   background: var(--bg);
   font-family: "VT323", ui-monospace, Menlo, Consolas, monospace;
   color:#222;
   overflow:hidden;
 }
+*/
 
+  html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg-base);
+  font-family: "VT323", monospace;
+  color: #222;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Optional: subtle background haze overlay */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: var(--bg-haze);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 0;
+}
   
 
 
