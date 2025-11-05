@@ -32,7 +32,7 @@ fetch('modules/hud_shell.html')
   .then(html => {
     document.getElementById('hud-container').innerHTML = html;
     const script = document.createElement('script');
-    script.src = '../js/hud_logic.js';
+    script.src = 'js/hud_logic.js';
     document.body.appendChild(script);
   });
 </script>
