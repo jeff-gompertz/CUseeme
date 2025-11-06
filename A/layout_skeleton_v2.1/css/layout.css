@@ -1,0 +1,68 @@
+/* Jeff Gompertz Layout Skeleton — v2.1 (HUD + Grid + Toggle) */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  background: #000;
+  color: #fff;
+  font-family: Helvetica, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+main {
+  position: relative;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr min(90vw, 1200px) 1fr;
+  justify-items: center;
+  align-items: center;
+  overflow: hidden;
+}
+#stage {
+  grid-column: 2;
+  width: 100%;
+  max-width: 1200px;
+  height: auto;
+  aspect-ratio: 16/9;
+  border-radius: 8px;
+  background: #111;
+}
+#hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 1rem;
+  box-sizing: border-box;
+  transition: opacity 0.3s ease;
+}
+#hud.hidden {
+  opacity: 0;
+}
+.hud-box {
+  pointer-events: auto;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  color: #fff;
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+}
+aside {
+  opacity: 0.5;
+  font-size: 0.85rem;
+  padding: 1rem;
+}
+footer {
+  padding: 1rem;
+  font-size: 0.8rem;
+  opacity: 0.6;
+  text-align: center;
+}
