@@ -1,5 +1,6 @@
 /* hud_restyle_poc.css — Slim translucent control strip (no blur), gray base + orange-red hover */
 :root{
+  --bg: rgba(255,255,255);  
   --hud-bg: rgba(230,230,230,0.45);
   --hud-text: #333333;
   --hud-text-active: #ff4d00;
