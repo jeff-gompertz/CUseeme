@@ -417,9 +417,24 @@ input.addEventListener('keydown',e=>{
   if(e.key==='Enter'){e.preventDefault();handleSubmit(input.value);}
 });
 
+// =========================================================
+// HUD control — live window scale adjustment
+// =========================================================
+const sizeSlider = document.getElementById('sizeSlider');
+let windowScale = 1;
+
+sizeSlider.addEventListener('input', () => {
+  windowScale = parseFloat(sizeSlider.value);
+  document.querySelectorAll('.miniWin').forEach(el => {
+    el.style.transform = `scale(${windowScale})`;
+    el.style.transformOrigin = 'top left';
+  });
+});  
+
 (async()=>{
   await initStream();
   for(let i=0;i<5;i++) makeMiniWindow({x:80+i*22,y:80+i*18});
+
 })();
 </script>
 
