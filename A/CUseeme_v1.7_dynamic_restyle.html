@@ -163,7 +163,7 @@ backdrop-filter: blur(12px);
 box-shadow:
   inset 0 1px 2px rgba(255,255,255,0.6),
   0 18px 40px rgba(0,0,0,0.25);
-overflow: hidden;
+overflow: visible;
 cursor: grab;
 z-index: 500;
 
@@ -305,6 +305,9 @@ function makeMiniWindow({x=80,y=80}={}){
   winCount++;
   const el=document.createElement('div');
   el.className='miniWin';
+  // resize all mini windows directly (simple, reliable)
+  el.style.width = '440px';    // or try '44vw' for relative sizing
+  el.style.height = '330px';   // adjust for proportion you want
   el.style.left=x+'px';
   el.style.top=y+'px';
   el.innerHTML=`
