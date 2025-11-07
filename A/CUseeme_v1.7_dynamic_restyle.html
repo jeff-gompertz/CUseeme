@@ -218,7 +218,6 @@ Prompt bar — centered input
 <video id="cameraMain" autoplay muted playsinline></video>
 
 <!-- [L1] HUD WRAPPER -->
-<!-- [L1] HUD WRAPPER — Slim translucent restyle (gray + orange-red) -->
 <div id="hudWrapper">
   <div id="hudIndex">HUD 1 / 2</div>
   <div id="hudShell">
@@ -236,12 +235,6 @@ Prompt bar — centered input
       </div>
     </div>
 
-<div class="hud-row">
-  <label style="flex:1; text-align:left; font-size:14px; color:#333;">
-    Scale <input id="scaleSlider" type="range" min="0.5" max="2.0" step="0.1" value="1" style="width:100%;">
-  </label>
-</div>
-
     <!-- HUD 2 -->
     <div id="hud2" class="hud-panel">
       <div class="hud-row">
@@ -256,10 +249,6 @@ Prompt bar — centered input
   </div>
 </div>
 
-
-
-
-  
 <!-- [L3] TICKER -->
 <div id="ticker"></div>
 
@@ -304,8 +293,9 @@ function makeMiniWindow({x=80,y=80}={}){
   winCount++;
   const el=document.createElement('div');
   el.className='miniWin';
-  // resize all mini windows directly (simple, reliable)
-
+  el.style.left=x+'px';
+  el.style.top=y+'px';
+  el.innerHTML=`
     <div class="miniBar">
       <div class="miniTitle">subject_${String(winCount).padStart(4,'0')}</div>
       <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
@@ -406,11 +396,9 @@ input.addEventListener('keydown',e=>{
   if(e.key==='Enter'){e.preventDefault();handleSubmit(input.value);}
 });
 
-
 (async()=>{
   await initStream();
   for(let i=0;i<5;i++) makeMiniWindow({x:80+i*22,y:80+i*18});
-
 })();
 </script>
 
@@ -439,3 +427,4 @@ updateHUDLabel();
 
 </body>
 </html>
+
