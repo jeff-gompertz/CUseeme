@@ -27,12 +27,12 @@
   transform: translateX(50%) !important;
 }     
 
-/* --- Remove beige box behind HUD --- */
+/* --- Remove beige box behind HUD 
 #hudShell {
   background: rgba(255, 255, 255, 0.15) !important; /* translucent white tint only */
   border: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow: none !important;
-}    
+}    --- */
 
 /* --- Make buttons more balanced --- */
 /* ---.hud-row .hud-btn {
@@ -54,7 +54,7 @@ HUD Panels (hidden / active)
 }
 .hud-panel.active{
   opacity:1; pointer-events:auto;
-}
+}*/
 
-========================================================= */
+
 
