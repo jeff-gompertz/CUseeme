@@ -26,3 +26,16 @@
   right: 50% !important;
   transform: translateX(50%) !important;
 }
+
+/* =========================================================
+HUD Panels (hidden / active)
+========================================================= */
+.hud-panel{
+  position:absolute; inset:0;
+  opacity:0; pointer-events:none;
+  transition:opacity .3s ease;
+}
+.hud-panel.active{
+  opacity:1; pointer-events:auto;
+}
+
