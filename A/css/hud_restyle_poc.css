@@ -18,3 +18,11 @@
 .hud-btn:hover{color:var(--hud-text-active);box-shadow:0 0 8px rgba(255,77,0,0.4),2px 2px 6px var(--shadow-out-a),-2px -2px 6px var(--shadow-out-b);}
 .hud-btn:active{color:var(--hud-text-active);box-shadow:inset 2px 2px 4px var(--shadow-in-a),inset -2px -2px 4px var(--shadow-in-b),0 0 10px rgba(255,77,0,0.5);transform:translateY(1px);}
 @media (max-width:768px){#hudWrapper{top:0;right:0;left:0;align-items:center;}#hudShell{width:min(96vw,680px);height:56px;border-radius:0;box-shadow:none;}}
+
+
+/* --- Alignment fix for Jeff's HUD position --- */
+#hudWrapper {
+  top: 12px !important;
+  right: 50% !important;
+  transform: translateX(50%) !important;
+}
