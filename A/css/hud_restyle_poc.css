@@ -28,6 +28,7 @@
 }     
 
 /* --- Remove beige box behind HUD 
+/* --- 
 #hudShell {
   background: rgba(255, 255, 255, 0.15) !important; /* translucent white tint only */
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -46,7 +47,7 @@
 /* =========================================================
 HUD Panels (hidden / active)
 ========================================================= */
-/* =========================================================
+/* 
 .hud-panel{
   position:absolute; inset:0;
   opacity:0; pointer-events:none;
