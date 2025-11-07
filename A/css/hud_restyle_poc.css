@@ -1,0 +1,20 @@
+/* hud_restyle_poc.css — Slim translucent control strip (no blur), gray base + orange-red hover */
+:root{
+  --hud-bg: rgba(230,230,230,0.45);
+  --hud-text: #333333;
+  --hud-text-active: #ff4d00;
+  --btn-bg: rgba(255,255,255,0.35);
+  --btn-bg-active: rgba(255,77,0,0.18);
+  --shadow-out-a: rgba(0,0,0,0.18);
+  --shadow-out-b: rgba(255,255,255,0.35);
+  --shadow-in-a: rgba(0,0,0,0.28);
+  --shadow-in-b: rgba(255,255,255,0.35);
+}
+#hudWrapper{position:fixed;top:12px;right:12px;z-index:9999;display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:auto;}
+#hudShell{display:flex;align-items:center;justify-content:center;gap:12px;height:48px;padding:6px 12px;background:var(--hud-bg);/* backdrop-filter: blur(8px); */border-radius:14px;box-shadow:2px 2px 6px var(--shadow-out-a),-2px -2px 6px var(--shadow-out-b);}
+#hudHeader{display:none;} #hudIndex{display:none;}
+.hud-panel{display:block;} .hud-row{display:flex;align-items:center;gap:12px;}
+.hud-btn{font:500 14px/1 system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;color:var(--hud-text);padding:8px 14px;border:0;border-radius:10px;background:var(--btn-bg);box-shadow:2px 2px 6px var(--shadow-out-a),-2px -2px 6px var(--shadow-out-b);transition:color .25s ease, box-shadow .25s ease, transform .07s ease;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.hud-btn:hover{color:var(--hud-text-active);box-shadow:0 0 8px rgba(255,77,0,0.4),2px 2px 6px var(--shadow-out-a),-2px -2px 6px var(--shadow-out-b);}
+.hud-btn:active{color:var(--hud-text-active);box-shadow:inset 2px 2px 4px var(--shadow-in-a),inset -2px -2px 4px var(--shadow-in-b),0 0 10px rgba(255,77,0,0.5);transform:translateY(1px);}
+@media (max-width:768px){#hudWrapper{top:0;right:0;left:0;align-items:center;}#hudShell{width:min(96vw,680px);height:56px;border-radius:0;box-shadow:none;}}
