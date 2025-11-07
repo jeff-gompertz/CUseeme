@@ -1,0 +1,66 @@
+/* Base layout */
+body {
+  margin: 0;
+  height: 100vh;
+  background: #d6d6d6; /* neutral matte backdrop */
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+/* The floating bar */
+.hud-bar {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 1rem;
+  background: rgba(230, 230, 230, 0.85);
+  padding: 0.75rem 1.25rem;
+  border-radius: 16px;
+  box-shadow: 6px 6px 12px #9a9a9a, -6px -6px 12px #f0f0f0;
+  backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+}
+
+/* Neumorphic buttons */
+.hud-btn {
+  font-family: 'Helvetica Neue', sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+  padding: 0.6rem 1.1rem;
+  border-radius: 12px;
+  border: none;
+  outline: none;
+  color: #333;
+  background: linear-gradient(145deg, #e0e0e0, #d6d6d6);
+  box-shadow: 3px 3px 6px #9a9a9a, -3px -3px 6px #f0f0f0;
+  transition: all 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
+  cursor: pointer;
+}
+
+/* Hover: vaporwave shimmer */
+.hud-btn:hover {
+  background: linear-gradient(90deg, #70c9ff, #ff7ad9, #ff4d00);
+  color: white;
+  box-shadow: 0 0 10px rgba(255, 122, 217, 0.5);
+}
+
+/* Pressed (active) state */
+.hud-btn:active {
+  background: linear-gradient(145deg, #ff4d00, #ff884d);
+  color: white;
+  box-shadow: inset 3px 3px 6px #9a9a9a, inset -3px -3px 6px #f0f0f0;
+  transform: translateY(1px);
+}
+
+/* Responsive layout */
+@media (max-width: 768px) {
+  body {
+    align-items: flex-start;
+  }
+  .hud-bar {
+    width: 100%;
+    justify-content: space-around;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
