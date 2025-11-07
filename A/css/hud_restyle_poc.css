@@ -27,7 +27,7 @@
   transform: translateX(50%) !important;
 }     
 
-/* --- Remove beige box behind HUD 
+/* --- Remove beige box behind HUD --- */
 /* --- 
 #hudShell {
   background: rgba(255, 255, 255, 0.15) !important; /* translucent white tint only */
@@ -42,7 +42,6 @@
   font-size: 18px;
   border-radius: 10px;
 }    --- */
-
 
 /* =========================================================
 HUD Panels (hidden / active)
