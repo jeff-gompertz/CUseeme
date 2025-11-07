@@ -304,11 +304,7 @@ function makeMiniWindow({x=80,y=80}={}){
   const el=document.createElement('div');
   el.className='miniWin';
   // resize all mini windows directly (simple, reliable)
-  el.style.width = '440px';    // or try '44vw' for relative sizing
-  el.style.height = '330px';   // adjust for proportion you want
-  el.style.left=x+'px';
-  el.style.top=y+'px';
-  el.innerHTML=`
+
     <div class="miniBar">
       <div class="miniTitle">subject_${String(winCount).padStart(4,'0')}</div>
       <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
