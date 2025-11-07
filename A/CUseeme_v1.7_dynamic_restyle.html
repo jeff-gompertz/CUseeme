@@ -113,14 +113,27 @@ HUD — Aqua Glass shell (Retro4.4)
 /* =========================================================
 HUD Panels (hidden / active)
  ========================================================= */
-.hud-panel{
+/* --- HUD panels: show both for testing --- */
+.hud-panel {
+  position: relative;
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity .3s ease;
+}
+.hud-panel:not(.active) {
+  opacity: 0.8; /* dim instead of hide */
+}
+
+  
+  
+/*  .hud-panel{
   position:relative; inset:0;
   opacity:1; pointer-events:auto;
   transition:opacity .3s ease;
 }
 .hud-panel.active{
   opacity:1; pointer-events:auto;
-}
+} */
  
 
 /* =========================================================
