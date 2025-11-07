@@ -20,19 +20,19 @@
 @media (max-width:768px){#hudWrapper{top:0;right:0;left:0;align-items:center;}#hudShell{width:min(96vw,680px);height:56px;border-radius:0;box-shadow:none;}}
 
 
-/* --- Alignment fix for Jeff's HUD position --- */
+/* --- Alignment fix for Jeff's HUD position */
 #hudWrapper {
   top: 12px !important;
   right: 50% !important;
   transform: translateX(50%) !important;
-}
+}    --- 
 
-/* --- Remove beige box behind HUD --- */
+/* --- Remove beige box behind HUD 
 #hudShell {
   background: rgba(255, 255, 255, 0.15) !important; /* translucent white tint only */
   border: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow: none !important;
-}
+}    --- */
 
 /* --- Make buttons more balanced
 .hud-row .hud-btn {
