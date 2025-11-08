@@ -112,5 +112,13 @@ async function initCam() {
 initCam();
 </script>
 
+<!-- Inject Control Strip -->
+<script>
+fetch('UI/controlstripinject.html')
+  .then(r => r.text())
+  .then(h => document.body.insertAdjacentHTML('afterbegin', h));
+</script>
+
+
 </body>
 </html>
