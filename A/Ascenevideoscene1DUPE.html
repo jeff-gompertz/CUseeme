@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CUSeeMe — Video Scene 1 (Inject Base)</title>
+
+  <!-- Shared Control Strip CSS (external). Keep this path exactly as in your repo -->
+  <link rel="stylesheet" href="../UI/controlstripinject.css">
+
+  <style>
+    :root{
+      --bg: #ffffff;
+      --accent: #ff6a2f;
+    }
+    html, body{
+      height:100%;
+      margin:0;
+      background: var(--bg);
+      font-family: "VT323", ui-monospace, Menlo, Consolas, monospace;
+      color:#222;
+      overflow: hidden;
+    }
+    #stage{
+      position: relative;
+      width:100%;
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding-top: 86px;
+      box-sizing: border-box;
+    }
+    #cameraBox{
+      position: relative;
+      width: min(30vw, 360px);
+      aspect-ratio: 9 / 12;
+      border-radius: 18px;
+      background:#000;
+      overflow:hidden;
+      box-shadow:
+        0 8px 25px rgba(0,0,0,0.25),
+        inset 0 1px 3px rgba(255,255,255,0.3);
+    }
+    #cameraMain{
+      position:absolute; inset:0;
+      width:100%; height:100%;
+      object-fit: cover;
+      transform: none;
+      background:#000;
+    }
+    .miniWin{
+      position:absolute;
+      width: 32vw;
+      max-width: 420px;
+      aspect-ratio: 9 / 12;
+      background: rgba(240, 250, 255, 0.2);
+      border:1px solid rgba(255,255,255,0.55);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+      box-shadow:
+        inset 0 1px 2px rgba(255,255,255,0.6),
+        0 18px 40px rgba(0,0,0,0.25);
+      overflow: hidden;
+      cursor: grab;
+      z-index: 500;
+    }
+    .miniWin:active{ cursor:grabbing; }
+    .miniBar{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:4px 10px; height:26px;
+      background:rgba(255,255,255,0.18);
+      font-size:12px; color:#222;
+      user-select:none;
+    }
+    .miniInner{ position:relative; width:100%; height:calc(100% - 26px); }
+    .miniVideo{
+      position:absolute; inset:0; width:100%; height:100%;
+      object-fit: cover;
+      transform: none;
+    }
+    #stripStatus{
+      position: fixed; left: 10px; top: 10px;
+      padding: 4px 8px; font-size: 12px;
+      color: #222; background: rgba(255,255,255,0.8);
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 6px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      z-index: 1200;
+      display:none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="stripStatus">controlstrip: loaded</div>
+
+  <script>
+    (function loadControlStrip() {
+      const URL = "../UI/controlstripinject.html";
+      fetch(URL)
+        .then(r => {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.text();
+        })
+        .then(html => {
+          document.body.insertAdjacentHTML("afterbegin", html);
+        })
+        .catch(err => {
+          console.warn("Control strip fetch failed, using inline fallback:", err);
+          const fallback = `
+            <div id="controlStrip" class="glass-strip">
+              <div class="grid">
+                <button id="btnSpawn5"    class="hud-btn">➕ Spawn 5</button>
+                <button id="btnReverseCam"class="hud-btn">🔁 Reverse</button>
+                <button id="btnVoice"     class="hud-btn">🔊 Voice</button>
+                <button id="btnCloseAll"  class="hud-btn">✕ Close</button>
+                <button id="btnHUD"       class="hud-btn">HUD ▸</button>
+                <button id="btnStatus"    class="hud-btn">📡 Status</button>
+                <button id="btnMap"       class="hud-btn">🗺 Map</button>
+                <button id="btnReturn"    class="hud-btn">↩ Return</button>
+              </div>
+            </div>`;
+          document.body.insertAdjacentHTML("afterbegin", fallback);
+          const s = document.createElement('style');
+          s.textContent = `
+            #controlStrip{position:fixed; top:18px; right:24px; z-index:1100;
+              background:rgba(240,248,255,0.45); border:1px solid rgba(255,255,255,0.65);
+              border-radius:14px; padding:12px; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+              box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            }
+            #controlStrip .grid{display:grid; grid-template-columns:repeat(2, minmax(120px, 1fr)); gap:8px;}
+            .hud-btn{font-family:"VT323", monospace; font-size:17px; padding:10px 12px;
+              background:rgba(255,255,255,0.55); border:none; border-radius:10px; cursor:pointer;
+              box-shadow: inset 1px 1px 2px rgba(255,255,255,0.8), inset -1px -2px 3px rgba(0,0,0,0.2);}
+            .hud-btn:hover{color:#ff6a2f; box-shadow:0 0 18px 4px rgba(255,106,47,0.6), inset 0 0 6px rgba(255,106,47,0.35);}
+          `;
+          document.head.appendChild(s);
+          if (!window.__stripWired && typeof wireControlStripButtons === 'function') wireControlStripButtons();
+        });
+    })();
+  </script>
+
+  <div id="stage">
+    <div id="cameraBox">
+      <video id="cameraMain" autoplay muted playsinline></video>
+    </div>
+  </div>
+
+  <script>
+    const app = window.app = {};
+    let mediaStream = null;
+    let facing = 'environment';
+    let voiceOn = false;
+    let voicesReady = false;
+    let winCount = 0;
+    let spawnUsed = false;
+
+    app.initStream = async function initStream(){
+      try{
+        if(mediaStream){
+          mediaStream.getTracks().forEach(t => t.stop());
+          mediaStream = null;
+        }
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: facing } },
+          audio: false
+        });
+        const v = document.getElementById('cameraMain');
+        v.srcObject = mediaStream;
+        document.querySelectorAll('.miniVideo').forEach(n => n.srcObject = mediaStream);
+      }catch(e){
+        console.error('camera access failed', e);
+      }
+    };
+    app.reverseCamera = async function(){
+      facing = (facing === 'user') ? 'environment' : 'user';
+      await app.initStream();
+      const m = (facing === 'user') ? 'scaleX(-1)' : 'none';
+      document.getElementById('cameraMain').style.transform = m;
+      document.querySelectorAll('.miniVideo').forEach(n => n.style.transform = m);
+    };
+
+    function primeVoices(){
+      return new Promise(res => {
+        const tid = setInterval(() => {
+          const v = speechSynthesis.getVoices();
+          if (v && v.length){ clearInterval(tid); voicesReady = true; res(); }
+        }, 100);
+      });
+    }
+    app.toggleVoice = async function(){
+      voiceOn = !voiceOn;
+      if(voiceOn && !voicesReady) await primeVoices();
+      if(voiceOn){
+        const u = new SpeechSynthesisUtterance('voice online');
+        u.lang='en-US'; u.rate=1.05; u.pitch=0.9; u.volume=0.85;
+        const v = speechSynthesis.getVoices();
+        u.voice = v.find(x => /samantha|google/i.test(x.name)) || v[0];
+        try{ speechSynthesis.speak(u); }catch(_){}
+      }else{
+        try{ speechSynthesis.cancel(); }catch(_){}
+      }
+      return voiceOn;
+    };
+
+    function makeMiniWindow({x=80,y=80}={}){
+      winCount++;
+      const el = document.createElement('div');
+      el.className = 'miniWin';
+      el.style.left = x + 'px';
+      el.style.top  = y + 'px';
+      el.innerHTML = `
+        <div class="miniBar">
+          <div class="miniTitle">subject_${String(winCount).padStart(4,'0')}</div>
+          <div class="miniBtns"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+        </div>
+        <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>
+      `;
+      document.body.appendChild(el);
+      const v = el.querySelector('.miniVideo');
+      if(mediaStream) v.srcObject = mediaStream;
+      const bar = el.querySelector('.miniBar');
+      let dragging=false, sx=0, sy=0, sl=0, st=0;
+      function start(e){
+        dragging=true;
+        const r=el.getBoundingClientRect(); sl=r.left; st=r.top;
+        sx=(e.touches?e.touches[0].clientX:e.clientX);
+        sy=(e.touches?e.touches[0].clientY:e.clientY);
+        document.addEventListener('pointermove',move);
+        document.addEventListener('pointerup',stop);
+        document.addEventListener('touchmove',move,{passive:false});
+        document.addEventListener('touchend',stop);
+      }
+      function move(e){
+        if(!dragging) return;
+        const cx=(e.touches?e.touches[0].clientX:e.clientX);
+        const cy=(e.touches?e.touches[0].clientY:e.clientY);
+        el.style.left=(sl+(cx-sx))+'px';
+        el.style.top =(st+(cy-sy))+'px';
+        e.preventDefault?.();
+      }
+      function stop(){
+        dragging=false;
+        document.removeEventListener('pointermove',move);
+        document.removeEventListener('pointerup',stop);
+        document.removeEventListener('touchmove',move);
+        document.removeEventListener('touchend',stop);
+      }
+      bar.addEventListener('pointerdown',start);
+      bar.addEventListener('touchstart',start,{passive:false});
+      return el;
+    }
+    app.spawn5 = function(){
+      if(spawnUsed) return;
+      spawnUsed = true;
+      const startX = 60 + Math.random()*40;
+      const startY = 120 + Math.random()*40;
+      for(let i=0;i<5;i++){
+        makeMiniWindow({x: startX + i*26, y: startY + i*18});
+      }
+    };
+    app.closeAll = function(){
+      document.querySelectorAll('.miniWin').forEach(n => n.remove());
+      winCount = 0; spawnUsed = false;
+    };
+
+    (async()=>{
+      await app.initStream();
+    })();
+
+    // Optional fade-in hook (requires CSS in strip to define .ready)
+    // document.addEventListener('DOMContentLoaded', () => {
+    //   setTimeout(() => document.getElementById('controlStrip')?.classList.add('ready'), 50);
+    // });
+
+    function wireControlStripButtons(){
+      window.__stripWired = true;
+      const byId = id => document.getElementById(id);
+      byId('btnSpawn5')   ?.addEventListener('click', app.spawn5);
+      byId('btnReverseCam')?.addEventListener('click', app.reverseCamera);
+      byId('btnVoice')    ?.addEventListener('click', async()=>{
+        const on = await app.toggleVoice();
+        byId('btnVoice')?.classList.toggle('active', on);
+      });
+      byId('btnCloseAll') ?.addEventListener('click', app.closeAll);
+      byId('btnHUD')      ?.addEventListener('click', ()=>console.log('HUD toggle'));
+      byId('btnStatus')   ?.addEventListener('click', ()=>console.log('Status view'));
+      byId('btnMap')      ?.addEventListener('click', ()=>console.log('Map view'));
+      byId('btnReturn')   ?.addEventListener('click', ()=>console.log('Return'));
+    }
+  </script>
+
+  <script src="../UI/controlstripinject.js" defer></script>
+</body>
+</html>
