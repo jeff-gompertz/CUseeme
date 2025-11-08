@@ -5,8 +5,21 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>CUSeeMe — Video Scene 1 (Inject Base)</title>
 
-  <!-- Shared Control Strip CSS (external). Keep this path exactly as in your repo -->
-  <link rel="stylesheet" href="https://jeff-gompertz.github.io/CUseeme/A/UI/controlstripinject.css">
+<!-- Control Strip: proof-of-concept style (8-button version) -->
+<link rel="stylesheet" href="css/hud_restyle_poc.css">
+<link rel="stylesheet" href="UI/controlstripinject.css">
+
+<!-- Inject Control Strip HTML -->
+<script>
+  fetch('UI/controlstripinject.html')
+    .then(r => r.text())
+    .then(h => document.body.insertAdjacentHTML('afterbegin', h))
+    .catch(err => console.warn('Control strip inject failed:', err));
+</script>
+
+<!-- Control Strip Logic -->
+<script src="UI/controlstripinject.js" defer></script>
+
 
   <style>
     :root{
