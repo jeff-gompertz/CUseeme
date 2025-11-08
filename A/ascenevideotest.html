@@ -42,7 +42,7 @@
   position: relative;
   width: 40vw;
   max-width: 400px;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 9/ 12;
   border-radius: 18px;
   overflow: hidden;
   box-shadow:
@@ -63,12 +63,7 @@
 </head>
 
 <body>
-  <!-- ✅ Inject the global Control Strip -->
-  <script>
-    fetch("https://jeff-gompertz.github.io/CUseeme/A/UI/controlstripinject.html")
-      .then(r => r.text())
-      .then(h => document.body.insertAdjacentHTML("afterbegin", h));
-  </script>
+  
 
   <!-- Page content area -->
   <main>
@@ -93,6 +88,6 @@
   </main>
 
   <!-- 🔧 Control strip logic -->
-  <script src="https://jeff-gompertz.github.io/CUseeme/A/UI/controlstripinject.js"></script>
+  <!--  <script src="https://jeff-gompertz.github.io/CUseeme/A/UI/controlstripinject.js"></script> -->
 </body>
 </html>
