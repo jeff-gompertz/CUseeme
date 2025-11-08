@@ -3,19 +3,29 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe v2.3 — Semantic Feed + Control Strip</title>
+<title>CUSeeMe v2.2 — Semantic Feed + Control Strip</title>
 
 <!-- =========================================================
-  Load shared Control Strip (8-button glass UI) dynamically
-  from A/UI/controlstripinject.html
-  ========================================================= -->
+  Control Strip v2.2 — Global Injection
+  Loads external CSS, HTML, and JS from /A/UI/
+========================================================= -->
+
+<!-- 1️⃣ Load the Control Strip Stylesheet FIRST -->
+<link rel="stylesheet" href="UI/controlstripinject.css">
+
+<!-- 2️⃣ Inject the Control Strip HTML -->
 <script>
   fetch('A/UI/controlstripinject.html')
     .then(r => r.text())
-    .then(h => document.body.insertAdjacentHTML('afterbegin', h))
-    .catch(err => console.error('Control Strip load failed:', err));
+    .then(h => document.body.insertAdjacentHTML('afterbegin', h));
 </script>
 
+<!-- 3️⃣ Load the Control Strip Logic -->
+<script src="A/UI/controlstripinject.js" defer></script>
+
+<!-- =========================================================
+  Page-Specific Styles (BBC Semantic Feed + HUD)
+========================================================= -->
 <style>
 /* =========================================================
 Retro4.4 — Aqua Glass HUD + Minimal Ticker
@@ -222,14 +232,14 @@ document.getElementById('btnMute').addEventListener('click',()=>{
 });
 document.getElementById('btnNext').addEventListener('click',()=>{
   addLine('mode shift → video scene','note');
-  setTimeout(()=>window.location.href='A/video_scene1_live_portrait2.html',800);
+  setTimeout(()=>window.location.href='video_scene1_live_portrait2.html',800);
 });
 </script>
 
 <!-- =========================================================
   Control Strip Logic (external JS)
 ========================================================= -->
-<script src="A/UI/controlstripinject.js"></script>
+<script src="UI/controlstripinject.js"></script>
 
 </body>
 </html>
