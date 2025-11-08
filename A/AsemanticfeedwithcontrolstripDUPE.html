@@ -1,1 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
 
+  <!-- 🔧 Shared HUD visuals (PoC look) — keep this path EXACT -->
+  <link rel="stylesheet" href="css/hud_restyle_poc.css">
+
+  <title>CUSeeMe v2.1 — Semantic Feed (BBC Reactive)</title>
+
+  <!--
+    NOTE:
+    - We do NOT include any other HUD CSS here.
+    - The 8-button Control Strip HTML is injected at runtime (see bottom).
+  -->
+
+  <style>
+    /* Page-level variables (background + ticker color) */
+    :root {
+      --bg-base: #ffffff;
+      --bg-haze: rgba(255, 255, 255, 0);
+      --ticker: #ff3a2f;
+    }
+
+    /* Disable all BBC hyperlink interactivity but keep DOM text for harvesting */
+    a {
+      pointer-events: none !important;
+      cursor: default !important;
+      text-decoration: none !important;
+    }
+    body > a {
+      color: rgba(0, 0, 0, 0) !important; /* visually hidden but present */
+      font-weight: 300;
+    }
+
+    /* ===== Ticker (bottom-left; fills upward visually) ===== */
+    #ticker {
+      position: fixed; left: 16px; bottom: 14px; z-index: 900;
+      width: 45vw; max-width: 700px;
+      display: flex; flex-direction: column-reverse;
+      overflow: visible; height: auto;
+      color: var(--ticker);
+      font-size: 19px;
+      line-height: 1.5;
+      pointer-events: none;
+    }
+    .tline { opacity: .95; margin: 2px 0; animation: fadeIn .6s ease; }
+
+    /* Ticker tone variants */
+    .user { color: #0d3b66; font-weight: 400; }
+    .sys  { color: #ff3a2f; font-weight: 700; font-size: 22px; line-height: 1.8; letter-spacing: 0.3px; }
+    .note { color: #666; font-weight: 300; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  </style>
+</head>
+
+<body style="background:var(--bg-base);">
+  <!-- =========================
+       8-BUTTON CONTROL STRIP
+       (injected at runtime)
+       ========================= -->
+
+  <!-- Ticker -->
+  <div id="ticker"></div>
+
+  <!-- ===== BBC via Bloople (no CORS) ===== -->
+  <div id="rssSource" style="display:none;"></div>
+  <script src="//rss.bloople.net/?url=https%3A%2F%2Ffeeds.bbci.co.uk%2Fnews%2Fworld%2Frss.xml&showtitle=false&type=js"></script>
+
+  <script>
+  /* =========================================================
+  v2.1 — Semantic Core + Reactive BBC Blender (HUD removed)
+  Only the Control Strip is injected; old inline HUD is gone.
+  ========================================================== */
+
+  // ---------- Warm-up speech engine ----------
+  speechSynthesis.cancel(); // clears stale queue on reload
+
+  const ticker = document.getElementById('ticker');
+  function addLine(text, cls='sys'){
+    const el = document.createElement('div');
+    el.className = `tline ${cls}`;
+    el.textContent = text;
+    ticker.prepend(el);
+  }
+  addLine('v2.1 online — semantic core + BBC reactive blending', 'note');
+  addLine('Mic optional. Typing always works. Say: "time?", "repeat after me …", or anything.', 'note');
+
+  // ---------- Speech Synthesis (reply) ----------
+  let speakEnabled = true, voicesReady = false;
+  function waitVoices(){
+    return new Promise(res=>{
+      const id = setInterval(()=>{
+        if (speechSynthesis.getVoices().length){ clearInterval(id); voicesReady = true; res(); }
+      }, 100);
+    });
+  }
+  async function speak(text){
+    if(!speakEnabled || !('speechSynthesis' in window)) return;
+    if(!voicesReady) await waitVoices();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-GB'; u.rate = 1.02; u.pitch = 0.95; u.volume = 0.9;
+    const v = speechSynthesis.getVoices();
+    u.voice = v.find(x => /en-GB|UK|Kate|Samantha|Google UK English/i.test(x.name)) || v[0];
+    speechSynthesis.speak(u);
+  }
+
+  // ---------- BBC feed buffer ----------
+  let feedBuffer = []; // array of { title, ts }
+  function harvestHeadlines(){
+    const anchors = Array.from(document.body.querySelectorAll('a'));
+    const titles  = anchors.map(a => (a.textContent || '').trim()).filter(Boolean);
+    const now = Date.now();
+    titles.forEach(t => {
+      if (!feedBuffer.some(x => x.title === t)) feedBuffer.push({ title: t, ts: now });
+    });
+    if (feedBuffer.length > 80) feedBuffer = feedBuffer.slice(-80);
+  }
+  setTimeout(harvestHeadlines, 1500);
+  setInterval(harvestHeadlines, 60000);
+
+  // Disable anchor links & make them visually invisible (still harvestable)
+  setTimeout(() => {
+    document.querySelectorAll('a').forEach(a => {
+      a.removeAttribute('href');
+      a.style.color = 'rgba(0,0,0,0)';
+      a.style.pointerEvents = 'none';
+      a.style.textDecoration = 'none';
+    });
+  }, 3000);
+
+  // ---------- Helpers ----------
+  function keywordsFrom(text){
+    return (text.toLowerCase()
+      .replace(/[^a-z0-9\s]/g,' ')
+      .split(/\s+/)
+      .filter(w => w.length > 3 && !'about with into from that this what your have just will been they them than then here there which where only also because while after before could would should doing being hello thank'.includes(w))
+    );
+  }
+  function blendWithFeed(userText){
+    if (feedBuffer.length === 0) return null;
+    const keys = keywordsFrom(userText);
+    let candidates = [];
+
+    if (keys.length){
+      candidates = feedBuffer
+        .map(h => {
+          const score = keys.reduce((s,k)=> s + (h.title.toLowerCase().includes(k) ? 1 : 0), 0);
+          return { ...h, score };
+        })
+        .filter(x => x.score > 0)
+        .sort((a,b) => b.score - a.score);
+    }
+    if (candidates.length === 0){
+      const pool = feedBuffer.slice(-20);
+      for (let i = 0; i < 3 && pool.length; i++){
+        const idx = Math.floor(Math.random() * pool.length);
+        candidates.push(pool.splice(idx,1)[0]);
+      }
+    }
+
+    const pick = (arr, n) => {
+      const out = []; const copy = arr.slice();
+      while(n-- > 0 && copy.length){ out.push(copy.splice(Math.floor(Math.random()*copy.length),1)[0]); }
+      return out;
+    };
+
+    const chosen = pick(candidates, 2).map(x => x.title);
+    const stems = [
+      'signal echoes:', 'semantic crossover:', 'field resonance:',
+      'adjacent headline:', 'network murmur:', 'latent alignment:'
+    ];
+    const stem = stems[Math.floor(Math.random()*stems.length)];
+
+    if (chosen.length === 1) return `${stem} ${chosen[0]}`;
+    if (chosen.length === 2){
+      const [a,b] = chosen;
+      const A = a.replace(/[–—-]\s.*$/,'').replace(/\.$/,'');
+      const B = b.replace(/^[A-Z].{0,10}:\s*/,'');
+      return `${stem} ${A} — ${B}.`;
+    }
+    return 'channel quiet.';
+  }
+
+  function semanticRouter(raw){
+    const text = (raw||'').trim(); if (!text) return;
+    addLine('> ' + text, 'user');
+
+    let reply = '';
+    const lower = text.toLowerCase();
+    if (lower === 'hello' || lower.startsWith('hi')) {
+      reply = "Hello. I'm listening.";
+    } else if (lower.includes('time')) {
+      reply = 'Current time: ' + new Date().toLocaleTimeString();
+    } else if (lower.startsWith('repeat after me')) {
+      reply = text.replace(/^repeat after me/i, '').trim() || '…say what?';
+    } else {
+      reply = 'You said: ' + text;
+    }
+    addLine(reply, 'sys'); speak(reply);
+
+    const blend = blendWithFeed(text);
+    if (blend){ setTimeout(() => { addLine(blend, 'sys'); speak(blend); }, 500); }
+  }
+
+  // (Optional) quick keyboard hook for testing:
+  // window.addEventListener('keydown', e => { if (e.key === 'Enter') semanticRouter('test'); });
+
+  </script>
+
+  <!-- ===============================
+       Control Strip INJECTION (8-btn)
+       - HTML:   A/UI/controlstripinject.html
+       - Script: A/UI/controlstripinject.js
+       Paths are case-sensitive. Do not change casing.
+       =============================== -->
+  <script>
+    fetch('UI/controlstripinject.html')
+      .then(r => r.text())
+      .then(html => {
+        // Insert HUD at the very top of <body>
+        document.body.insertAdjacentHTML('afterbegin', html);
+      })
+      .catch(e => console.warn('Control Strip inject failed:', e));
+  </script>
+  <script src="UI/controlstripinject.js" defer></script>
+</body>
+</html>
