@@ -6,21 +6,9 @@
   
   <title>CUSeeMe — Video Scene 1 (Inject Base)</title>
 
+  <!-- Control Strip: proof-of-concept style (8-button version) -->
   <link rel="stylesheet" href="css/hud_restyle_poc.css">
 
-<!-- Control Strip: proof-of-concept style (8-button version) -->
-
-
-<!-- Inject Control Strip HTML -->
-<!--<script>
-  fetch('UI/controlstripinject.html')
-    .then(r => r.text())
-    .then(h => document.body.insertAdjacentHTML('afterbegin', h))
-    .catch(err => console.warn('Control strip inject failed:', err));
-</script>-->
-
-<!-- Control Strip Logic -->
-<!--<script src="UI/controlstripinject.js" defer></script>-->
 
 
   <style>
@@ -108,53 +96,6 @@
 </head>
 
 <body>
-  <div id="stripStatus">controlstrip: loaded</div>
-
-  <script>
-    (function loadControlStrip() {
-      const URL = "../UI/controlstripinject.html";
-      fetch(URL)
-        .then(r => {
-          if (!r.ok) throw new Error("HTTP " + r.status);
-          return r.text();
-        })
-        .then(html => {
-          document.body.insertAdjacentHTML("afterbegin", html);
-        })
-        .catch(err => {
-          console.warn("Control strip fetch failed, using inline fallback:", err);
-          const fallback = `
-            <div id="controlStrip" class="glass-strip">
-              <div class="grid">
-                <button id="btnSpawn5"    class="hud-btn">➕ Spawn 5</button>
-                <button id="btnReverseCam"class="hud-btn">🔁 Reverse</button>
-                <button id="btnVoice"     class="hud-btn">🔊 Voice</button>
-                <button id="btnCloseAll"  class="hud-btn">✕ Close</button>
-                <button id="btnHUD"       class="hud-btn">HUD ▸</button>
-                <button id="btnStatus"    class="hud-btn">📡 Status</button>
-                <button id="btnMap"       class="hud-btn">🗺 Network</button>
-                <button id="btnReturn"    class="hud-btn">↩ Return</button>
-              </div>
-            </div>`;
-          document.body.insertAdjacentHTML("afterbegin", fallback);
-          const s = document.createElement('style');
-          s.textContent = `
-            #controlStrip{position:fixed; top:18px; right:24px; z-index:1100;
-              background:rgba(240,248,255,0.45); border:1px solid rgba(255,255,255,0.65);
-              border-radius:14px; padding:12px; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
-              box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-            }
-            #controlStrip .grid{display:grid; grid-template-columns:repeat(2, minmax(120px, 1fr)); gap:8px;}
-            .hud-btn{font-family:"VT323", monospace; font-size:17px; padding:10px 12px;
-              background:rgba(255,255,255,0.55); border:none; border-radius:10px; cursor:pointer;
-              box-shadow: inset 1px 1px 2px rgba(255,255,255,0.8), inset -1px -2px 3px rgba(0,0,0,0.2);}
-            .hud-btn:hover{color:#ff6a2f; box-shadow:0 0 18px 4px rgba(255,106,47,0.6), inset 0 0 6px rgba(255,106,47,0.35);}
-          `;
-          document.head.appendChild(s);
-          if (!window.__stripWired && typeof wireControlStripButtons === 'function') wireControlStripButtons();
-        });
-    })();
-  </script>
 
   <div id="stage">
     <div id="cameraBox">
