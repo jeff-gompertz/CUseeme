@@ -7,13 +7,13 @@
 
 <style>
   
+ <!-- Control Strip Styles -->
+  <link rel="stylesheet" href="../ui/control_strip_inject.css">
 
 /* =========================================================
 Retro4.4 — Aqua Glass HUD + Minimal Ticker
 Refined for v2.1 Unlinked — proper spacing & font balance
 ========================================================= */
-
-
 
   
 :root {
@@ -134,7 +134,16 @@ body > p {
 </style>
 
 </head>
+  
 <body>
+ 
+  <!-- Inject the Control Strip -->
+  <script>
+    fetch('../UI/control_strip_inject.html')
+      .then(r => r.text())
+      .then(h => document.body.insertAdjacentHTML('afterbegin', h));
+  </script>
+ 
 
 <!-- HUD -->
 <div id="hudShell">
@@ -401,10 +410,15 @@ btnNext.addEventListener('click', () => {
   }, 800); // 👈 slight delay for readability,
 });
   
-
 // ---------- First pulse ----------
 setTimeout(()=> addLine('BBC headlines linked. Waiting for your input…', 'note'), 1200);
 
 </script>
+  
+   <!-- Control Strip Button Logic -->
+  <script src="../UI/control_strip_inject.js"></script>
+</body>
+</html>
+ 
 </body>
 </html>
