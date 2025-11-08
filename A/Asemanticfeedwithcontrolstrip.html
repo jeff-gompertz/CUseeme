@@ -3,136 +3,44 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe v2.2 — Semantic Feed + Control Strip</title>
+<title>CUSeeMe v2.1 — Semantic Feed (BBC Reactive)</title>
 
-<!-- =========================================================
-  Control Strip v2.2 — Global Injection
-  Loads external CSS, HTML, and JS from /A/UI/
-========================================================= -->
-
-<!-- 1️⃣ Load the Control Strip Stylesheet FIRST -->
-<link rel="stylesheet" href="https://jeff-gompertz.github.io/CUseeme/A/UI/controlstripinject.css">
-
-<!-- 2️⃣ Inject the Control Strip HTML -->
+<!-- ==========================================
+     Injected Control Strip (8-button version)
+=========================================== -->
+<link rel="stylesheet" href="UI/controlstripinject.css">
 <script>
-  fetch('A/UI/controlstripinject.html')
+  fetch('UI/controlstripinject.html')
     .then(r => r.text())
-    .then(h => document.body.insertAdjacentHTML('afterbegin', h));
+    .then(h => document.body.insertAdjacentHTML('afterbegin', h))
+    .catch(err => console.warn('Control strip inject failed:', err));
 </script>
-
-<!-- 3️⃣ Load the Control Strip Logic -->
 <script src="UI/controlstripinject.js" defer></script>
 
-<!-- =========================================================
-  Page-Specific Styles (BBC Semantic Feed + HUD)
-========================================================= -->
 <style>
-/* =========================================================
-Retro4.4 — Aqua Glass HUD + Minimal Ticker
-Refined for v2.3 Semantic Feed Integration
-========================================================= */
-
 :root {
-  /* Background */
   --bg-base: #ffffff;
-  --bg-haze: rgba(255,255,255,0);
-
-  /* HUD (interface glass) */
-  --hud-glass: rgba(185,225,255,0.42);
-  --hud-border-light: rgba(255,255,255,0.65);
-  --hud-border-dark: rgba(0,45,90,0.35);
-  --hud-shadow: 0 12px 45px rgba(0,50,90,0.35);
-  --hud-text: #1b1d22;
-
-  /* Buttons & accent tones */
-  --btn-bg: rgba(215,235,255,0.35);
-  --btn-inset-light: rgba(255,255,255,0.8);
-  --btn-inset-dark: rgba(0,30,60,0.3);
+  --bg-haze: rgba(255, 255, 255, 0);
   --ticker: #ff3a2f;
 }
 
-body {
-  background: var(--bg-base);
-  color: var(--hud-text);
-  margin: 0;
-  font-family: "VT323", ui-monospace, Menlo, Consolas, monospace;
+/* Disable all BBC hyperlink interactivity */
+a {
+  pointer-events: none !important;
+  cursor: default !important;
+  text-decoration: none !important;
+}
+body > a {
+  color: rgba(0, 0, 0, 0) !important;
+  font-weight: 300;
 }
 
-/* ===== HUD (fixed, non-draggable) ===== */
-/* #hudShell {
-  position: fixed;
-  top: 24px;
-  right: 32px;
-  z-index: 900;
-  display: grid;
-  gap: 10px;
-  padding: 20px 18px 16px;
-  min-width: 320px;
-  text-align: center;
-  color: var(--hud-text);
-  background: var(--hud-glass);
-  border-radius: 18px;
-  border: 1px solid var(--hud-border-light);
-  box-shadow:
-    inset 0 1px 3px var(--hud-border-light),
-    inset 0 -1px 3px var(--hud-border-dark),
-    var(--hud-shadow);
-  backdrop-filter: blur(20px) saturate(1.25);
-  -webkit-backdrop-filter: blur(20px) saturate(1.25);
-}
-#hudHeader {
-  font-size: 22px;
-  color: rgba(20,30,45,0.85);
-  text-shadow: 0 1px 0 rgba(255,255,255,.6);
-  user-select: none;
-}
-.hud-row { display: flex; gap: 10px; }
-.hud-btn {
-  flex: 1;
-  font: inherit;
-  font-size: 17px;
-  cursor: pointer;
-  color: #132030;
-  background: var(--btn-bg);
-  border: none;
-  border-radius: 10px;
-  padding: 10px 12px;
-  box-shadow:
-    inset 1px 1px 2px var(--btn-inset-light),
-    inset -1px -2px 3px var(--btn-inset-dark),
-    0 3px 6px rgba(0,0,0,0.08);
-  transition: all .22s ease;
-}
-.hud-btn:hover { transform: translateY(-1px); }
-.hud-btn.on {
-  background: rgba(255,165,100,0.18);
-  color: #ff6a2f;
-  font-weight: 600;
-  box-shadow: 0 0 0 2px rgba(255,165,100,.25) inset;
-}
-#input {
-  width: 100%;
-  font: inherit;
-  font-size: 18px;
-  color: #111;
-  background: rgba(255,255,255,.6);
-  border: 1px solid rgba(0,30,60,.15);
-  border-radius: 10px;
-  padding: 10px 12px;
-  outline: none;
-}
-*/
-/* ===== Ticker (bottom-left) ===== */
+/* ===== Ticker (bottom-left; fills upward visually) ===== */
 #ticker {
-  position: fixed;
-  left: 16px;
-  bottom: 14px;
-  z-index: 800;
-  width: 45vw;
-  max-width: 700px;
-  display: flex;
-  flex-direction: column-reverse;
-  overflow: visible;
+  position: fixed; left: 16px; bottom: 14px; z-index: 900;
+  width: 45vw; max-width: 700px;
+  display: flex; flex-direction: column-reverse;
+  overflow: visible; height: auto;
   color: var(--ticker);
   font-size: 19px;
   line-height: 1.5;
@@ -143,6 +51,13 @@ body {
   margin: 2px 0;
   animation: fadeIn .6s ease;
 }
+.user { color: #0d3b66; font-weight: 400; }
+.sys {
+  color: #ff3a2f; font-weight: 700;
+  font-size: 22px; line-height: 1.8;
+  letter-spacing: 0.3px;
+}
+.note { color: #666; font-weight: 300; }
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
@@ -150,47 +65,33 @@ body {
 </style>
 </head>
 
-<body>
-
-<!-- =========================================================
-  HUD + Input System (from Semantic Feed v2.1)
-========================================================= -->
-<div id="hudShell">
-  <div id="hudHeader">Semantic Feed — BBC Reactive</div>
-  <input id="input" placeholder="speak or type… then Enter" autocomplete="off" />
-  <div class="hud-row">
-    <button id="btnMic" class="hud-btn">🎙️ Mic</button>
-    <button id="btnMute" class="hud-btn">🔊 Voice On</button>
-    <button id="btnNext" class="hud-btn">➡ Mode Shift</button>
-  </div>
-</div>
+<body style="background:var(--bg-base);">
 
 <!-- Ticker -->
 <div id="ticker"></div>
 
-<!-- BBC RSS Feed Loader -->
+<!-- ===== BBC via Bloople (no CORS) ===== -->
 <div id="rssSource" style="display:none;"></div>
 <script src="//rss.bloople.net/?url=https%3A%2F%2Ffeeds.bbci.co.uk%2Fnews%2Fworld%2Frss.xml&showtitle=false&type=js"></script>
 
 <script>
 /* =========================================================
-  v2.3 — Semantic Core + Control Strip Injection Verified
+v2.1 — Semantic Core + Reactive BBC Blender (HUD removed)
 ========================================================= */
 
-// ---------- Ticker ----------
+speechSynthesis.cancel(); // clears stale speech queue
 const ticker = document.getElementById('ticker');
+
 function addLine(text, cls='sys') {
   const el = document.createElement('div');
   el.className = `tline ${cls}`;
   el.textContent = text;
   ticker.prepend(el);
 }
-addLine('v2.3 semantic feed online', 'note');
-addLine('control strip injected successfully (A/UI)', 'note');
+addLine('v2.1 online — semantic core + BBC reactive blending', 'note');
+addLine('Mic optional. Typing always works. Say: "time?", "repeat after me …", or anything.', 'note');
 
-// ---------- Speech Synthesis ----------
-let speakEnabled = true;
-let voicesReady = false;
+let speakEnabled = true, voicesReady = false;
 function waitVoices(){
   return new Promise(res=>{
     const id=setInterval(()=>{
@@ -199,47 +100,91 @@ function waitVoices(){
   });
 }
 async function speak(text){
-  if(!speakEnabled)return;
+  if(!speakEnabled||!('speechSynthesis'in window))return;
   if(!voicesReady)await waitVoices();
   const u=new SpeechSynthesisUtterance(text);
-  u.lang='en-GB'; u.rate=1.02; u.pitch=0.95; u.volume=0.9;
+  u.lang='en-GB';u.rate=1.02;u.pitch=0.95;u.volume=0.9;
   const v=speechSynthesis.getVoices();
   u.voice=v.find(x=>/en-GB|UK|Kate|Samantha|Google UK English/i.test(x.name))||v[0];
   speechSynthesis.speak(u);
 }
 
-// ---------- Input Handling ----------
-const input=document.getElementById('input');
-input.addEventListener('keydown',e=>{
-  if(e.key==='Enter'){
-    e.preventDefault();
-    const val=input.value.trim();
-    if(val){
-      addLine('> '+val,'user');
-      speak('You said '+val);
-      input.value='';
+// ---------- BBC feed buffer ----------
+let feedBuffer=[];
+function harvestHeadlines(){
+  const anchors=Array.from(document.body.querySelectorAll('a'));
+  const titles=anchors.map(a=>(a.textContent||'').trim()).filter(Boolean);
+  const now=Date.now();
+  titles.forEach(t=>{
+    if(!feedBuffer.some(x=>x.title===t)){feedBuffer.push({title:t,ts:now});}
+  });
+  if(feedBuffer.length>80)feedBuffer=feedBuffer.slice(-80);
+}
+setTimeout(harvestHeadlines,1500);
+setInterval(harvestHeadlines,60000);
+
+// Disable anchor links
+setTimeout(()=>{
+  document.querySelectorAll('a').forEach(a=>{
+    a.removeAttribute('href');
+    a.style.color='rgba(0,0,0,0)';
+    a.style.pointerEvents='none';
+    a.style.textDecoration='none';
+  });
+},3000);
+
+// ---------- Blend & Semantic ----------
+function keywordsFrom(text){
+  return(text.toLowerCase()
+    .replace(/[^a-z0-9\s]/g,' ')
+    .split(/\s+/)
+    .filter(w=>w.length>3&&!'about with into from that this what your have just will been they them than then here there which where only also because while after before could would should doing being hello thank'.includes(w)));
+}
+function blendWithFeed(userText){
+  if(feedBuffer.length===0)return null;
+  const keys=keywordsFrom(userText);let candidates=[];
+  if(keys.length){
+    candidates=feedBuffer.map(h=>{
+      const score=keys.reduce((s,k)=>s+(h.title.toLowerCase().includes(k)?1:0),0);
+      return{...h,score};
+    }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+  }
+  if(candidates.length===0){
+    const pool=feedBuffer.slice(-20);
+    for(let i=0;i<3&&pool.length;i++){
+      const idx=Math.floor(Math.random()*pool.length);
+      candidates.push(pool.splice(idx,1)[0]);
     }
   }
-});
-
-// ---------- Mic + Mode buttons ----------
-document.getElementById('btnMute').addEventListener('click',()=>{
-  speakEnabled=!speakEnabled;
-  const b=document.getElementById('btnMute');
-  b.textContent=speakEnabled?'🔊 Voice On':'🔇 Voice Off';
-  b.classList.toggle('on',speakEnabled);
-  addLine(`voice ${speakEnabled?'enabled':'disabled'}`,'note');
-});
-document.getElementById('btnNext').addEventListener('click',()=>{
-  addLine('mode shift → video scene','note');
-  setTimeout(()=>window.location.href='https://github.com/jeff-gompertz/CUseeme/blob/main/A/video_scene1_live_portrait2.html',800);
-});
+  const pick=(arr,n)=>{const out=[];const copy=arr.slice();
+    while(n-->0&&copy.length){out.push(copy.splice(Math.floor(Math.random()*copy.length),1)[0]);}
+    return out;
+  };
+  const chosen=pick(candidates,2).map(x=>x.title);
+  const stems=['signal echoes:','semantic crossover:','field resonance:','adjacent headline:','network murmur:','latent alignment:'];
+  const stem=stems[Math.floor(Math.random()*stems.length)];
+  if(chosen.length===1)return`${stem} ${chosen[0]}`;
+  if(chosen.length===2){
+    const [a,b]=chosen;
+    const A=a.replace(/[–—-]\s.*$/,'').replace(/\.$/,'');
+    const B=b.replace(/^[A-Z].{0,10}:\s*/,'');
+    return`${stem} ${A} — ${B}.`;
+  }
+  return'channel quiet.';
+}
+function semanticRouter(raw){
+  const text=(raw||'').trim();if(!text)return;
+  addLine('> '+text,'user');
+  const lower=text.toLowerCase();
+  let reply='';
+  if(lower==='hello'||lower.startsWith('hi'))reply="Hello. I'm listening.";
+  else if(lower.includes('time'))reply='Current time: '+new Date().toLocaleTimeString();
+  else if(lower.startsWith('repeat after me'))reply=text.replace(/^repeat after me/i,'').trim()||'…say what?';
+  else reply='You said: '+text;
+  addLine(reply,'sys');speak(reply);
+  const blend=blendWithFeed(text);
+  if(blend){setTimeout(()=>{addLine(blend,'sys');speak(blend);},500);}
+}
 </script>
-
-<!-- =========================================================
-  Control Strip Logic (external JS)
-========================================================= -->
-<script src="https://jeff-gompertz.github.io/CUseeme/A/UI/controlstripinject.js"></script>
-
 </body>
 </html>
