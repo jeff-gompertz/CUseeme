@@ -3,19 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
+ <link rel="stylesheet" href="css/hud_restyle_poc.css">      
 <title>CUSeeMe v2.1 — Semantic Feed (BBC Reactive)</title>
 
 <!-- ==========================================
      Injected Control Strip (8-button version)
 =========================================== -->
-<link rel="stylesheet" href="UI/controlstripinject.css">
-<script>
-  fetch('UI/controlstripinject.html')
-    .then(r => r.text())
-    .then(h => document.body.insertAdjacentHTML('afterbegin', h))
-    .catch(err => console.warn('Control strip inject failed:', err));
-</script>
-<script src="UI/controlstripinject.js" defer></script>
+
 
 <style>
 :root {
