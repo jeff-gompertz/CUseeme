@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Neumorphic Header + Camera Test</title>
+
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://pro.fontawesome.com/releases/v6.0.0-beta1/css/all.css">
+
+<style>
+html,body {
+  margin: 0;
+  height: 100%;
+  background: #e5e9f4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  overflow: hidden;
+  font-family: system-ui, sans-serif;
+}
+
+/* =========================================================
+Header section — from tutorial (unaltered)
+========================================================= */
+header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background: #e5e9f4;
+  box-shadow: 0 5px 10px rgba(0,0,0,0.05);
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+.buttons {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(60px, 1fr));
+  gap: 1rem;
+  width: min(90vw, 500px);
+}
+
+button.neumorphic {
+  border: 0.5rem solid transparent;
+  border-radius: 1rem;
+  color: hsl(0 0% 10%);
+  background: none;
+  display: grid;
+  place-content: center;
+  gap: 0.5rem;
+  --shadow:
+    -.5rem -.5rem 1rem hsl(0 0% 100% / .75),
+    .5rem .5rem 1rem hsl(0 0% 50% / .5);
+  box-shadow: var(--shadow);
+  outline: none;
+  transition: all 0.1s;
+}
+
+button.neumorphic:hover,
+button.neumorphic:focus-visible {
+  color: hsl(10 80% 50%);
+  scale: 1.05;
+}
+
+button.neumorphic:active,
+button.neumorphic.active {
+  box-shadow:
+    var(--shadow),
+    inset .5rem .5rem 1rem hsl(0 0% 50% / .5),
+    inset -.5rem -.5rem 1rem hsl(0 0% 100% / .75);
+  color: hsl(10 80% 50%);
+}
+
+button.neumorphic > i { font-size: 20px; }
+button.neumorphic > span { font-size: 12px; }
+
+/* =========================================================
+Main camera area (your floating window)
+========================================================= */
+main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding-top: 120px; /* offset for header height */
+  background: #ffffff;
+}
+
+#cameraBox {
+  position: relative;
+  width: min(30vw, 320px);
+  aspect-ratio: 9/16;
+  border-radius: 22px;
+  background: rgba(240, 245, 250, 0.8);
+  box-shadow:
+    inset 1px 1px 2px rgba(255,255,255,0.8),
+    inset -2px -3px 6px rgba(0,0,0,0.15),
+    0 20px 40px rgba(0,0,0,0.15);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+}
+
+#cameraMain {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  border-radius: inherit;
+}
+
+#statusText {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  font-family: monospace;
+  font-size: 14px;
+  color: #333;
+}
+</style>
+</head>
+
+<body>
+<header>
+  <div class="buttons">
+    <button class="neumorphic active"><i class="fa-light fa-fire"></i><span>Button 1</span></button>
+    <button class="neumorphic"><i class="fa-light fa-dna"></i><span>Button 2</span></button>
+    <button class="neumorphic"><i class="fa-light fa-chart-mixed"></i><span>Button 3</span></button>
+    <button class="neumorphic"><i class="fa-light fa-atom"></i><span>Button 4</span></button>
+    <button class="neumorphic"><i class="fa-light fa-seedling"></i><span>Button 5</span></button>
+    <button class="neumorphic"><i class="fa-light fa-disease"></i><span>Button 6</span></button>
+  </div>
+</header>
+
+<main>
+  <div id="cameraBox">
+    <video id="cameraMain" autoplay muted playsinline></video>
+    <div id="statusText">🎥 Initializing camera...</div>
+  </div>
+</main>
+
+<script>
+async function initCam() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: false
+    });
+    const video = document.getElementById('cameraMain');
+    video.srcObject = stream;
+    document.getElementById('statusText').textContent = '✅ Rear camera active';
+  } catch (err) {
+    document.getElementById('statusText').textContent = '⚠️ Camera unavailable';
+    console.error('Camera error:', err);
+  }
+}
+initCam();
+</script>
+
+</body>
+</html>
