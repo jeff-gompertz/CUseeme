@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe — Scene 2 (Final Clean Build)</title>
+<title>CUSeeMe Modular — Scene 2 (Neumorphic Header Prototype)</title>
 
+<!-- Font Awesome icons -->
 <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v6.0.0-beta1/css/all.css">
 
 <style>
@@ -15,7 +16,9 @@ html,body{
   overflow:hidden;
 }
 
-/* HEADER — Neumorphic */
+/* =========================================================
+Header — modular neumorphic control bar
+========================================================= */
 header{
   position:fixed; top:0; left:0; width:100%;
   background:#e5e9f4;
@@ -24,7 +27,7 @@ header{
   display:flex; justify-content:center;
   padding:1rem 0;
 }
-.buttons{
+header .buttons{
   display:grid;
   grid-template-columns:repeat(6,minmax(60px,1fr));
   gap:1rem;
@@ -33,190 +36,192 @@ header{
 button.neumorphic{
   border:0.5rem solid transparent;
   border-radius:1rem;
-  color:hsl(0 0% 10%);
   background:none;
-  display:grid; place-content:center; gap:.5rem;
-  box-shadow:-.5rem -.5rem 1rem hsl(0 0% 100%/.75),
-             .5rem .5rem 1rem hsl(0 0% 50%/.5);
-  transition:.1s;
+  display:grid; place-content:center; gap:.4rem;
+  color:#222;
+  box-shadow:-.5rem -.5rem 1rem #fff8, .5rem .5rem 1rem #0003;
+  transition:.15s;
 }
-button.neumorphic:hover{color:hsl(10 80% 50%);scale:1.05;}
-button.neumorphic:active,button.neumorphic.active{
-  box-shadow:inset .5rem .5rem 1rem hsl(0 0% 50%/.5),
-             inset -.5rem -.5rem 1rem hsl(0 0% 100%/.75);
-  color:hsl(10 80% 50%);
+button.neumorphic:hover{color:#e44; scale:1.05;}
+button.neumorphic.active{
+  box-shadow:inset .5rem .5rem 1rem #0003,
+             inset -.5rem -.5rem 1rem #fff8;
+  color:#e44;
 }
 button.neumorphic>i{font-size:20px;}
 button.neumorphic>span{font-size:12px;}
 @media(max-width:600px){
-  .buttons{grid-template-columns:repeat(auto-fit,minmax(50px,1fr));width:95vw;gap:.5rem;}
+  header .buttons{
+    grid-template-columns:repeat(auto-fit,minmax(50px,1fr));
+    width:95vw; gap:.5rem;
+  }
   button.neumorphic>i{font-size:16px;}
   button.neumorphic>span{font-size:10px;}
 }
 
-/* CAMERA + HUD + MINI WINDOWS */
+/* =========================================================
+Camera layer
+========================================================= */
 #cameraMain{
-  position:fixed; inset:0;
-  width:100%; height:100%;
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
   object-fit:cover;
   transform:scaleX(-1);
   z-index:100;
 }
 
-#hudShell{
-  position:fixed; top:140px; right:32px;
-  z-index:800;
-  display:grid; gap:14px;
-  padding:24px;
-  min-width:320px;
-  background:rgba(185,225,255,.45);
-  border-radius:20px;
-  border:1px solid rgba(255,255,255,.65);
-  box-shadow:inset 0 1px 3px rgba(255,255,255,.65),
-             inset 0 -1px 3px rgba(0,45,90,.35),
-             0 12px 45px rgba(0,50,90,.35);
-  backdrop-filter:blur(20px) saturate(1.25);
-  -webkit-backdrop-filter:blur(20px) saturate(1.25);
-  text-align:center;
-}
-.hud-row{display:flex;gap:12px;justify-content:space-between;}
-.hud-btn{
-  flex:1;
-  font-family:"VT323",monospace;
-  font-size:17px;
-  background:rgba(215,235,255,.35);
-  border:none;border-radius:10px;
-  box-shadow:inset 1px 1px 2px rgba(255,255,255,.8),
-             inset -1px -2px 3px rgba(0,30,60,.3);
-  padding:10px 12px;cursor:pointer;
-  transition:.2s;
-}
-.hud-btn:hover{transform:translateY(-1px);}
-.hud-btn.active{background:rgba(255,165,100,.15);color:#ff6a2f;}
-
-.miniWin{
+/* =========================================================
+Mini windows (spawned video tiles)
+========================================================= */
+.mini{
   position:absolute;
-  width:22vw;max-width:380px;aspect-ratio:9/16;
-  background:rgba(210,240,255,.25);
-  border:1px solid rgba(255,255,255,.55);
-  border-radius:16px;
-  backdrop-filter:blur(12px);
-  box-shadow:inset 0 1px 2px rgba(255,255,255,.6),
-             0 18px 40px rgba(0,0,0,.25);
-  overflow:hidden;cursor:grab;z-index:2000;
+  width:180px;
+  aspect-ratio:9/16;
+  border-radius:14px;
+  overflow:hidden;
+  backdrop-filter:blur(8px);
+  box-shadow:0 10px 25px rgba(0,0,0,.25);
+  z-index:1500;
+  cursor:grab;
 }
-.miniBar{display:flex;justify-content:space-between;padding:4px 10px;height:26px;
-  background:rgba(255,255,255,.18);font-size:12px;}
-.miniInner{position:relative;width:100%;height:calc(100% - 26px);}
-.miniVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);}
-#ticker{position:fixed;left:16px;bottom:14px;z-index:900;
-  width:45vw;max-width:700px;display:flex;flex-direction:column-reverse;
-  color:#ff3a2f;font-size:18px;}
+.mini video{
+  width:100%; height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
+}
 </style>
 </head>
 
 <body>
 
+<!-- =========================================================
+HEADER BAR — primary control interface
+========================================================= -->
 <header>
   <div class="buttons">
-    <button class="neumorphic" id="btnSpawn5"><i class="fa-light fa-fire"></i><span>Spawn 5</span></button>
-    <button class="neumorphic" id="btnReverseCam"><i class="fa-light fa-dna"></i><span>Reverse Cam</span></button>
-    <button class="neumorphic" id="btnVoice"><i class="fa-light fa-chart-mixed"></i><span>Voice</span></button>
-    <button class="neumorphic" id="btnCloseAll"><i class="fa-light fa-atom"></i><span>Close All</span></button>
-    <button class="neumorphic"><i class="fa-light fa-seedling"></i><span>HUD Shift</span></button>
-    <button class="neumorphic active" id="btnReturn"><i class="fa-light fa-arrow-left"></i><span>Return</span></button>
+    <button class="neumorphic" data-action="spawn"><i class="fa-light fa-fire"></i><span>Spawn 5</span></button>
+    <button class="neumorphic" data-action="reverse"><i class="fa-light fa-dna"></i><span>Reverse</span></button>
+    <button class="neumorphic" data-action="voice"><i class="fa-light fa-waveform-lines"></i><span>Voice</span></button>
+    <button class="neumorphic" data-action="close"><i class="fa-light fa-xmark"></i><span>Close</span></button>
+    <button class="neumorphic" data-action="next"><i class="fa-light fa-arrow-right"></i><span>Next</span></button>
+    <button class="neumorphic active" data-action="return"><i class="fa-light fa-arrow-left"></i><span>Return</span></button>
   </div>
 </header>
 
+<!-- =========================================================
+Main camera feed
+========================================================= -->
 <video id="cameraMain" autoplay muted playsinline></video>
 
-<div id="hudShell">
-  <div id="hudHeader">Mode &gt; Shift</div>
-  <div class="hud-row">
-    <button class="hud-btn" id="hudSpawn">➕ Spawn 5</button>
-    <button class="hud-btn" id="hudReverse">🔁 Reverse Cam</button>
-  </div>
-  <div class="hud-row">
-    <button class="hud-btn" id="hudVoice">🔊 Voice</button>
-    <button class="hud-btn" id="hudClose">✕ Close All</button>
-  </div>
-</div>
-
-<div id="ticker"></div>
+<!-- =========================================================
+Ticker (optional status display)
+========================================================= -->
+<div id="ticker" style="position:fixed;left:12px;bottom:10px;font-family:monospace;font-size:14px;color:#e44;z-index:2000;"></div>
 
 <script>
-let mediaStream=null; let facing='environment';
-const ticker=document.getElementById('ticker');
-function addTicker(t){const l=document.createElement('div');l.textContent=t;ticker.prepend(l);}
-async function initStream(){
-  if(mediaStream){mediaStream.getTracks().forEach(tr=>tr.stop());}
-  try{
-    mediaStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing}},audio:false});
-    addTicker(`camera: ${facing==='user'?'front':'rear'} ready`);
-  }catch(e){addTicker('⚠ camera denied');}
-}
-initStream();
+/* =========================================================
+Camera setup + control functions
+========================================================= */
+let mediaStream=null, facing='environment', winCount=0, spawnUsed=false;
 
-/* MINI WINDOW LOGIC */
-let winCount=0,spawnUsed=false;
-function makeMiniWindow({x=80,y=80}={}){
+const ticker=document.getElementById('ticker');
+function log(msg){const t=document.createElement('div');t.textContent=msg;ticker.prepend(t);}
+
+async function initCam(){
+  if(mediaStream){mediaStream.getTracks().forEach(t=>t.stop());}
+  try{
+    mediaStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:facing}},
+      audio:false
+    });
+    document.getElementById('cameraMain').srcObject=mediaStream;
+    log(`✅ ${facing==='user'?'Front':'Rear'} camera active`);
+  }catch(err){
+    log('⚠️ Camera unavailable');
+    console.error(err);
+  }
+}
+initCam();
+
+function flipCamera(){
+  facing=(facing==='user')?'environment':'user';
+  initCam();
+  log(`🔁 Camera flipped → ${facing}`);
+}
+
+/* =========================================================
+Mini window system
+========================================================= */
+function spawnFive(){
+  if(spawnUsed) return log('🚫 Spawn blocked (already active)');
+  spawnUsed=true;
+  for(let i=0;i<5;i++) makeMini({x:80+i*30,y:120+i*20});
+  log('🧩 Spawned 5 windows');
+}
+
+function makeMini({x=80,y=80}={}){
   winCount++;
   const el=document.createElement('div');
-  el.className='miniWin'; el.style.left=x+'px'; el.style.top=y+'px';
-  el.innerHTML=`
-    <div class="miniBar"><div>subject_${String(winCount).padStart(4,'0')}</div></div>
-    <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>`;
+  el.className='mini';
+  el.style.left=x+'px';
+  el.style.top=y+'px';
+  el.innerHTML=`<video autoplay muted playsinline></video>`;
   document.body.appendChild(el);
-  const v=el.querySelector('.miniVideo'); if(mediaStream)v.srcObject=mediaStream;
-  const bar=el.querySelector('.miniBar'); let drag=false,sx=0,sy=0,sl=0,st=0;
-  function start(e){drag=true;const r=el.getBoundingClientRect();sl=r.left;st=r.top;
-    sx=(e.touches?e.touches[0].clientX:e.clientX);
-    sy=(e.touches?e.touches[0].clientY:e.clientY);
+  const v=el.querySelector('video');
+  if(mediaStream) v.srcObject=mediaStream;
+
+  let dragging=false,sx=0,sy=0,sl=0,st=0;
+  el.addEventListener('pointerdown',e=>{
+    dragging=true;
+    const r=el.getBoundingClientRect(); sl=r.left; st=r.top;
+    sx=e.clientX; sy=e.clientY;
     document.addEventListener('pointermove',move);
-    document.addEventListener('pointerup',stop);}
-  function move(e){if(!drag)return;
-    const cx=(e.touches?e.touches[0].clientX:e.clientX),
-          cy=(e.touches?e.touches[0].clientY:e.clientY);
-    el.style.left=(sl+(cx-sx))+'px'; el.style.top=(st+(cy-sy))+'px'; e.preventDefault?.();}
-  function stop(){drag=false;document.removeEventListener('pointermove',move);
-    document.removeEventListener('pointerup',stop);}
-  bar.addEventListener('pointerdown',start);
-  return el;
+    document.addEventListener('pointerup',stop);
+  });
+  function move(e){
+    if(!dragging) return;
+    el.style.left=(sl+(e.clientX-sx))+'px';
+    el.style.top=(st+(e.clientY-sy))+'px';
+  }
+  function stop(){
+    dragging=false;
+    document.removeEventListener('pointermove',move);
+    document.removeEventListener('pointerup',stop);
+  }
 }
 
-/* BUTTON WIRING */
+function closeAll(){
+  document.querySelectorAll('.mini').forEach(m=>m.remove());
+  spawnUsed=false; winCount=0;
+  log('✖️ All windows closed');
+}
+
+function toggleVoice(){
+  alert('Voice toggle (placeholder)');
+}
+
+/* =========================================================
+Header wiring (universal modular handler)
+========================================================= */
 document.addEventListener('DOMContentLoaded',()=>{
-  const spawn=[document.getElementById('btnSpawn5'),document.getElementById('hudSpawn')];
-  const reverse=[document.getElementById('btnReverseCam'),document.getElementById('hudReverse')];
-  const voice=[document.getElementById('btnVoice'),document.getElementById('hudVoice')];
-  const close=[document.getElementById('btnCloseAll'),document.getElementById('hudClose')];
-  const ret=document.getElementById('btnReturn');
-
-  spawn.forEach(b=>b.addEventListener('click',()=>{
-    if(spawnUsed)return addTicker('spawn blocked');
-    spawnUsed=true;
-    for(let i=0;i<5;i++)makeMiniWindow({x:80+i*26,y:120+i*18});
-    addTicker('spawned 5 windows');
-  }));
-
-  close.forEach(b=>b.addEventListener('click',()=>{
-    document.querySelectorAll('.miniWin').forEach(n=>n.remove());
-    winCount=0;spawnUsed=false;addTicker('windows closed');
-  }));
-
-  reverse.forEach(b=>b.addEventListener('click',async()=>{
-    facing=(facing==='user')?'environment':'user';
-    await initStream();addTicker(`camera flipped → ${facing}`);
-  }));
-
-  voice.forEach(b=>b.addEventListener('click',()=>{
-    b.classList.toggle('active');addTicker(`voice ${b.classList.contains('active')?'on':'off'}`);
-  }));
-
-  ret.addEventListener('click',()=>window.location.href='https://jeff-gompertz.github.io/CUseeme/A/video_scene1_live_portrait2.html');
+  document.querySelectorAll('.neumorphic').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const act=btn.dataset.action;
+      switch(act){
+        case 'spawn': spawnFive(); break;
+        case 'reverse': flipCamera(); break;
+        case 'voice': toggleVoice(); break;
+        case 'close': closeAll(); break;
+        case 'next': window.location.href='video_scene3_modular.html'; break;
+        case 'return': window.location.href='video_scene1_modular.html'; break;
+      }
+    });
+  });
 });
 </script>
 
-<div style="position:fixed;bottom:6px;right:10px;font-family:monospace;font-size:12px;opacity:.6;">Scene 2</div>
+<div style="position:fixed;bottom:6px;right:10px;font-family:monospace;font-size:12px;opacity:.6;">Scene 2 — Modular Build</div>
 </body>
 </html>
