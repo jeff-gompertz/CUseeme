@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe — Scene 2 with Neumorphic Header</title>
+<title>CUSeeMe — Scene 2 (Clean Final)</title>
 
 <!-- Font Awesome -->
 <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v6.0.0-beta1/css/all.css">
@@ -16,7 +16,9 @@ html,body{
   overflow:hidden;
 }
 
-/* ---------------- HEADER ---------------- */
+/* =========================================================
+Header — shared Neumorphic design
+========================================================= */
 header{
   position:fixed; top:0; left:0; width:100%;
   background:#e5e9f4;
@@ -58,7 +60,9 @@ button.neumorphic>span{font-size:12px;}
   button.neumorphic>span{font-size:10px;}
 }
 
-/* ---------------- CAMERA + HUD ---------------- */
+/* =========================================================
+Camera + HUD + Mini windows
+========================================================= */
 #cameraMain{
   position:fixed; inset:0;
   width:100%; height:100%;
@@ -67,7 +71,6 @@ button.neumorphic>span{font-size:12px;}
   z-index:100;
 }
 
-/* HUD shell */
 #hudShell{
   position:fixed; top:140px; right:32px;
   z-index:800;
@@ -84,6 +87,7 @@ button.neumorphic>span{font-size:12px;}
   -webkit-backdrop-filter:blur(20px) saturate(1.25);
   text-align:center;
 }
+#hudHeader{font-weight:600; margin-bottom:6px;}
 .hud-row{display:flex;gap:12px;justify-content:space-between;}
 .hud-btn{
   flex:1;
@@ -98,8 +102,8 @@ button.neumorphic>span{font-size:12px;}
   transition:.2s;
 }
 .hud-btn:hover{transform:translateY(-1px);}
+.hud-btn.active{background:rgba(255,165,100,.15);color:#ff6a2f;}
 
-/* Mini windows */
 .miniWin{
   position:absolute;
   width:22vw;max-width:380px;aspect-ratio:9/16;
@@ -116,6 +120,7 @@ button.neumorphic>span{font-size:12px;}
   background:rgba(255,255,255,.18);font-size:12px;}
 .miniInner{position:relative;width:100%;height:calc(100% - 26px);}
 .miniVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);}
+
 #ticker{position:fixed;left:16px;bottom:14px;z-index:900;
   width:45vw;max-width:700px;display:flex;flex-direction:column-reverse;
   color:#ff3a2f;font-size:18px;line-height:1.25;}
@@ -138,8 +143,9 @@ button.neumorphic>span{font-size:12px;}
   </div>
 </header>
 
-<!-- MAIN -->
+<!-- MAIN CAMERA + HUD -->
 <video id="cameraMain" autoplay muted playsinline></video>
+
 <div id="hudShell">
   <div id="hudHeader">Mode &gt; Shift</div>
   <div class="hud-row">
@@ -151,37 +157,41 @@ button.neumorphic>span{font-size:12px;}
     <button class="hud-btn" id="btnCloseAll">✕ Close All</button>
   </div>
 </div>
+
 <div id="ticker"></div>
 
 <script>
-/* ---------------- CAMERA + TICKER ---------------- */
-window.mediaStream=null;let facing='environment';
+/* =========================================================
+Camera + HUD Logic
+========================================================= */
+let mediaStream=null; let facing='environment';
 const ticker=document.getElementById('ticker');
 function addTicker(t){const l=document.createElement('div');l.className='tline';l.textContent=t;ticker.prepend(l);}
 async function initStream(){
-  if(window.mediaStream){window.mediaStream.getTracks().forEach(t=>t.stop());}
+  if(mediaStream){mediaStream.getTracks().forEach(tr=>tr.stop());}
   try{
-    window.mediaStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing}},audio:false});
+    mediaStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing}},audio:false});
     addTicker(`camera: ${facing==='user'?'front':'rear'} feed ready`);
   }catch(e){addTicker('⚠ camera denied/unavailable');}
 }
 initStream();
 
-/* ---------------- MINI-WINDOW SYSTEM ---------------- */
+/* =========================================================
+Mini-window System
+========================================================= */
 let winCount=0,spawnUsed=false;
 function makeMiniWindow({x=80,y=80}={}){
   winCount++;
   const el=document.createElement('div');
   el.className='miniWin';
-  el.style.left=x+'px';el.style.top=y+'px';
+  el.style.left=x+'px'; el.style.top=y+'px';
   el.innerHTML=`
     <div class="miniBar"><div>subject_${String(winCount).padStart(4,'0')}</div></div>
     <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>`;
   document.body.appendChild(el);
-  const v=el.querySelector('.miniVideo');
-  if(window.mediaStream)v.srcObject=window.mediaStream;
-  const bar=el.querySelector('.miniBar');
-  let drag=false,sx=0,sy=0,sl=0,st=0;
+  const v=el.querySelector('.miniVideo'); if(mediaStream) v.srcObject=mediaStream;
+
+  const bar=el.querySelector('.miniBar'); let drag=false,sx=0,sy=0,sl=0,st=0;
   function start(e){drag=true;const r=el.getBoundingClientRect();sl=r.left;st=r.top;
     sx=(e.touches?e.touches[0].clientX:e.clientX);
     sy=(e.touches?e.touches[0].clientY:e.clientY);
@@ -190,7 +200,7 @@ function makeMiniWindow({x=80,y=80}={}){
   function move(e){if(!drag)return;
     const cx=(e.touches?e.touches[0].clientX:e.clientX),
           cy=(e.touches?e.touches[0].clientY:e.clientY);
-    el.style.left=(sl+(cx-sx))+'px';el.style.top=(st+(cy-sy))+'px';e.preventDefault?.();}
+    el.style.left=(sl+(cx-sx))+'px'; el.style.top=(st+(cy-sy))+'px'; e.preventDefault?.();}
   function stop(){drag=false;
     document.removeEventListener('pointermove',move);
     document.removeEventListener('pointerup',stop);}
@@ -198,13 +208,14 @@ function makeMiniWindow({x=80,y=80}={}){
   return el;
 }
 
-/* ---------------- BUTTON WIRING ---------------- */
+/* =========================================================
+Button Wiring (header + HUD)
+========================================================= */
 document.addEventListener('DOMContentLoaded',()=>{
   const btnSpawn=document.querySelector('.buttons button:nth-child(1)');
   const btnReverse=document.querySelector('.buttons button:nth-child(2)');
   const btnVoice=document.querySelector('.buttons button:nth-child(3)');
   const btnClose=document.querySelector('.buttons button:nth-child(4)');
-  const btnHUD=document.querySelector('.buttons button:nth-child(5)');
   const btnReturn=document.querySelector('.buttons button:nth-child(6)');
 
   btnSpawn.addEventListener('click',()=>{
@@ -224,11 +235,17 @@ document.addEventListener('DOMContentLoaded',()=>{
     await initStream();addTicker(`camera flipped → ${facing}`);
   });
 
+  btnVoice.addEventListener('click',()=>{
+    btnVoice.classList.toggle('active');
+    addTicker(`voice ${btnVoice.classList.contains('active')?'enabled':'disabled'}`);
+  });
+
   btnReturn.addEventListener('click',()=>{
     window.location.href='https://jeff-gompertz.github.io/CUseeme/A/video_scene1_live_portrait2.html';
   });
 });
 </script>
 
+<div style="position:fixed;bottom:6px;right:10px;font-family:monospace;font-size:12px;opacity:.6;">Scene 2</div>
 </body>
 </html>
