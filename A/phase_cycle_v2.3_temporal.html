@@ -360,10 +360,10 @@ async function boot(){
   await initMedia();
   running = true;
 }
-window.addEventListener('click', async function once(){
-  window.removeEventListener('click', once, {once:true});
-  await boot();
-}, { once:true });
+// iOS requires explicit user interaction to start media
+window.addEventListener('touchstart', () => boot(), { once:true });
+window.addEventListener('click', () => boot(), { once:true });
+
 
 tick();
 </script>
