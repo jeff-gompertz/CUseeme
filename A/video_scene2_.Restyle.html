@@ -157,6 +157,32 @@ main {
 }
 .tline { opacity: .95; margin: 0; animation: fadeIn .6s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+
+.miniWin {
+  position: absolute;
+  width: 22vw; max-width: 380px; aspect-ratio: 9/16;
+  background: rgba(210,240,255,0.25);
+  border: 1px solid rgba(255,255,255,0.55);
+  border-radius: 16px;
+  backdrop-filter: blur(12px);
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,0.6),
+    0 18px 40px rgba(0,0,0,0.25);
+  overflow: hidden;
+  cursor: grab;
+  z-index: 500;
+}
+.miniWin:active { cursor: grabbing; }
+.miniBar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 10px; height: 26px;
+  background: rgba(255,255,255,0.18);
+  font-size: 12px; color: #222; user-select: none;
+}
+.miniInner { position: relative; width: 100%; height: calc(100% - 26px); }
+.miniVideo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+
+
 </style>
 </head>
 
@@ -255,6 +281,100 @@ btnVoice.addEventListener('click',()=>{
 });
 initStream();
 </script>
+
+<script>
+/* =========================================================
+Mini-window System (restored from v1.7 dynamic)
+========================================================= */
+let winCount = 0, spawnUsed = false;
+
+function makeMiniWindow({x = 80, y = 80} = {}) {
+  winCount++;
+  const el = document.createElement('div');
+  el.className = 'miniWin';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.innerHTML = `
+    <div class="miniBar">
+      <div class="miniTitle">subject_${String(winCount).padStart(4,'0')}</div>
+      <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+    </div>
+    <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>
+  `;
+  document.body.appendChild(el);
+
+  const v = el.querySelector('.miniVideo');
+  if (mediaStream) v.srcObject = mediaStream;
+
+  const bar = el.querySelector('.miniBar');
+  let dragging = false, sx = 0, sy = 0, sl = 0, st = 0;
+
+  function start(e) {
+    dragging = true;
+    const r = el.getBoundingClientRect();
+    sl = r.left; st = r.top;
+    sx = (e.touches ? e.touches[0].clientX : e.clientX);
+    sy = (e.touches ? e.touches[0].clientY : e.clientY);
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', stop);
+    document.addEventListener('touchmove', move, {passive:false});
+    document.addEventListener('touchend', stop);
+  }
+
+  function move(e) {
+    if (!dragging) return;
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+    el.style.left = (sl + (cx - sx)) + 'px';
+    el.style.top = (st + (cy - sy)) + 'px';
+    e.preventDefault?.();
+  }
+
+  function stop() {
+    dragging = false;
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', stop);
+    document.removeEventListener('touchmove', move);
+    document.removeEventListener('touchend', stop);
+  }
+
+  bar.addEventListener('pointerdown', start);
+  bar.addEventListener('touchstart', start, {passive:false});
+  return el;
+}
+
+/* Link to your existing HUD buttons */
+const btnSpawn5 = document.getElementById('btnSpawn5');
+const btnCloseAll = document.getElementById('btnCloseAll');
+const btnReverseCam = document.getElementById('btnReverseCam');
+
+btnSpawn5.addEventListener('click', () => {
+  if (spawnUsed) return addTicker('spawn blocked: already active');
+  spawnUsed = true;
+  const startX = 60 + Math.random() * 40, startY = 120 + Math.random() * 40;
+  for (let i = 0; i < 5; i++) makeMiniWindow({x: startX + i * 26, y: startY + i * 18});
+  addTicker('spawned 5 windows');
+});
+
+btnCloseAll.addEventListener('click', () => {
+  document.querySelectorAll('.miniWin').forEach(n => n.remove());
+  winCount = 0; spawnUsed = false;
+  addTicker('all windows closed');
+});
+
+btnReverseCam.addEventListener('click', async () => {
+  facing = (facing === 'user') ? 'environment' : 'user';
+  await initStream();
+  addTicker(`camera flipped → ${facing}`);
+});
+</script>
+  
+
+
+
+
+
+  
 
 <script>
 /* Return button logic */
