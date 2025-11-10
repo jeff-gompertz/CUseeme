@@ -1,1 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe Modular — Scene 2 (Neumorphic Header Prototype)</title>
 
+<!-- Font Awesome icons -->
+<link rel="stylesheet" href="https://pro.fontawesome.com/releases/v6.0.0-beta1/css/all.css">
+
+<style>
+html,body{
+  margin:0; height:100%;
+  background:#e5e9f4;
+  font-family:system-ui,sans-serif;
+  overflow:hidden;
+}
+
+/* =========================================================
+Header — modular neumorphic control bar
+========================================================= */
+header{
+  position:fixed; top:0; left:0; width:100%;
+  background:#e5e9f4;
+  box-shadow:0 5px 10px rgba(0,0,0,0.05);
+  z-index:3000;
+  display:flex; justify-content:center;
+  padding:1rem 0;
+}
+header .buttons{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(60px,1fr));
+  gap:1rem;
+  width:min(90vw,500px);
+}
+button.neumorphic{
+  border:0.5rem solid transparent;
+  border-radius:1rem;
+  background:none;
+  display:grid; place-content:center; gap:.4rem;
+  color:#222;
+  box-shadow:-.5rem -.5rem 1rem #fff8, .5rem .5rem 1rem #0003;
+  transition:.15s;
+}
+button.neumorphic:hover{color:#e44; scale:1.05;}
+button.neumorphic.active{
+  box-shadow:inset .5rem .5rem 1rem #0003,
+             inset -.5rem -.5rem 1rem #fff8;
+  color:#e44;
+}
+button.neumorphic>i{font-size:20px;}
+button.neumorphic>span{font-size:12px;}
+@media(max-width:600px){
+  header .buttons{
+    grid-template-columns:repeat(auto-fit,minmax(50px,1fr));
+    width:95vw; gap:.5rem;
+  }
+  button.neumorphic>i{font-size:16px;}
+  button.neumorphic>span{font-size:10px;}
+}
+
+/* =========================================================
+Camera layer
+========================================================= */
+#cameraMain{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
+  z-index:100;
+}
+
+/* =========================================================
+Mini windows (spawned video tiles)
+========================================================= */
+.mini{
+  position:absolute;
+  width:180px;
+  aspect-ratio:9/16;
+  border-radius:14px;
+  overflow:hidden;
+  backdrop-filter:blur(8px);
+  box-shadow:0 10px 25px rgba(0,0,0,.25);
+  z-index:1500;
+  cursor:grab;
+}
+.mini video{
+  width:100%; height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
+}
+</style>
+</head>
+
+<body>
+
+<!-- =========================================================
+HEADER BAR — primary control interface
+========================================================= -->
+<header>
+  <div class="buttons">
+    <button class="neumorphic" data-action="spawn"><i class="fa-light fa-fire"></i><span>Spawn 5</span></button>
+    <button class="neumorphic" data-action="reverse"><i class="fa-light fa-dna"></i><span>Reverse</span></button>
+    <button class="neumorphic" data-action="voice"><i class="fa-light fa-waveform-lines"></i><span>Voice</span></button>
+    <button class="neumorphic" data-action="close"><i class="fa-light fa-xmark"></i><span>Close</span></button>
+    <button class="neumorphic" data-action="next"><i class="fa-light fa-arrow-right"></i><span>Next</span></button>
+    <button class="neumorphic active" data-action="return"><i class="fa-light fa-arrow-left"></i><span>Return</span></button>
+  </div>
+</header>
+
+<!-- =========================================================
+Main camera feed
+========================================================= -->
+<video id="cameraMain" autoplay muted playsinline></video>
+
+<!-- =========================================================
+Ticker (optional status display)
+========================================================= -->
+<div id="ticker" style="position:fixed;left:12px;bottom:10px;font-family:monospace;font-size:14px;color:#e44;z-index:2000;"></div>
+
+<script>
+/* =========================================================
+Camera setup + control functions
+========================================================= */
+let mediaStream=null, facing='environment', winCount=0, spawnUsed=false;
+
+const ticker=document.getElementById('ticker');
+function log(msg){const t=document.createElement('div');t.textContent=msg;ticker.prepend(t);}
+
+async function initCam(){
+  if(mediaStream){mediaStream.getTracks().forEach(t=>t.stop());}
+  try{
+    mediaStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:facing}},
+      audio:false
+    });
+    document.getElementById('cameraMain').srcObject=mediaStream;
+    log(`✅ ${facing==='user'?'Front':'Rear'} camera active`);
+  }catch(err){
+    log('⚠️ Camera unavailable');
+    console.error(err);
+  }
+}
+initCam();
+
+function flipCamera(){
+  facing=(facing==='user')?'environment':'user';
+  initCam();
+  log(`🔁 Camera flipped → ${facing}`);
+}
+
+/* =========================================================
+Mini window system
+========================================================= */
+function spawnFive(){
+  if(spawnUsed) return log('🚫 Spawn blocked (already active)');
+  spawnUsed=true;
+  for(let i=0;i<5;i++) makeMini({x:80+i*30,y:120+i*20});
+  log('🧩 Spawned 5 windows');
+}
+
+function makeMini({x=80,y=80}={}){
+  winCount++;
+  const el=document.createElement('div');
+  el.className='mini';
+  el.style.left=x+'px';
+  el.style.top=y+'px';
+  el.innerHTML=`<video autoplay muted playsinline></video>`;
+  document.body.appendChild(el);
+  const v=el.querySelector('video');
+  if(mediaStream) v.srcObject=mediaStream;
+
+  let dragging=false,sx=0,sy=0,sl=0,st=0;
+  el.addEventListener('pointerdown',e=>{
+    dragging=true;
+    const r=el.getBoundingClientRect(); sl=r.left; st=r.top;
+    sx=e.clientX; sy=e.clientY;
+    document.addEventListener('pointermove',move);
+    document.addEventListener('pointerup',stop);
+  });
+  function move(e){
+    if(!dragging) return;
+    el.style.left=(sl+(e.clientX-sx))+'px';
+    el.style.top=(st+(e.clientY-sy))+'px';
+  }
+  function stop(){
+    dragging=false;
+    document.removeEventListener('pointermove',move);
+    document.removeEventListener('pointerup',stop);
+  }
+}
+
+function closeAll(){
+  document.querySelectorAll('.mini').forEach(m=>m.remove());
+  spawnUsed=false; winCount=0;
+  log('✖️ All windows closed');
+}
+
+function toggleVoice(){
+  alert('Voice toggle (placeholder)');
+}
+
+/* =========================================================
+Header wiring (universal modular handler)
+========================================================= */
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.neumorphic').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const act=btn.dataset.action;
+      switch(act){
+        case 'spawn': spawnFive(); break;
+        case 'reverse': flipCamera(); break;
+        case 'voice': toggleVoice(); break;
+        case 'close': closeAll(); break;
+        case 'next': window.location.href='video_scene3_modular.html'; break;
+        case 'return': window.location.href='video_scene1_modular.html'; break;
+      }
+    });
+  });
+});
+</script>
+
+<div style="position:fixed;bottom:6px;right:10px;font-family:monospace;font-size:12px;opacity:.6;">Scene 2 — Modular Build</div>
+</body>
+</html>
