@@ -149,6 +149,16 @@ main{
 a{ pointer-events:none !important; cursor:default !important; text-decoration:none !important; }
 body > a, body > b, body > h1, body > p{ display:none !important; }
 #rssSource, #rssSource *{ display:none !important; }
+
+/* --- TEMP PATCH: visually suppress legacy Aqua HUD shell --- */
+#hudShell {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+  
 </style>
 </head>
 
