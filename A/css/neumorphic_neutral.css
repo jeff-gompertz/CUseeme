@@ -1,0 +1,71 @@
+/* =========================================================
+Neumorphic Neutral Global Theme
+Author: Jeff / CUSeeMe Modular
+Date: Nov 2025
+Purpose: Universal neutralization + neumorphic consistency
+========================================================= */
+
+/* ==== Base Page Background + Text ==== */
+html, body {
+  background: #e9ecef !important; /* neutral light gray, no purple hue */
+  color: #1a1a1a !important;
+  font-family: system-ui, sans-serif;
+}
+
+/* ==== Neumorphic Buttons ==== */
+button.neumorphic {
+  border: 0.5rem solid transparent !important;
+  border-radius: 1rem !important;
+  color: hsl(0 0% 10%) !important;
+  background: #e9ecef !important;
+  --shadow:
+    -0.5rem -0.5rem 1rem hsl(0 0% 100% / 0.9),
+     0.5rem  0.5rem 1rem hsl(0 0% 50% / 0.3);
+  box-shadow: var(--shadow) !important;
+  transition: all 0.1s ease-in-out;
+}
+
+button.neumorphic:hover,
+button.neumorphic:focus-visible {
+  color: #ff6a2f !important; /* soft orange accent */
+  scale: 1.05 !important;
+}
+
+button.neumorphic:active,
+button.neumorphic.active {
+  background: #e9ecef !important;
+  color: #ff6a2f !important;
+  box-shadow:
+    inset 0.5rem 0.5rem 1rem hsl(0 0% 50% / 0.4),
+    inset -0.5rem -0.5rem 1rem hsl(0 0% 100% / 0.9) !important;
+}
+
+/* ==== Icons and Text inside Buttons ==== */
+button.neumorphic > i {
+  font-size: 20px !important;
+}
+button.neumorphic > span {
+  font-size: 12px !important;
+}
+
+/* ==== Header / Strip background ==== */
+header {
+  background: #e9ecef !important;
+  box-shadow: 0 5px 10px rgba(0,0,0,0.05) !important;
+}
+
+/* ==== Optional Ticker / HUD neutralization ==== */
+#hudShell, #ticker {
+  background: rgba(235,240,245,0.55) !important;
+  color: #222 !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
+}
+
+/* ==== Links / Highlights ==== */
+a {
+  color: #ff6a2f !important;
+  text-decoration: none !important;
+}
+a:hover {
+  opacity: 0.85;
+}
