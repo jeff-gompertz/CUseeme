@@ -78,6 +78,17 @@ button.neumorphic.active {
 button.neumorphic > i { font-size: 20px; }
 button.neumorphic > span { font-size: 12px; }
 
+@media (max-width: 600px) {
+  .buttons {
+    grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+    width: 95vw;
+    gap: 0.5rem;
+  }
+
+  button.neumorphic > i { font-size: 16px; }
+  button.neumorphic > span { font-size: 10px; }
+}
+
 /* =========================================================
 Main camera area (your floating window)
 ========================================================= */
