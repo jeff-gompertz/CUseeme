@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Phase Panels — Room Tone / Voice</title>
+
+<link rel="stylesheet" href="https://pro.fontawesome.com/releases/v6.0.0-beta1/css/all.css">
+
+<style>
+  :root{
+    /* Neutral meta palette (soft, non-purple) */
+    --bg: #e8ecf3;
+    --panel-bg: rgba(245,248,252,0.78);
+    --panel-glass-top: rgba(255,255,255,0.85);
+    --panel-glass-btm: rgba(0,0,0,0.16);
+    --ink: hsl(220 12% 18%);
+    --accent: hsl(10 78% 50%);
+  }
+
+  html,body{
+    margin:0; height:100%;
+    background:var(--bg);
+    font-family:system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color:var(--ink);
+    overflow:hidden; /* no scroll for this scene */
+  }
+
+  /* ===== Neumorphic header (same as previous scenes) ===== */
+  header{
+    position:fixed; inset:0 auto auto 0; width:100%;
+    display:flex; justify-content:center; padding:1rem 0;
+    z-index:3000; background:var(--bg);
+    box-shadow:0 5px 10px rgba(0,0,0,.05);
+  }
+  .buttons{
+    display:grid; gap:1rem;
+    grid-template-columns: repeat(6, minmax(64px,1fr));
+    width:min(90vw, 560px);
+  }
+  button.neu{
+    border: .5rem solid transparent;
+    border-radius: 1rem;
+    background:none; color:var(--ink);
+    display:grid; place-content:center; gap:.45rem;
+    --shadow: -.5rem -.5rem 1rem hsl(0 0% 100% / .75),
+               .5rem  .5rem 1rem hsl(0 0% 50%  / .50);
+    box-shadow: var(--shadow);
+    outline:none; transition:transform .12s, color .12s, box-shadow .12s;
+  }
+  button.neu:hover, button.neu:focus-visible{ transform:translateY(-1px); color:var(--accent); }
+  button.neu:active, button.neu.active{
+    box-shadow: var(--shadow),
+      inset .5rem .5rem 1rem hsl(0 0% 50% / .5),
+      inset -.5rem -.5rem 1rem hsl(0 0% 100% / .75);
+    color:var(--accent);
+  }
+  button.neu > i{ font-size:18px }
+  button.neu > span{ font-size:12px }
+
+  @media (max-width:600px){
+    .buttons{ width:95vw; gap:.6rem; grid-template-columns: repeat(6, minmax(56px,1fr)); }
+    button.neu > i{ font-size:16px } button.neu > span{ font-size:10px }
+  }
+
+  /* ===== Stage ===== */
+  main{
+    position:relative; width:100%; height:100%;
+    padding-top:110px; /* header offset */
+  }
+
+  .stage{
+    position:absolute; left:50%; top:56%;
+    transform:translate(-50%,-50%);
+    width:min(92vw, 980px);
+    aspect-ratio: 14 / 9;          /* widescreen canvas box */
+  }
+
+  /* panel frame (soft translucent “card” look) */
+  .panel{
+    position:absolute; top:0; bottom:0;
+    background:var(--panel-bg);
+    border-radius:18px;
+    box-shadow:
+      inset 1px 1px 2px var(--panel-glass-top),
+      inset -2px -3px 6px var(--panel-glass-btm),
+      0 18px 36px rgba(0,0,0,.16);
+    overflow:hidden;
+  }
+  .panel canvas{ position:absolute; inset:0; width:100%; height:100% }
+
+  /* tiny status line for mode */
+  .status{
+    position:fixed; right:10px; bottom:8px; z-index:2000;
+    font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    opacity:.55;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="buttons">
+    <button id="btnPhase"  class="neu"><i class="fa-light fa-waveform-lines"></i><span>Phase Δ</span></button>
+    <button id="btnOffset" class="neu"><i class="fa-light fa-arrows-left-right"></i><span>Offset</span></button>
+    <button id="btnCycle"  class="neu"><i class="fa-light fa-circle-notch"></i><span>Cycle</span></button>
+    <button id="btnCam"    class="neu"><i class="fa-light fa-camera-rotate"></i><span>Cam ↻</span></button>
+    <button id="btnNext"   class="neu"><i class="fa-light fa-arrow-right"></i><span>Next</span></button>
+    <button id="btnBack"   class="neu"><i class="fa-light fa-arrow-left"></i><span>Return</span></button>
+  </div>
+</header>
+
+<main>
+  <div id="stage" class="stage" aria-label="phase panels"></div>
+</main>
+
+<div id="status" class="status">mode: room-tone · speed: slow · offset: 0</div>
+
+<!-- Hidden video source (camera) -->
+<video id="cam" autoplay playsinline muted style="position:fixed;left:-9999px;top:-9999px;"></video>
+
+<script>
+(()=>{
+
+// ---------- Layout: create 6 panels ----------
+const stage = document.getElementById('stage');
+const P = 6;                     // number of vertical panels
+const gutter = 0.018;            // relative gap between panels
+const panels = [];
+for(let i=0;i<P;i++){
+  const el = document.createElement('div');
+  el.className = 'panel';
+  el.style.left   = ( (i*(1/P)) + gutter/2 )*100 + '%';
+  el.style.width  = ( (1/P) - gutter )*100 + '%';
+  const c = document.createElement('canvas');
+  el.appendChild(c);
+  stage.appendChild(el);
+  panels.push({el, c, ctx: c.getContext('2d')});
+}
+
+// Resize canvases to the displayed CSS size (kept in sync on resize)
+function resizeCanvases(){
+  const r = stage.getBoundingClientRect();
+  panels.forEach(p=>{
+    p.c.width  = Math.max(2, Math.floor(r.width  * parseFloat(getComputedStyle(p.el).width)/r.width));
+    p.c.width  = p.el.clientWidth;  // precise px
+    p.c.height = p.el.clientHeight;
+  });
+}
+window.addEventListener('resize', resizeCanvases);
+
+// ---------- Camera ----------
+const cam = document.getElementById('cam');
+let facing = 'environment';
+async function startCam(){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ ideal:facing } }, audio:false
+    });
+    cam.srcObject = stream;
+  }catch(e){ console.warn('camera error', e); }
+}
+startCam();
+
+// ---------- Audio (room tone / voice via same mic) ----------
+let audioCtx, analyser, micStream, dataArray, rms=0;
+let mode = 'room'; // 'room' or 'voice'
+async function initAudio(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    micStream = await navigator.mediaDevices.getUserMedia({audio:true, video:false});
+    const src = audioCtx.createMediaStreamSource(micStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.9;
+    src.connect(analyser);
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+  }catch(e){ console.warn('audio error', e); }
+}
+function sampleAudio(){
+  if(!analyser) return 0;
+  analyser.getByteTimeDomainData(dataArray);
+  // RMS of centered waveform
+  let sum=0;
+  for(let i=0;i<dataArray.length;i++){
+    const v = (dataArray[i]-128)/128;
+    sum += v*v;
+  }
+  return Math.sqrt(sum/dataArray.length); // 0..~1
+}
+
+// ---------- Frame buffer (shallow ring buffer for phased delay) ----------
+const bufLen = 24;               // ~24 frames of history (tens of ms)
+const frameBuf = new Array(bufLen);
+let bufPtr = 0;
+const scratch = document.createElement('canvas');
+const sctx = scratch.getContext('2d',{alpha:false});
+
+// ---------- Drawing loop ----------
+let speedIndex = 0;
+const speeds = [0.12, 0.22, 0.36]; // slow → medium → faster drift
+let baseOffset = 0;                // coarse source offset (Offset button)
+let t0 = performance.now();
+
+function draw(){
+  const now = performance.now();
+  const elapsed = (now - t0)/1000;
+
+  // Maintain scratch size to cam video box (cover stage area)
+  const r = stage.getBoundingClientRect();
+  const W = r.width, H = r.height;
+  scratch.width = W; scratch.height = H;
+
+  // Pull a fresh video frame if available
+  try{ sctx.drawImage(cam, 0, 0, W, H); }catch(_){ /* camera not ready */ }
+
+  // Push into ring buffer
+  frameBuf[bufPtr] = scratch.transferToImageBitmap ? scratch.transferToImageBitmap() : sctx.getImageData(0,0,W,H);
+  bufPtr = (bufPtr + 1) % bufLen;
+
+  // Sample audio and compute a gentle modulation factor
+  const energy = sampleAudio();            // 0..~1
+  rms = rms*0.9 + energy*0.1;              // low-pass
+  const isVoice = (mode==='voice') && (rms > 0.025); // simple gate
+  const drift = speeds[speedIndex];
+
+  // panel render
+  panels.forEach((p, i)=>{
+    const ctx = p.ctx;
+    const cw = p.c.width, ch = p.c.height;
+
+    // compute which delayed frame to pull for this panel
+    // baseline sinus phase + optional voice accent
+    const sinus = Math.sin(elapsed*drift + i*0.55);
+    const voiceKick = isVoice ? Math.min(1, (rms-0.02)*22) : 0; // quick lift when speaking
+    const delayF = Math.floor( ( (i*2 + 3) + (sinus*3) + voiceKick*6 ) ) % bufLen;
+    const idx = (bufPtr - 1 - delayF + bufLen) % bufLen;
+    const frame = frameBuf[idx];
+    if(!frame){ ctx.clearRect(0,0,cw,ch); return; }
+
+    // map panel source slice with a subtle horizontal offset
+    const sliceW = W / P;
+    const srcX = Math.max(0, Math.min(W - sliceW,
+      i*sliceW + baseOffset + (sinus*6) + (isVoice? voiceKick*4 : 0)
+    ));
+
+    ctx.clearRect(0,0,cw,ch);
+    if(frame instanceof ImageBitmap){
+      ctx.drawImage(frame, srcX, 0, sliceW, H, 0, 0, cw, ch);
+    }else{
+      // ImageData fallback: draw to temp and then slice
+      sctx.putImageData(frame, 0, 0);
+      ctx.drawImage(scratch, srcX, 0, sliceW, H, 0, 0, cw, ch);
+    }
+  });
+
+  requestAnimationFrame(draw);
+}
+resizeCanvases();
+requestAnimationFrame(draw);
+
+// ---------- Controls ----------
+const status = document.getElementById('status');
+function updateStatus(){
+  status.textContent = `mode: ${mode==='room'?'room-tone':'voice'} · speed: ${['slow','mid','fast'][speedIndex]} · offset: ${Math.round(baseOffset)}`;
+}
+
+document.getElementById('btnPhase').addEventListener('click', async ()=>{
+  // toggle mode; init audio on first use
+  if(!analyser) await initAudio();
+  mode = (mode==='room') ? 'voice' : 'room';
+  document.getElementById('btnPhase').classList.toggle('active', mode==='voice');
+  updateStatus();
+});
+
+document.getElementById('btnOffset').addEventListener('click', ()=>{
+  baseOffset += 10;               // nudge source slice to the right
+  if(baseOffset > 80) baseOffset = -20; // wrap a bit
+  updateStatus();
+});
+
+document.getElementById('btnCycle').addEventListener('click', ()=>{
+  speedIndex = (speedIndex + 1) % speeds.length;
+  updateStatus();
+});
+
+document.getElementById('btnCam').addEventListener('click', async ()=>{
+  // flip front/rear
+  facing = (facing==='user') ? 'environment' : 'user';
+  // stop old tracks
+  try{ cam.srcObject?.getTracks().forEach(t=>t.stop()); }catch(_){}
+  await startCam();
+  document.getElementById('btnCam').classList.toggle('active', facing==='user');
+});
+
+document.getElementById('btnNext').addEventListener('click', ()=>{
+  // adjust to your next scene URL
+  window.location.href = 'video_scene2_.html';
+});
+document.getElementById('btnBack').addEventListener('click', ()=>{
+  // adjust to your return scene URL
+  window.location.href = 'video_scene1_live_portrait2.html';
+});
+
+updateStatus();
+
+})();
+</script>
+</body>
+</html>
