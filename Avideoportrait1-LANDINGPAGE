@@ -1,227 +1,209 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe Modular — Scene 2 (Neumorphic Header Prototype)</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CUSeeMe — Scene 1 (Live Portrait Modular)</title>
 
-<!-- Font Awesome icons -->
+<!-- Font Awesome -->
 <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v6.0.0-beta1/css/all.css">
 
 <style>
-html,body{
-  margin:0; height:100%;
-  background:#e5e9f4;
-  font-family:system-ui,sans-serif;
-  overflow:hidden;
+html,body {
+  margin: 0;
+  height: 100%;
+  background: #e5e9f4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  overflow: hidden;
+  font-family: system-ui, sans-serif;
 }
 
 /* =========================================================
-Header — modular neumorphic control bar
+Header — shared neumorphic layout
 ========================================================= */
-header{
-  position:fixed; top:0; left:0; width:100%;
-  background:#e5e9f4;
-  box-shadow:0 5px 10px rgba(0,0,0,0.05);
-  z-index:3000;
-  display:flex; justify-content:center;
-  padding:1rem 0;
+header {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  background: #e5e9f4;
+  box-shadow: 0 5px 10px rgba(0,0,0,0.05);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0;
 }
-header .buttons{
-  display:grid;
-  grid-template-columns:repeat(6,minmax(60px,1fr));
-  gap:1rem;
-  width:min(90vw,500px);
+.buttons {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(60px, 1fr));
+  gap: 1rem;
+  width: min(90vw, 500px);
 }
-button.neumorphic{
-  border:0.5rem solid transparent;
-  border-radius:1rem;
-  background:none;
-  display:grid; place-content:center; gap:.4rem;
-  color:#222;
-  box-shadow:-.5rem -.5rem 1rem #fff8, .5rem .5rem 1rem #0003;
-  transition:.15s;
+button.neumorphic {
+  border: 0.5rem solid transparent;
+  border-radius: 1rem;
+  color: hsl(0 0% 10%);
+  background: none;
+  display: grid;
+  place-content: center;
+  gap: 0.5rem;
+  --shadow:
+    -.5rem -.5rem 1rem hsl(0 0% 100% / .75),
+    .5rem .5rem 1rem hsl(0 0% 50% / .5);
+  box-shadow: var(--shadow);
+  outline: none;
+  transition: all 0.1s;
 }
-button.neumorphic:hover{color:#e44; scale:1.05;}
-button.neumorphic.active{
-  box-shadow:inset .5rem .5rem 1rem #0003,
-             inset -.5rem -.5rem 1rem #fff8;
-  color:#e44;
+button.neumorphic:hover,
+button.neumorphic:focus-visible {
+  color: hsl(10 80% 50%);
+  scale: 1.05;
 }
-button.neumorphic>i{font-size:20px;}
-button.neumorphic>span{font-size:12px;}
-@media(max-width:600px){
-  header .buttons{
-    grid-template-columns:repeat(auto-fit,minmax(50px,1fr));
-    width:95vw; gap:.5rem;
+button.neumorphic:active,
+button.neumorphic.active {
+  box-shadow:
+    var(--shadow),
+    inset .5rem .5rem 1rem hsl(0 0% 50% / .5),
+    inset -.5rem -.5rem 1rem hsl(0 0% 100% / .75);
+  color: hsl(10 80% 50%);
+}
+button.neumorphic > i { font-size: 20px; }
+button.neumorphic > span { font-size: 12px; }
+
+@media (max-width: 600px) {
+  .buttons {
+    grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+    width: 95vw;
+    gap: 0.5rem;
   }
-  button.neumorphic>i{font-size:16px;}
-  button.neumorphic>span{font-size:10px;}
+  button.neumorphic > i { font-size: 16px; }
+  button.neumorphic > span { font-size: 10px; }
 }
 
 /* =========================================================
-Camera layer
+Camera window — modular live box
 ========================================================= */
-#cameraMain{
-  position:fixed;
-  inset:0;
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  transform:scaleX(-1);
-  z-index:100;
+main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding-top: 120px; /* offset header height */
 }
 
-/* =========================================================
-Mini windows (spawned video tiles)
-========================================================= */
-.mini{
-  position:absolute;
-  width:180px;
-  aspect-ratio:9/16;
-  border-radius:14px;
-  overflow:hidden;
-  backdrop-filter:blur(8px);
-  box-shadow:0 10px 25px rgba(0,0,0,.25);
-  z-index:1500;
-  cursor:grab;
+#cameraBox {
+  position: relative;
+  width: min(40vw, 500px);
+  max-width: 500px;
+  aspect-ratio: 9/14;
+  border-radius: 22px;
+  background: rgba(240,245,250,0.8);
+  box-shadow:
+    inset 1px 1px 2px rgba(255,255,255,0.8),
+    inset -2px -3px 6px rgba(0,0,0,0.15),
+    0 20px 40px rgba(0,0,0,0.15);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
 }
-.mini video{
-  width:100%; height:100%;
-  object-fit:cover;
-  transform:scaleX(-1);
+#cameraMain {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  border-radius: inherit;
+}
+#statusText {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  font-family: monospace;
+  font-size: 14px;
+  color: #333;
+}
+#ticker {
+  position: fixed;
+  bottom: 8px;
+  left: 10px;
+  font-family: monospace;
+  font-size: 13px;
+  color: #888;
 }
 </style>
 </head>
 
 <body>
-
-<!-- =========================================================
-HEADER BAR — primary control interface
-========================================================= -->
 <header>
   <div class="buttons">
-    <button class="neumorphic" data-action="spawn"><i class="fa-light fa-fire"></i><span>Spawn 5</span></button>
-    <button class="neumorphic" data-action="reverse"><i class="fa-light fa-dna"></i><span>Reverse</span></button>
-    <button class="neumorphic" data-action="voice"><i class="fa-light fa-waveform-lines"></i><span>Voice</span></button>
-    <button class="neumorphic" data-action="close"><i class="fa-light fa-xmark"></i><span>Close</span></button>
-    <button class="neumorphic" data-action="next"><i class="fa-light fa-arrow-right"></i><span>Next</span></button>
-    <button class="neumorphic active" data-action="return"><i class="fa-light fa-arrow-left"></i><span>Return</span></button>
+    <button class="neumorphic active"><i class="fa-light fa-fire"></i><span>Spawn 5</span></button>
+    <button class="neumorphic"><i class="fa-light fa-repeat"></i><span>Reverse</span></button>
+    <button class="neumorphic"><i class="fa-light fa-waveform-lines"></i><span>Voice</span></button>
+    <button class="neumorphic"><i class="fa-light fa-xmark"></i><span>Close</span></button>
+    <button class="neumorphic"><i class="fa-light fa-arrow-right"></i><span>Next</span></button>
+    <button class="neumorphic"><i class="fa-light fa-arrow-left"></i><span>Return</span></button>
   </div>
 </header>
 
-<!-- =========================================================
-Main camera feed
-========================================================= -->
-<video id="cameraMain" autoplay muted playsinline></video>
+<main>
+  <div id="cameraBox">
+    <video id="cameraMain" autoplay muted playsinline></video>
+    <div id="statusText">🎥 Initializing camera...</div>
+  </div>
+</main>
 
-<!-- =========================================================
-Ticker (optional status display)
-========================================================= -->
-<div id="ticker" style="position:fixed;left:12px;bottom:10px;font-family:monospace;font-size:14px;color:#e44;z-index:2000;"></div>
+<div id="ticker"></div>
 
 <script>
 /* =========================================================
-Camera setup + control functions
+Initialize Camera + Spawn Logic
 ========================================================= */
-let mediaStream=null, facing='environment', winCount=0, spawnUsed=false;
-
-const ticker=document.getElementById('ticker');
-function log(msg){const t=document.createElement('div');t.textContent=msg;ticker.prepend(t);}
-
-async function initCam(){
-  if(mediaStream){mediaStream.getTracks().forEach(t=>t.stop());}
-  try{
-    mediaStream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:facing}},
-      audio:false
+async function initCam() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: false
     });
-    document.getElementById('cameraMain').srcObject=mediaStream;
-    log(`✅ ${facing==='user'?'Front':'Rear'} camera active`);
-  }catch(err){
-    log('⚠️ Camera unavailable');
-    console.error(err);
+    const video = document.getElementById('cameraMain');
+    video.srcObject = stream;
+    document.getElementById('statusText').textContent = '✅ Rear camera active';
+  } catch (err) {
+    document.getElementById('statusText').textContent = '⚠️ Camera unavailable';
+    console.error('Camera error:', err);
   }
 }
 initCam();
 
-function flipCamera(){
-  facing=(facing==='user')?'environment':'user';
-  initCam();
-  log(`🔁 Camera flipped → ${facing}`);
-}
-
 /* =========================================================
-Mini window system
+Neumorphic Button Wiring
 ========================================================= */
-function spawnFive(){
-  if(spawnUsed) return log('🚫 Spawn blocked (already active)');
-  spawnUsed=true;
-  for(let i=0;i<5;i++) makeMini({x:80+i*30,y:120+i*20});
-  log('🧩 Spawned 5 windows');
-}
+document.addEventListener('DOMContentLoaded', () => {
+  const buttons = document.querySelectorAll('.neumorphic');
+  const btnSpawn = buttons[0];
+  const btnReverse = buttons[1];
+  const btnVoice = buttons[2];
+  const btnClose = buttons[3];
+  const btnNext = buttons[4];
+  const btnReturn = buttons[5];
 
-function makeMini({x=80,y=80}={}){
-  winCount++;
-  const el=document.createElement('div');
-  el.className='mini';
-  el.style.left=x+'px';
-  el.style.top=y+'px';
-  el.innerHTML=`<video autoplay muted playsinline></video>`;
-  document.body.appendChild(el);
-  const v=el.querySelector('video');
-  if(mediaStream) v.srcObject=mediaStream;
-
-  let dragging=false,sx=0,sy=0,sl=0,st=0;
-  el.addEventListener('pointerdown',e=>{
-    dragging=true;
-    const r=el.getBoundingClientRect(); sl=r.left; st=r.top;
-    sx=e.clientX; sy=e.clientY;
-    document.addEventListener('pointermove',move);
-    document.addEventListener('pointerup',stop);
+  // Simulate window spawn
+  btnSpawn.addEventListener('click', () => {
+    const ticker = document.getElementById('ticker');
+    ticker.textContent = '🧩 Spawned 5 windows';
   });
-  function move(e){
-    if(!dragging) return;
-    el.style.left=(sl+(e.clientX-sx))+'px';
-    el.style.top=(st+(e.clientY-sy))+'px';
-  }
-  function stop(){
-    dragging=false;
-    document.removeEventListener('pointermove',move);
-    document.removeEventListener('pointerup',stop);
-  }
-}
 
-function closeAll(){
-  document.querySelectorAll('.mini').forEach(m=>m.remove());
-  spawnUsed=false; winCount=0;
-  log('✖️ All windows closed');
-}
-
-function toggleVoice(){
-  alert('Voice toggle (placeholder)');
-}
-
-/* =========================================================
-Header wiring (universal modular handler)
-========================================================= */
-document.addEventListener('DOMContentLoaded',()=>{
-  document.querySelectorAll('.neumorphic').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const act=btn.dataset.action;
-      switch(act){
-        case 'spawn': spawnFive(); break;
-        case 'reverse': flipCamera(); break;
-        case 'voice': toggleVoice(); break;
-        case 'close': closeAll(); break;
-        case 'next': window.location.href='video_scene3_modular.html'; break;
-        case 'return': window.location.href='video_scene1_modular.html'; break;
-      }
-    });
+  btnReverse.addEventListener('click', () => alert('🔁 Reverse camera'));
+  btnVoice.addEventListener('click', () => alert('🎤 Voice toggle'));
+  btnClose.addEventListener('click', () => alert('✖ Close all'));
+  btnNext.addEventListener('click', () => {
+    window.location.href = 'https://jeff-gompertz.github.io/CUseeme/A/https://jeff-gompertz.github.io/CUseeme/A/video_scene1_live_portrait2Restyle.html';
+  });
+  btnReturn.addEventListener('click', () => {
+    window.location.href = 'https://jeff-gompertz.github.io/CUseeme/A/video_scene2_Restyle.html';
   });
 });
 </script>
 
-<div style="position:fixed;bottom:6px;right:10px;font-family:monospace;font-size:12px;opacity:.6;">Scene 2 — Modular Build</div>
 </body>
 </html>
