@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Phase Cycle v2.3 — Temporal Machine (Room Tone / Voice)</title>
+
+<!-- Neumorphic neutral (optional, if you have it) -->
+<link rel="stylesheet" href="css/neumorphic_neutral.css">
+<!-- Icons from the tutorial -->
+<link rel="stylesheet" href="https://pro.fontawesome.com/releases/v6.0.0-beta1/css/all.css">
+
+<style>
+:root{
+  --bg:#e5e9f4;                 /* neutral backdrop */
+  --fieldW:min(92vw, 960px);    /* panel field size */
+  --fieldH:calc(var(--fieldW)*0.5625); /* 16:9 by default */
+}
+
+*{box-sizing:border-box}
+html,body{
+  margin:0; height:100%;
+  background:var(--bg);
+  font-family:system-ui, sans-serif;
+  overflow:hidden;
+  display:flex; flex-direction:column;
+}
+
+/* ===== Header (fixed neumorphic buttons row) ===== */
+header{
+  position:fixed; top:0; left:0; right:0; z-index:1000;
+  background:var(--bg);
+  box-shadow:0 5px 10px rgba(0,0,0,.05);
+  padding:1rem 0;
+  display:flex; justify-content:center;
+}
+.buttons{
+  display:grid;
+  grid-template-columns:repeat(6, minmax(64px, 1fr));
+  gap:1rem;
+  width:min(96vw, 640px);
+}
+button.neumorphic{
+  border:.5rem solid transparent; border-radius:1rem;
+  background:none; color:hsl(0 0% 10%);
+  display:grid; place-content:center; gap:.35rem;
+  --shadow:-.5rem -.5rem 1rem hsl(0 0% 100%/.75),
+           .5rem .5rem 1rem hsl(0 0% 50%/.5);
+  box-shadow:var(--shadow);
+  outline:none; transition:transform .08s, box-shadow .08s, color .08s;
+  cursor:pointer;
+}
+button.neumorphic > i{ font-size:18px }
+button.neumorphic > span{ font-size:11px }
+button.neumorphic:hover{ color:hsl(10 80% 50%); transform:translateY(-1px) }
+button.neumorphic.active{
+  box-shadow:var(--shadow),
+             inset .5rem .5rem 1rem hsl(0 0% 50%/.45),
+             inset -.5rem -.5rem 1rem hsl(0 0% 100%/.75);
+  color:hsl(10 80% 50%);
+}
+
+@media (max-width:600px){
+  .buttons{ grid-template-columns:repeat(6, minmax(52px, 1fr)); gap:.5rem; width:95vw; }
+  button.neumorphic > i{ font-size:16px }
+  button.neumorphic > span{ font-size:10px }
+}
+
+/* ===== Main field ===== */
+main{
+  position:relative;
+  flex:1; display:flex; align-items:center; justify-content:center;
+  padding-top:110px; /* header offset */
+}
+#field{
+  width:var(--fieldW); height:var(--fieldH);
+  position:relative;
+  background:#111;    /* shows while permission pending */
+  border-radius:12px; box-shadow:0 20px 40px rgba(0,0,0,.15);
+  overflow:hidden;
+}
+
+/* single canvas draws all six panels from one stream */
+#panelCanvas{ width:100%; height:100%; display:block; }
+
+/* Status/ticker */
+#status{
+  position:fixed; left:10px; bottom:8px; z-index:1001;
+  font:12px/1.2 monospace; opacity:.7; color:#333;
+}
+</style>
+</head>
+
+<body>
+  <!-- ===== Header / Control Row ===== -->
+  <header>
+    <div class="buttons" id="ctrls">
+      <button class="neumorphic active" id="btnRoom"><i class="fa-light fa-waveform"></i><span>Room Tone</span></button>
+      <button class="neumorphic" id="btnVoice"><i class="fa-light fa-microphone"></i><span>Voice</span></button>
+      <button class="neumorphic active" id="btnInPhase"><i class="fa-light fa-align-center"></i><span>In-Phase</span></button>
+      <button class="neumorphic" id="btnCounter"><i class="fa-light fa-arrows-repeat-1"></i><span>Counter</span></button>
+      <button class="neumorphic" id="btnStep"><i class="fa-light fa-forward-step"></i><span>Cycle Step</span></button>
+      <button class="neumorphic" id="btnAuto"><i class="fa-light fa-arrows-rotate"></i><span>Cycle Auto</span></button>
+    </div>
+  </header>
+
+  <!-- ===== Field ===== -->
+  <main>
+    <div id="field">
+      <canvas id="panelCanvas"></canvas>
+    </div>
+  </main>
+
+  <div id="status">tap to allow camera & mic…</div>
+
+<script>
+/* =========================================================
+  v2.3 TEMPORAL MACHINE — one camera, six panel delays
+  - Mic drives instantaneous remapping (option b)
+  - Fully opaque baseline; no drifting UI
+========================================================= */
+const statusEl = document.getElementById('status');
+const canvas   = document.getElementById('panelCanvas');
+const ctx      = canvas.getContext('2d', { alpha:false });
+
+const N_PANELS = 6;                // six vertical panels
+const MAX_FRAMES = 90;             // ring buffer depth (~1.5s @ 60fps)
+const buffers = new Array(MAX_FRAMES); // canvases holding past frames
+let head = 0;                       // ring write index
+let running = false;
+
+let stream=null, video=null;
+let audioCtx=null, analyser=null, dataArr=null;
+let mode = 'room';                  // 'room' or 'voice'
+let mapping = 'inphase';            // 'inphase' or 'counter'
+let cycleIndex = 0;
+let autoTimer = null;
+
+const dom = {
+  btnRoom: document.getElementById('btnRoom'),
+  btnVoice: document.getElementById('btnVoice'),
+  btnInPhase: document.getElementById('btnInPhase'),
+  btnCounter: document.getElementById('btnCounter'),
+  btnStep: document.getElementById('btnStep'),
+  btnAuto: document.getElementById('btnAuto'),
+};
+
+// ---------- Helpers ----------
+function setActive(btn, on){
+  btn.classList.toggle('active', !!on);
+}
+function setStatus(t){
+  statusEl.textContent = t;
+}
+
+// ---------- Layout / resize ----------
+function fitCanvasToField(){
+  const rect = document.getElementById('field').getBoundingClientRect();
+  canvas.width  = rect.width|0;
+  canvas.height = rect.height|0;
+  // prepare ring canvases to this size
+  for(let i=0;i<MAX_FRAMES;i++){
+    if(!buffers[i]){
+      const c = document.createElement('canvas');
+      c.width = canvas.width; c.height = canvas.height;
+      buffers[i] = c;
+    }else{
+      if(buffers[i].width!==canvas.width || buffers[i].height!==canvas.height){
+        buffers[i].width = canvas.width;
+        buffers[i].height= canvas.height;
+      }
+    }
+  }
+}
+addEventListener('resize', fitCanvasToField);
+
+// ---------- Media init ----------
+async function initMedia(){
+  if(stream) return;
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ ideal:'environment' } },
+      audio:true
+    });
+
+    // video element for capture
+    video = document.createElement('video');
+    video.srcObject = stream;
+    video.muted = true;
+    video.playsInline = true;
+    await video.play();
+
+    // audio analysis
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const src = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = (mode==='room') ? 0.85 : 0.25; // room=smoothed, voice=snappy
+    dataArr = new Uint8Array(analyser.frequencyBinCount);
+    src.connect(analyser);
+
+    setStatus('🎙 ' + (mode==='room' ? 'Room tone active' : 'Voice mode'));
+  }catch(e){
+    console.error(e);
+    setStatus('⚠ allow camera & mic to start');
+  }
+}
+
+// ---------- Amplitude measure (instant) ----------
+function getLevel(){
+  if(!analyser) return 0;
+  analyser.getByteTimeDomainData(dataArr);
+  // RMS around midline 128
+  let sum=0;
+  for(let i=0;i<dataArr.length;i++){
+    const d = (dataArr[i]-128)/128;
+    sum += d*d;
+  }
+  let rms = Math.sqrt(sum/dataArr.length); // ~0..1
+  // Voice mode: emphasize transients (more “machine”)
+  if(mode==='voice'){
+    rms = Math.min(1, rms*2.2);
+  }else{
+    // room: keep it gentle but still responsive
+    rms = Math.min(1, rms*1.2);
+  }
+  return rms;
+}
+
+// ---------- Delay map generation ----------
+function delayMap(level){
+  // level 0..1 → convert to max frame lag
+  // go extreme per your instruction, then we can dial back:
+  const baseMaxDelay = 42;  // ~700ms at 60fps
+  const maxDelay = Math.max(4, Math.round(baseMaxDelay * level));
+  // patterns per cycle index
+  const patterns = [
+    // in-phase gradation
+    [0, 1, 2, 3, 4, 5],
+    // mirrored from center
+    [0, 2, 4, 4, 2, 0],
+    // outer fast, inner slow
+    [5, 3, 1, 1, 3, 5],
+    // alternating
+    [0, 5, 1, 4, 2, 3],
+    // stair up
+    [1, 2, 3, 4, 5, 6],
+    // stair down
+    [6, 5, 4, 3, 2, 1]
+  ];
+  const base = patterns[cycleIndex % patterns.length];
+
+  let idxs = base.slice();
+  if(mapping==='counter'){
+    // invert every other panel for counter-phase feel
+    idxs = idxs.map((v,i)=> (i%2)? (baseMaxDelay - v) : v );
+  }
+  // scale base pattern by current maxDelay
+  const out = idxs.map((v,i)=>{
+    // map base 0..6 onto 0..maxDelay with slight spread
+    const scaled = Math.round((v/6) * maxDelay);
+    return Math.min(MAX_FRAMES-1, Math.max(0, scaled));
+  });
+  return out;
+}
+
+// ---------- Main loop ----------
+function tick(){
+  requestAnimationFrame(tick);
+  if(!video || !running) return;
+
+  // write current frame into ring buffer
+  const buf = buffers[head];
+  const bctx = buf.getContext('2d');
+  // draw video to full buffer canvas
+  // cover (letterbox crop): scale to cover buffer
+  const vw = video.videoWidth||1280, vh = video.videoHeight||720;
+  const cw = buf.width, ch = buf.height;
+  const vr = vw/vh, cr = cw/ch;
+  let sw, sh, sx, sy;
+  if(vr > cr){ // video wider → crop sides
+    sh = vh;
+    sw = Math.round(vh*cr);
+    sx = Math.round((vw - sw)/2); sy = 0;
+  }else{ // video taller → crop top/bottom
+    sw = vw;
+    sh = Math.round(vw/cr);
+    sx = 0; sy = Math.round((vh - sh)/2);
+  }
+  bctx.drawImage(video, sx, sy, sw, sh, 0, 0, cw, ch);
+
+  // compute instantaneous level and per-panel delays
+  const lvl = getLevel();
+  const delays = delayMap(lvl);
+
+  // draw six vertical panels from different buffer indices
+  const W = canvas.width, H = canvas.height;
+  const panelW = Math.floor(W / N_PANELS);
+  ctx.clearRect(0,0,W,H);
+
+  for(let i=0;i<N_PANELS;i++){
+    const lag = delays[i];
+    const index = (head - lag + MAX_FRAMES) % MAX_FRAMES;
+    const src = buffers[index];
+    // source is full image; we draw only the panel slice
+    const dx = i*panelW;
+    ctx.drawImage(src, dx, 0, panelW, H, dx, 0, panelW, H);
+  }
+
+  // advance head
+  head = (head + 1) % MAX_FRAMES;
+}
+
+// ---------- Controls ----------
+function armUI(){
+  dom.btnRoom.addEventListener('click', ()=>{
+    mode='room';
+    setActive(dom.btnRoom,true); setActive(dom.btnVoice,false);
+    if(analyser) analyser.smoothingTimeConstant = 0.85;
+    setStatus('🎙 Room tone active');
+  });
+  dom.btnVoice.addEventListener('click', ()=>{
+    mode='voice';
+    setActive(dom.btnRoom,false); setActive(dom.btnVoice,true);
+    if(analyser) analyser.smoothingTimeConstant = 0.25;
+    setStatus('🎤 Voice mode');
+  });
+
+  dom.btnInPhase.addEventListener('click', ()=>{
+    mapping='inphase';
+    setActive(dom.btnInPhase,true); setActive(dom.btnCounter,false);
+  });
+  dom.btnCounter.addEventListener('click', ()=>{
+    mapping='counter';
+    setActive(dom.btnInPhase,false); setActive(dom.btnCounter,true);
+  });
+
+  dom.btnStep.addEventListener('click', ()=>{
+    cycleIndex = (cycleIndex+1)%6;
+    setStatus('↪ Cycle step → ' + (cycleIndex+1));
+  });
+
+  dom.btnAuto.addEventListener('click', ()=>{
+    if(autoTimer){
+      clearInterval(autoTimer); autoTimer=null;
+      setActive(dom.btnAuto,false);
+      setStatus('⏹ Cycle auto off');
+    }else{
+      autoTimer = setInterval(()=>{ cycleIndex=(cycleIndex+1)%6; }, 1200);
+      setActive(dom.btnAuto,true);
+      setStatus('▶ Cycle auto on');
+    }
+  });
+}
+
+// ---------- Start on user gesture (required by iOS) ----------
+async function boot(){
+  fitCanvasToField();
+  armUI();
+  await initMedia();
+  running = true;
+}
+window.addEventListener('click', async function once(){
+  window.removeEventListener('click', once, {once:true});
+  await boot();
+}, { once:true });
+
+tick();
+</script>
+</body>
+</html>
