@@ -177,31 +177,35 @@ async function initCam() {
 }
 initCam();
 </script>
+
+
+
+<!-- 🔄 New button logic script goes directly below -->
 <script>
-// --- Simplified HUD Button Wiring --- //
 document.addEventListener('DOMContentLoaded', () => {
-  const buttons = document.querySelectorAll('.neumorphic');
+  const btnReturn = document.querySelectorAll('.neumorphic')[5]; // last button
 
-  // Button 1: Toggle Voice
-  buttons[0].addEventListener('click', () => {
-    alert('🎙 Voice toggle');
-    // future: integrate real mic / speech logic
-  });
+  const current = window.location.pathname;
+  const isScene1 = current.includes('video_scene1');
+  const isScene2 = current.includes('video_scene2');
 
-  // Button 2: Switch Scene
-  buttons[1].addEventListener('click', () => {
-    alert('🎬 Switching to next scene...');
-    // e.g., window.location.href = 'video_scene2.html';
-  });
-
-  // Buttons 3–6: Placeholder
-  for (let i = 2; i < buttons.length; i++) {
-    buttons[i].addEventListener('click', () => {
-      alert(`🧩 Button ${i+1} clicked`);
-    });
+  if (isScene1) {
+    btnReturn.innerHTML = '<i class="fa-light fa-arrow-right"></i><span>Next</span>';
+  } else if (isScene2) {
+    btnReturn.innerHTML = '<i class="fa-light fa-arrow-left"></i><span>Return</span>';
   }
+
+  btnReturn.addEventListener('click', () => {
+    if (isScene1) {
+      window.location.href = 'https://jeff-gompertz.github.io/CUseeme/A/video_scene2_.html';
+    } else if (isScene2) {
+      window.location.href = 'https://jeff-gompertz.github.io/CUseeme/A/video_scene1_live_portrait2.html';
+    }
+  });
 });
 </script>
+  
+
 
   
 
