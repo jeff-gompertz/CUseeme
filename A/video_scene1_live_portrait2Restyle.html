@@ -177,6 +177,33 @@ async function initCam() {
 }
 initCam();
 </script>
+<script>
+// --- Simplified HUD Button Wiring --- //
+document.addEventListener('DOMContentLoaded', () => {
+  const buttons = document.querySelectorAll('.neumorphic');
+
+  // Button 1: Toggle Voice
+  buttons[0].addEventListener('click', () => {
+    alert('🎙 Voice toggle');
+    // future: integrate real mic / speech logic
+  });
+
+  // Button 2: Switch Scene
+  buttons[1].addEventListener('click', () => {
+    alert('🎬 Switching to next scene...');
+    // e.g., window.location.href = 'video_scene2.html';
+  });
+
+  // Buttons 3–6: Placeholder
+  for (let i = 2; i < buttons.length; i++) {
+    buttons[i].addEventListener('click', () => {
+      alert(`🧩 Button ${i+1} clicked`);
+    });
+  }
+});
+</script>
+
+  
 
 </body>
 </html>
