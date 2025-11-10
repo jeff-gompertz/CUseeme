@@ -62,6 +62,27 @@ html,body{
 }
 </style>
 
+ 
+
+</head>  <!-- 👈 HEAD ends -->
+
+
+<body>   <!-- 👈 BODY begins -->
+
+  <!-- 👇 THIS SECTION is what was missing -->
+  <div class="panelwrap">
+    <div class="panel"><video class="v"></video></div>
+    <div class="panel"><video class="v"></video></div>
+    <div class="panel"><video class="v"></video></div>
+    <div class="panel"><video class="v"></video></div>
+    <div class="panel"><video class="v"></video></div>
+    <div class="panel"><video class="v"></video></div>
+  </div>
+
+  <!-- 👇 JS always goes near the end of BODY -->
+  
+
+
 <script>
 let stream=null;
 const statusEl=document.querySelector('.status')||(()=>{const s=document.createElement('div');s.className='status';document.body.appendChild(s);return s;})();
