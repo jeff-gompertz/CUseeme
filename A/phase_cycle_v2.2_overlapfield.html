@@ -5,117 +5,314 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Phase Cycle v2.2 — Overlap Field (Room Tone + Voice)</title>
 
-<!-- Neumorphic neutral theme -->
+<!-- Neutral neumorphic base (your file) -->
 <link rel="stylesheet" href="css/neumorphic_neutral.css">
-<!-- Icons -->
+<!-- Icons (same tutorial set) -->
 <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v6.0.0-beta1/css/all.css">
 
 <style>
 :root{
   --bg:#e5e9f4;
-  --panelW:max(75vmin,360px);   /* larger field */
-  --panelH:calc(var(--panelW)*0.56);
-  --glass:rgba(255,255,255,0.45);
+  --fieldW:min(92vw, 1100px);
+  --overlap:6%;
 }
 html,body{
   margin:0;
   height:100%;
   background:var(--bg);
-  display:flex;
-  justify-content:center;
-  align-items:center;
+  overflow:hidden;
+  font-family:system-ui, sans-serif;
+}
+
+/* ---------- Fixed neumorphic header (6 buttons) ---------- */
+header{
+  position:fixed; top:0; left:0; width:100%;
+  background:#e5e9f4;
+  box-shadow:0 5px 10px rgba(0,0,0,0.05);
+  z-index:1000;
+  display:flex; justify-content:center; padding:1rem 0;
+}
+.buttons{
+  display:grid; gap:1rem;
+  grid-template-columns:repeat(6, minmax(60px, 1fr));
+  width:min(90vw, 560px);
+}
+button.neumorphic{
+  border:.5rem solid transparent; border-radius:1rem;
+  color:hsl(0 0% 10%); background:none;
+  display:grid; place-content:center; gap:.5rem;
+  --shadow:-.5rem -.5rem 1rem hsl(0 0% 100%/.75),
+           .5rem .5rem 1rem hsl(0 0% 50%/.5);
+  box-shadow:var(--shadow);
+  outline:none; transition:all .1s;
+}
+button.neumorphic > i{ font-size:20px; }
+button.neumorphic > span{ font-size:12px; }
+button.neumorphic:hover,button.neumorphic:focus-visible{ color:hsl(10 80% 50%); scale:1.05; }
+button.neumorphic:active,button.neumorphic.active{
+  box-shadow:var(--shadow),
+             inset .5rem .5rem 1rem hsl(0 0% 50%/.5),
+             inset -.5rem -.5rem 1rem hsl(0 0% 100%/.75);
+  color:hsl(10 80% 50%);
+}
+@media (max-width:600px){
+  .buttons{ grid-template-columns:repeat(6, 1fr); gap:.5rem; width:95vw; }
+  button.neumorphic > i{ font-size:16px; }
+  button.neumorphic > span{ font-size:10px; }
+}
+
+/* ---------- Field container below header ---------- */
+main{
+  position:fixed; inset:0; top:110px; /* header offset */
+  display:flex; align-items:center; justify-content:center;
   overflow:hidden;
 }
-.panelwrap{
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  gap:1.4%;
-  width:var(--panelW);
-  height:var(--panelH);
+.field{
   position:relative;
+  width:var(--fieldW);
+  aspect-ratio:14/9;     /* your preferred proportion */
+  background:#000;       /* behind the video */
 }
+
+/* ---------- Panels (overlapping vertical slices) ---------- */
 .panel{
-  flex:1;
-  height:100%;
-  background:var(--glass);
-  border-radius:0;
-  box-shadow:0 10px 20px rgba(0,0,0,0.05), inset 0 1px 2px rgba(255,255,255,0.4);
+  position:absolute; top:0; bottom:0;
+  /* width and left start are assigned inline via --i */
+  width:calc(100%/6 + var(--overlap));
+  left:calc((var(--i) * (100%/6)) - (var(--overlap) * .5));
   overflow:hidden;
-  mix-blend-mode:screen;
-  transition:filter 0.2s ease,opacity 0.3s ease;
+  mix-blend-mode:normal;     /* fully opaque baseline */
+  opacity:1;
+  border-radius:0;           /* flat edges */
+  box-shadow:0 10px 20px rgba(0,0,0,0.05), inset 0 1px 2px rgba(255,255,255,0.4);
+  transition:filter .15s ease;
 }
-.v{
-  width:100%;
-  height:100%;
+
+/* Each panel contains the same live video feed */
+.panel video{
+  position:absolute; inset:0;
+  width:100%; height:100%;
   object-fit:cover;
-  filter:brightness(1.05) contrast(1.05);
+  transform:scaleX(-1);     /* selfie-correct for rear feel; keep for consistency */
+  will-change:transform, filter;
+  filter:brightness(1) contrast(1);
 }
+
+/* ---------- Status ticker ---------- */
 .status{
-  position:fixed;
-  bottom:6px; left:8px;
-  font-family:monospace;
-  font-size:12px;
-  opacity:0.6;
-  color:#333;
+  position:fixed; left:8px; bottom:6px; z-index:1200;
+  font-family:monospace; font-size:12px; opacity:.7; color:#333;
   pointer-events:none;
 }
 </style>
-
 </head>
 
 <body>
 
-  <div class="panelwrap">
-    <div class="panel"><video class="v"></video></div>
-    <div class="panel"><video class="v"></video></div>
-    <div class="panel"><video class="v"></video></div>
-    <div class="panel"><video class="v"></video></div>
-    <div class="panel"><video class="v"></video></div>
-    <div class="panel"><video class="v"></video></div>
+<!-- Header: same six controls -->
+<header>
+  <div class="buttons">
+    <button class="neumorphic active" id="btnRoom"><i class="fa-light fa-waveform"></i><span>Room Tone</span></button>
+    <button class="neumorphic" id="btnVoice"><i class="fa-light fa-microphone"></i><span>Voice</span></button>
+    <button class="neumorphic" id="btnPhase"><i class="fa-light fa-arrows-left-right"></i><span>In-Phase</span></button>
+    <button class="neumorphic" id="btnCounter"><i class="fa-light fa-shuffle"></i><span>Counter</span></button>
+    <button class="neumorphic" id="btnStep"><i class="fa-light fa-forward-step"></i><span>Cycle Step</span></button>
+    <button class="neumorphic" id="btnAuto"><i class="fa-light fa-arrows-rotate"></i><span>Cycle Auto</span></button>
   </div>
+</header>
+
+<main>
+  <div class="field" id="field">
+    <!-- Six overlapping panels; we set --i per panel for layout and dephase -->
+    <div class="panel" style="--i:0;"><video class="v" muted playsinline autoplay></video></div>
+    <div class="panel" style="--i:1;"><video class="v" muted playsinline autoplay></video></div>
+    <div class="panel" style="--i:2;"><video class="v" muted playsinline autoplay></video></div>
+    <div class="panel" style="--i:3;"><video class="v" muted playsinline autoplay></video></div>
+    <div class="panel" style="--i:4;"><video class="v" muted playsinline autoplay></video></div>
+    <div class="panel" style="--i:5;"><video class="v" muted playsinline autoplay></video></div>
+  </div>
+</main>
+
+<div class="status" id="status">🎙 Room tone active • In-phase • Cycle idle</div>
 
 <script>
-let stream=null;
-const statusEl=document.querySelector('.status')||
-  (()=>{const s=document.createElement('div');
-         s.className='status';
-         document.body.appendChild(s);
-         return s;})();
+/* =========================================================
+  Phase Cycle v2.2 — mic-reactive, slightly dephased panels
+========================================================= */
+let mediaStream = null;
+let audioCtx = null, analyser = null, dataTime = null, dataFreq = null;
 
-async function startCam(){
+const statusEl = document.getElementById('status');
+const videos = [...document.querySelectorAll('.v')];
+
+const BTN = {
+  room: document.getElementById('btnRoom'),
+  voice: document.getElementById('btnVoice'),
+  phase: document.getElementById('btnPhase'),
+  counter: document.getElementById('btnCounter'),
+  step: document.getElementById('btnStep'),
+  auto: document.getElementById('btnAuto')
+};
+
+let mode = 'room';          // 'room' | 'voice'
+let counterPhase = false;   // false=in-phase, true=counter
+let cycleShift = 0;         // manual cycle step accumulator
+let autoTimer = null;       // cycle auto interval
+
+// --- Start audio+video on first user gesture (iOS/Safari friendly)
+async function startAV(){
+  if(mediaStream) return;
   try{
-    stream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'}},
-      audio:true
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: true
     });
-    document.querySelectorAll('.v').forEach(v=>{
-      v.muted=true;
-      v.playsInline=true;
-      v.autoplay=true;
-      v.srcObject=stream;
+
+    // Attach same stream to all panel videos
+    videos.forEach(v=>{
+      v.srcObject = mediaStream;
       v.play().catch(()=>{});
     });
-    statusEl.textContent='🎙 Room tone active';
-  }catch(e){
-    statusEl.textContent='⚠ Tap to allow camera/mic';
-    console.error(e);
+
+    // Audio analysis setup
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = audioCtx.createMediaStreamSource(mediaStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.85;  // nice breathy response
+    dataTime = new Uint8Array(analyser.fftSize);
+    dataFreq = new Uint8Array(analyser.frequencyBinCount);
+    src.connect(analyser);
+
+    setStatus();
+  }catch(err){
+    statusEl.textContent = '⚠️ Tap to allow camera/mic';
+    console.error(err);
   }
 }
+window.addEventListener('pointerdown', startAV, { once:true });
+window.addEventListener('touchstart', startAV, { once:true });
 
-window.addEventListener('click',()=>{ if(!stream) startCam(); },{once:true});
+// --- Helpers: amplitude & low-freq energy
+function getRMS(){
+  if(!analyser) return 0;
+  analyser.getByteTimeDomainData(dataTime);
+  let sum = 0;
+  for(let i=0;i<dataTime.length;i++){
+    const v = (dataTime[i] - 128) / 128;
+    sum += v*v;
+  }
+  return Math.sqrt(sum / dataTime.length); // 0..~0.5
+}
+function getLowEnergy(){
+  if(!analyser) return 0;
+  analyser.getByteFrequencyData(dataFreq);
+  // integrate bins up to ~300Hz
+  const nyquist = audioCtx.sampleRate / 2;
+  const limitHz = 300;
+  const limitBin = Math.max(1, Math.floor(dataFreq.length * (limitHz/nyquist)));
+  let sum = 0;
+  for(let i=0;i<limitBin;i++) sum += dataFreq[i];
+  return sum / (limitBin*255); // normalize 0..1
+}
 
-let t=0;
+// --- Animation / dephased internal motion (no panel movement)
+let t = 0;
 function animate(){
   requestAnimationFrame(animate);
-  t+=0.015;
-  document.querySelectorAll('.panel').forEach((p,i)=>{
-    const drift=Math.sin(t+i*0.8)*0.012;
-    p.style.filter=`brightness(${1+drift})`;
+  t += 0.015;
+
+  // Mic drive
+  let driver = 0.0;
+  if(analyser){
+    if(mode === 'room'){
+      const low = getLowEnergy();         // 0..1
+      driver = 0.12 * low;                // gentle
+    }else{
+      const rms = getRMS();               // 0..~0.5
+      driver = Math.min(0.25, rms * 0.9); // punchier but capped
+    }
+  }
+
+  // Slightly dephased per panel
+  const baseSpeed = mode === 'room' ? 0.6 : 1.8;     // voice is quicker
+  const phaseStride = counterPhase ? Math.PI/4 : Math.PI/8; // counter = stronger opposition
+
+  document.querySelectorAll('.panel').forEach((p, i)=>{
+    const localPhase = t * baseSpeed + i * phaseStride + cycleShift;
+    const wobble = Math.sin(localPhase) * driver;   // −d..+d
+    // Subtle internal motion: shift video a touch (no panel move)
+    const v = p.querySelector('video');
+    const px = wobble * 6;       // translate a few pixels
+    const br = 1 + wobble * 0.12;
+    const ct = 1 + wobble * 0.10;
+
+    v.style.transform = `translateX(${px}px) scaleX(-1)`;
+    v.style.filter = `brightness(${br}) contrast(${ct})`;
   });
 }
 animate();
-</script>
 
+// --- Header controls
+function setActive(btn, on){
+  btn.classList.toggle('active', !!on);
+}
+function setStatus(){
+  statusEl.textContent =
+    `${mode==='room'?'🎙 Room tone active':'🎤 Voice mode'} • ` +
+    `${counterPhase?'Counter':'In-phase'} • ` +
+    `${autoTimer?'Cycle auto':'Cycle idle'}`;
+}
+
+// Mode: Room Tone
+BTN.room.addEventListener('click', ()=>{
+  mode = 'room';
+  setActive(BTN.room, true);
+  setActive(BTN.voice, false);
+  setStatus();
+});
+
+// Mode: Voice
+BTN.voice.addEventListener('click', ()=>{
+  mode = 'voice';
+  setActive(BTN.voice, true);
+  setActive(BTN.room, false);
+  setStatus();
+});
+
+// Phase: In-phase
+BTN.phase.addEventListener('click', ()=>{
+  counterPhase = false;
+  setActive(BTN.phase, true);
+  setActive(BTN.counter, false);
+  setStatus();
+});
+
+// Phase: Counter
+BTN.counter.addEventListener('click', ()=>{
+  counterPhase = true;
+  setActive(BTN.counter, true);
+  setActive(BTN.phase, false);
+  setStatus();
+});
+
+// Cycle Step: small manual shift
+BTN.step.addEventListener('click', ()=>{
+  cycleShift += Math.PI/9; // small nudge
+  setStatus();
+});
+
+// Cycle Auto: toggle periodic stepping
+BTN.auto.addEventListener('click', ()=>{
+  if(autoTimer){
+    clearInterval(autoTimer); autoTimer = null;
+    setActive(BTN.auto, false);
+  }else{
+    autoTimer = setInterval(()=>{ cycleShift += Math.PI/12; }, 900);
+    setActive(BTN.auto, true);
+  }
+  setStatus();
+});
+</script>
 </body>
 </html>
