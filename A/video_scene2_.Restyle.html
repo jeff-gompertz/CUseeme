@@ -282,31 +282,42 @@ btnVoice.addEventListener('click',()=>{
 initStream();
 </script>
 
-<script>
+  
 /* =========================================================
 Mini-window System (restored from v1.7 dynamic)
 ========================================================= */
+<script>
+/* =========================================================
+Mini-Window System — clean unified version (v1.7 dynamic)
+========================================================= */
 let winCount = 0, spawnUsed = false;
 
-function makeMiniWindow({x = 80, y = 80} = {}) {
+/* Create draggable mini camera window */
+function makeMiniWindow({ x = 80, y = 80 } = {}) {
   winCount++;
-  const el = document.createElement('div');
-  el.className = 'miniWin';
-  el.style.left = x + 'px';
-  el.style.top = y + 'px';
+  const el = document.createElement("div");
+  el.className = "miniWin";
+  el.style.left = x + "px";
+  el.style.top = y + "px";
   el.innerHTML = `
     <div class="miniBar">
-      <div class="miniTitle">subject_${String(winCount).padStart(4,'0')}</div>
-      <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+      <div class="miniTitle">subject_${String(winCount).padStart(4, "0")}</div>
+      <div class="miniBtns">
+        <div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div>
+      </div>
     </div>
-    <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>
+    <div class="miniInner">
+      <video class="miniVideo" autoplay muted playsinline></video>
+    </div>
   `;
   document.body.appendChild(el);
 
-  const v = el.querySelector('.miniVideo');
-  if (mediaStream) v.srcObject = mediaStream;
+  /* Connect video feed */
+  const v = el.querySelector(".miniVideo");
+  if (window.mediaStream) v.srcObject = mediaStream;
 
-  const bar = el.querySelector('.miniBar');
+  /* Drag logic */
+  const bar = el.querySelector(".miniBar");
   let dragging = false, sx = 0, sy = 0, sl = 0, st = 0;
 
   function start(e) {
@@ -315,77 +326,97 @@ function makeMiniWindow({x = 80, y = 80} = {}) {
     sl = r.left; st = r.top;
     sx = (e.touches ? e.touches[0].clientX : e.clientX);
     sy = (e.touches ? e.touches[0].clientY : e.clientY);
-    document.addEventListener('pointermove', move);
-    document.addEventListener('pointerup', stop);
-    document.addEventListener('touchmove', move, {passive:false});
-    document.addEventListener('touchend', stop);
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", stop);
+    document.addEventListener("touchmove", move, { passive: false });
+    document.addEventListener("touchend", stop);
   }
 
   function move(e) {
     if (!dragging) return;
     const cx = (e.touches ? e.touches[0].clientX : e.clientX);
     const cy = (e.touches ? e.touches[0].clientY : e.clientY);
-    el.style.left = (sl + (cx - sx)) + 'px';
-    el.style.top = (st + (cy - sy)) + 'px';
+    el.style.left = sl + (cx - sx) + "px";
+    el.style.top = st + (cy - sy) + "px";
     e.preventDefault?.();
   }
 
   function stop() {
     dragging = false;
-    document.removeEventListener('pointermove', move);
-    document.removeEventListener('pointerup', stop);
-    document.removeEventListener('touchmove', move);
-    document.removeEventListener('touchend', stop);
+    document.removeEventListener("pointermove", move);
+    document.removeEventListener("pointerup", stop);
+    document.removeEventListener("touchmove", move);
+    document.removeEventListener("touchend", stop);
   }
 
-  bar.addEventListener('pointerdown', start);
-  bar.addEventListener('touchstart', start, {passive:false});
+  bar.addEventListener("pointerdown", start);
+  bar.addEventListener("touchstart", start, { passive: false });
+
   return el;
 }
 
-/* Link to your existing HUD buttons */
-const btnSpawn5 = document.getElementById('btnSpawn5');
-const btnCloseAll = document.getElementById('btnCloseAll');
-const btnReverseCam = document.getElementById('btnReverseCam');
+/* ---------------------------------------------------------
+HUD Button Wiring
+--------------------------------------------------------- */
+const btnSpawn5 = document.getElementById("btnSpawn5");
+const btnCloseAll = document.getElementById("btnCloseAll");
+const btnReverseCam = document.getElementById("btnReverseCam");
 
-btnSpawn5.addEventListener('click', () => {
-  if (spawnUsed) return addTicker('spawn blocked: already active');
+/* Spawn 5 mini windows */
+btnSpawn5.addEventListener("click", () => {
+  if (spawnUsed) return addTicker("spawn blocked: already active");
   spawnUsed = true;
-  const startX = 60 + Math.random() * 40, startY = 120 + Math.random() * 40;
-  for (let i = 0; i < 5; i++) makeMiniWindow({x: startX + i * 26, y: startY + i * 18});
-  addTicker('spawned 5 windows');
+  const startX = 60 + Math.random() * 40,
+        startY = 120 + Math.random() * 40;
+  for (let i = 0; i < 5; i++)
+    makeMiniWindow({ x: startX + i * 26, y: startY + i * 18 });
+  addTicker("spawned 5 windows");
 });
 
-btnCloseAll.addEventListener('click', () => {
-  document.querySelectorAll('.miniWin').forEach(n => n.remove());
-  winCount = 0; spawnUsed = false;
-  addTicker('all windows closed');
+/* Close all mini windows */
+btnCloseAll.addEventListener("click", () => {
+  document.querySelectorAll(".miniWin").forEach((n) => n.remove());
+  winCount = 0;
+  spawnUsed = false;
+  addTicker("all windows closed");
 });
 
-btnReverseCam.addEventListener('click', async () => {
-  facing = (facing === 'user') ? 'environment' : 'user';
+/* Reverse camera feed */
+btnReverseCam.addEventListener("click", async () => {
+  window.facing = (facing === "user") ? "environment" : "user";
   await initStream();
   addTicker(`camera flipped → ${facing}`);
 });
 </script>
-  
-
-
-
-
-
-  
 
 <script>
-/* Return button logic */
-document.addEventListener('DOMContentLoaded', () => {
-  const btnReturn = document.querySelectorAll('.neumorphic')[5];
-  btnReturn.addEventListener('click', () => {
-    window.location.href = 'https://jeff-gompertz.github.io/CUseeme/A/video_scene1_live_portrait2.html';
+/* =========================================================
+Return Button Logic (Scene Switch)
+========================================================= */
+document.addEventListener("DOMContentLoaded", () => {
+  const btnReturn = document.querySelectorAll(".neumorphic")[5];
+  if (!btnReturn) return;
+  btnReturn.addEventListener("click", () => {
+    window.location.href =
+      "https://jeff-gompertz.github.io/CUseeme/A/video_scene1_live_portrait2.html";
   });
 });
 </script>
 
-<div style="position:fixed;bottom:6px;right:10px;font-family:monospace;font-size:12px;opacity:0.6;">Scene 2</div>
+<!-- Scene label -->
+<div style="
+  position:fixed;
+  bottom:6px;
+  right:10px;
+  font-family:monospace;
+  font-size:12px;
+  opacity:0.6;
+">Scene 2</div>
+
 </body>
+</html>
+<div style="position:fixed;bottom:6px;right:10px;font-family:monospace;font-size:12px;opacity:0.6;">Scene 2</div>
+
+  
+  </body>
 </html>
