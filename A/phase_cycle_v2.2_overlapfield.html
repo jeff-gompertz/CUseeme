@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Phase Cycle v2.2 — Overlap Field (Room Tone + Voice)</title>
 
-<!-- Neumorphic neutral theme (your file) -->
+<!-- Neumorphic neutral theme -->
 <link rel="stylesheet" href="css/neumorphic_neutral.css">
-<!-- Icons (tutorial set) -->
+<!-- Icons -->
 <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v6.0.0-beta1/css/all.css">
 
 <style>
@@ -39,7 +39,7 @@ html,body{
   flex:1;
   height:100%;
   background:var(--glass);
-  border-radius:0;             /* flat edges now */
+  border-radius:0;
   box-shadow:0 10px 20px rgba(0,0,0,0.05), inset 0 1px 2px rgba(255,255,255,0.4);
   overflow:hidden;
   mix-blend-mode:screen;
@@ -62,14 +62,10 @@ html,body{
 }
 </style>
 
- 
+</head>
 
-</head>  <!-- 👈 HEAD ends -->
+<body>
 
-
-<body>   <!-- 👈 BODY begins -->
-
-  <!-- 👇 THIS SECTION is what was missing -->
   <div class="panelwrap">
     <div class="panel"><video class="v"></video></div>
     <div class="panel"><video class="v"></video></div>
@@ -79,15 +75,14 @@ html,body{
     <div class="panel"><video class="v"></video></div>
   </div>
 
-  <!-- 👇 JS always goes near the end of BODY -->
-  
-
-
 <script>
 let stream=null;
-const statusEl=document.querySelector('.status')||(()=>{const s=document.createElement('div');s.className='status';document.body.appendChild(s);return s;})();
+const statusEl=document.querySelector('.status')||
+  (()=>{const s=document.createElement('div');
+         s.className='status';
+         document.body.appendChild(s);
+         return s;})();
 
-// ✅ Safe camera start for iOS/Safari
 async function startCam(){
   try{
     stream = await navigator.mediaDevices.getUserMedia({
@@ -108,22 +103,19 @@ async function startCam(){
   }
 }
 
-// wait for first user action to start camera
-window.addEventListener('click',()=>{
-  if(!stream) startCam();
-},{once:true});
+window.addEventListener('click',()=>{ if(!stream) startCam(); },{once:true});
 
-// basic oscillation (panel internal “phase” drift)
 let t=0;
 function animate(){
   requestAnimationFrame(animate);
   t+=0.015;
   document.querySelectorAll('.panel').forEach((p,i)=>{
-    const drift=Math.sin(t+i*0.8)*0.012; // subtle, phase offset
+    const drift=Math.sin(t+i*0.8)*0.012;
     p.style.filter=`brightness(${1+drift})`;
   });
 }
 animate();
 </script>
+
 </body>
 </html>
