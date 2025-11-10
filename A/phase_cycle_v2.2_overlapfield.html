@@ -11,210 +11,98 @@
 <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v6.0.0-beta1/css/all.css">
 
 <style>
-  :root{
-    --bg:#e5e9f4;
-    --panelW:max(60vmin, 320px); /* size knob */
-    --panelH:calc(var(--panelW) * 9/14);
-    --baseOpacity:0.28;          /* baseline blend */
-    --depth:0.22;                /* modulation depth */
-  }
-  html,body{
-    margin:0;height:100%;background:var(--bg);overflow:hidden;
-    font-family:system-ui, sans-serif;
-  }
-
-  /* Header: 6 neumorphic buttons in one centered row */
-  header{
-    position:fixed;inset:0 0 auto 0;display:flex;justify-content:center;z-index:10;
-    padding:1rem 0;background:var(--bg);box-shadow:0 5px 10px rgba(0,0,0,.05);
-  }
-  .buttons{
-    display:grid;grid-template-columns:repeat(6,minmax(60px,1fr));
-    gap:1rem;width:min(92vw,560px);
-  }
-  button.neumorphic{
-    border:.5rem solid transparent;border-radius:1rem;background:none;
-    display:grid;place-content:center;gap:.5rem;color:hsl(0 0% 10%);
-    --shadow:-.5rem -.5rem 1rem hsl(0 0% 100%/.75), .5rem .5rem 1rem hsl(0 0% 50%/.5);
-    box-shadow:var(--shadow);transition:all .1s;outline:0;
-  }
-  button.neumorphic:hover,button.neumorphic:focus-visible{ color:hsl(10 80% 50%); transform:translateY(-1px) }
-  button.neumorphic.active{
-    box-shadow:var(--shadow), inset .5rem .5rem 1rem hsl(0 0% 50%/.5), inset -.5rem -.5rem 1rem hsl(0 0% 100%/.75);
-    color:hsl(10 80% 50%);
-  }
-  button.neumorphic > i{ font-size:20px } button.neumorphic > span{ font-size:12px }
-
-  @media (max-width:600px){
-    .buttons{ grid-template-columns:repeat(auto-fit,minmax(50px,1fr)); width:95vw; gap:.5rem }
-    button.neumorphic > i{ font-size:16px } button.neumorphic > span{ font-size:10px }
-  }
-
-  /* Stage */
-  main{ position:relative; width:100%; height:100%; display:grid; place-items:center; padding-top:110px }
-  .stage{
-    position:relative; width:var(--panelW); height:var(--panelH);
-    border-radius:12px; overflow:hidden;
-    box-shadow:0 20px 40px rgba(0,0,0,.15), inset 1px 1px 2px rgba(255,255,255,.8);
-    background:#f6f8fb;
-  }
-
-  /* One live stream, six overlapping visual layers referencing it via <video> clones */
-  .layer{
-    position:absolute; inset:0; mix-blend-mode:screen; opacity:var(--baseOpacity);
-    pointer-events:none;
-  }
-  .layer video{ width:100%; height:100%; object-fit:cover; transform:scaleX(-1) } /* mirror */
-
-  /* Subtle per-layer optical differences (stay fixed in place) */
-  .l0 { filter:contrast(1.05) saturate(1.00) }
-  .l1 { filter:contrast(1.02) saturate(1.03) }
-  .l2 { filter:contrast(1.08) saturate(0.98) }
-  .l3 { filter:contrast(1.00) saturate(1.05) }
-  .l4 { filter:contrast(1.06) saturate(1.00) }
-  .l5 { filter:contrast(1.03) saturate(1.02) }
-
-  /* Status ticker (small, low opacity) */
-  #status{
-    position:fixed; left:10px; bottom:8px; z-index:20;
-    font:12px/1.3 monospace; opacity:.55;
-    background:rgba(255,255,255,.6); padding:4px 8px; border-radius:8px;
-    box-shadow:0 6px 16px rgba(0,0,0,.08);
-  }
+:root{
+  --bg:#e5e9f4;
+  --panelW:max(75vmin,360px);   /* larger field */
+  --panelH:calc(var(--panelW)*0.56);
+  --glass:rgba(255,255,255,0.45);
+}
+html,body{
+  margin:0;
+  height:100%;
+  background:var(--bg);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  overflow:hidden;
+}
+.panelwrap{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:1.4%;
+  width:var(--panelW);
+  height:var(--panelH);
+  position:relative;
+}
+.panel{
+  flex:1;
+  height:100%;
+  background:var(--glass);
+  border-radius:0;             /* flat edges now */
+  box-shadow:0 10px 20px rgba(0,0,0,0.05), inset 0 1px 2px rgba(255,255,255,0.4);
+  overflow:hidden;
+  mix-blend-mode:screen;
+  transition:filter 0.2s ease,opacity 0.3s ease;
+}
+.v{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  filter:brightness(1.05) contrast(1.05);
+}
+.status{
+  position:fixed;
+  bottom:6px; left:8px;
+  font-family:monospace;
+  font-size:12px;
+  opacity:0.6;
+  color:#333;
+  pointer-events:none;
+}
 </style>
-</head>
-<body>
-
-<header>
-  <div class="buttons">
-    <button id="btnRoom"  class="neumorphic active"><i class="fa-light fa-waveform"></i><span>Room Tone</span></button>
-    <button id="btnVoice" class="neumorphic"><i class="fa-light fa-microphone"></i><span>Voice</span></button>
-    <button id="btnInPhase" class="neumorphic"><i class="fa-light fa-equals"></i><span>In-phase</span></button>
-    <button id="btnCounter" class="neumorphic"><i class="fa-light fa-arrows-repeat"></i><span>Counter</span></button>
-    <button id="btnStep"    class="neumorphic"><i class="fa-light fa-forward-step"></i><span>Cycle Step</span></button>
-    <button id="btnAuto"    class="neumorphic"><i class="fa-light fa-play"></i><span>Cycle Auto</span></button>
-  </div>
-</header>
-
-<main>
-  <div class="stage" id="stage">
-    <!-- six overlapping layers -->
-    <div class="layer l0"><video class="v"></video></div>
-    <div class="layer l1"><video class="v"></video></div>
-    <div class="layer l2"><video class="v"></video></div>
-    <div class="layer l3"><video class="v"></video></div>
-    <div class="layer l4"><video class="v"></video></div>
-    <div class="layer l5"><video class="v"></video></div>
-  </div>
-</main>
-
-<div id="status">🎙 Room tone active · mode: in-phase</div>
 
 <script>
-/* ===== Live camera (rear by default) ===== */
 let stream=null;
-(async ()=>{
+const statusEl=document.querySelector('.status')||(()=>{const s=document.createElement('div');s.className='status';document.body.appendChild(s);return s;})();
+
+// ✅ Safe camera start for iOS/Safari
+async function startCam(){
   try{
-    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}, audio:true});
-    document.querySelectorAll('.v').forEach(v=>{ v.srcObject=stream; v.autoplay=true; v.muted=true; v.playsInline=true; v.play(); });
-  }catch(e){ document.getElementById('status').textContent='⚠ Camera/Mic blocked'; console.error(e); }
-})();
-
-/* ===== Audio input (room tone / voice) ===== */
-let audioCtx, analyser, data, rms=0, mode='room'; // 'room' or 'voice'
-function ensureAudio(){
-  if(audioCtx) return;
-  if(!stream) return;
-  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-  const src = audioCtx.createMediaStreamSource(stream);
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 1024;
-  src.connect(analyser);
-  data = new Uint8Array(analyser.fftSize);
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'}},
+      audio:true
+    });
+    document.querySelectorAll('.v').forEach(v=>{
+      v.muted=true;
+      v.playsInline=true;
+      v.autoplay=true;
+      v.srcObject=stream;
+      v.play().catch(()=>{});
+    });
+    statusEl.textContent='🎙 Room tone active';
+  }catch(e){
+    statusEl.textContent='⚠ Tap to allow camera/mic';
+    console.error(e);
+  }
 }
 
-/* ===== Phase engine (mechanical on/off) =====
-   - six layers have phase offsets (0°, 60°, 120° ... by default)
-   - modes:
-       in-phase:        all offsets = 0
-       counter-phase:   alternating 0°/180°
-       stepped cycle:   on each step, add +60° to all (rotating)
-   - Auto cycle steps at a tempo; room/voice modulates depth/tempo subtly
-*/
-const LAYERS = 6;
-let basePhase = 0;           // degrees
-let offsets = [0,60,120,180,240,300]; // default stagger
-let autoCycle = false;
-let tempo = 0.8;             // steps per second (base)
-let lastStep = performance.now();
-const status = document.getElementById('status');
+// wait for first user action to start camera
+window.addEventListener('click',()=>{
+  if(!stream) startCam();
+},{once:true});
 
-function setInPhase(){ offsets = [0,0,0,0,0,0]; updateStatusMode('in-phase'); }
-function setCounter(){ offsets = [0,180,0,180,0,180]; updateStatusMode('counter'); }
-function cycleStep(){ basePhase = (basePhase + 60) % 360; updateStatusStep(); }
-function updateStatusMode(m){ status.textContent = (mode==='room'?'🎙 Room tone active':'🎤 Voice active') + ' · mode: '+ m; }
-function updateStatusStep(){ status.textContent = (mode==='room'?'🎙 Room tone active':'🎤 Voice active') + ' · mode: stepped '+ basePhase+'°'; }
-
-/* UI buttons */
-const btnRoom=document.getElementById('btnRoom');
-const btnVoice=document.getElementById('btnVoice');
-const btnInPhase=document.getElementById('btnInPhase');
-const btnCounter=document.getElementById('btnCounter');
-const btnStep=document.getElementById('btnStep');
-const btnAuto=document.getElementById('btnAuto');
-
-function setActive(el, on){ el.classList.toggle('active', !!on); }
-
-btnRoom.onclick=()=>{ mode='room'; setActive(btnRoom,1); setActive(btnVoice,0); ensureAudio(); updateStatusMode('in-phase'); };
-btnVoice.onclick=()=>{ mode='voice'; setActive(btnRoom,0); setActive(btnVoice,1); ensureAudio(); updateStatusMode('in-phase'); };
-
-btnInPhase.onclick=()=>{ setInPhase(); setActive(btnInPhase,1); setActive(btnCounter,0); };
-btnCounter.onclick=()=>{ setCounter(); setActive(btnInPhase,0); setActive(btnCounter,1); };
-btnStep.onclick=()=> cycleStep();
-btnAuto.onclick=()=>{ autoCycle=!autoCycle; setActive(btnAuto, autoCycle); btnAuto.querySelector('i').className = 'fa-light ' + (autoCycle?'fa-pause':'fa-play'); };
-
-/* Start defaults */
-setActive(btnRoom,1); setActive(btnInPhase,1); setActive(btnAuto,0);
-
-/* ===== Animation loop: mechanical on/off wave per layer ===== */
-function squareFromPhase(deg){
-  // square wave: 1 when phase in [0..180), 0 otherwise
-  deg = (deg%360+360)%360;
-  return (deg<180)?1:0;
+// basic oscillation (panel internal “phase” drift)
+let t=0;
+function animate(){
+  requestAnimationFrame(animate);
+  t+=0.015;
+  document.querySelectorAll('.panel').forEach((p,i)=>{
+    const drift=Math.sin(t+i*0.8)*0.012; // subtle, phase offset
+    p.style.filter=`brightness(${1+drift})`;
+  });
 }
-function raf(t){
-  // Audio read
-  if(analyser){
-    analyser.getByteTimeDomainData(data);
-    // RMS 0..1
-    let sum=0;
-    for(let i=0;i<data.length;i++){ const v=(data[i]-128)/128; sum += v*v; }
-    rms = Math.sqrt(sum/data.length); // ~0.02 quiet room, higher when louder
-  }
-
-  // Map audio to subtle depth/tempo changes
-  const audioDepth = Math.min(1, (rms*3)); // 0..~0.6 typical
-  const depth = 0.14 + 0.20*audioDepth;    // overall modulation amount
-  const stepTempo = tempo + (mode==='room' ? 0.4*audioDepth : 0.7*audioDepth);
-
-  // Auto cycle stepping
-  if(autoCycle){
-    const interval = 1000/Math.max(0.1, stepTempo);
-    if(t - lastStep > interval){ lastStep = t; cycleStep(); }
-  }
-
-  // Compute each layer opacity from its current phase (mechanical on/off)
-  const layers = document.querySelectorAll('.layer');
-  for(let i=0;i<layers.length;i++){
-    const phase = basePhase + offsets[i];
-    const sq = squareFromPhase(phase);
-    const op = Math.max(0, Math.min(1, (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--baseOpacity')) || 0.28) + depth*(sq*1 - 0.5)));
-    layers[i].style.opacity = op.toFixed(3);
-  }
-
-  requestAnimationFrame(raf);
-}
-requestAnimationFrame(raf);
+animate();
 </script>
 </body>
 </html>
