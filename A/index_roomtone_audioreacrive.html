@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CUSeeMe /A Folder — Phase Cycle Preview Hub</title>
+<title>CUSeeMe /A — Phase Cycle Versions</title>
 <style>
 body{
   margin:0;
   font-family:ui-monospace, monospace;
-  background:#fafafa;
+  background:#fff;
   color:#111;
   display:flex;
   flex-direction:row;
@@ -17,15 +17,20 @@ body{
 }
 #sidebar{
   width:28%;
-  background:#fff;
-  border-right:1px solid rgba(0,0,0,0.1);
+  background:#fafafa;
+  border-right:1px solid rgba(0,0,0,0.08);
   padding:20px;
   overflow-y:auto;
 }
 #sidebar h1{
-  font-size:1.2rem;
+  font-size:1.1rem;
+  margin-bottom:.5rem;
+}
+#sidebar p{
+  font-size:.9rem;
+  color:#666;
+  margin-top:0;
   margin-bottom:1rem;
-  color:#333;
 }
 .filelink{
   display:block;
@@ -47,39 +52,48 @@ iframe{
   border:none;
   width:72%;
   height:100%;
-  background:#fff;
+  background:#f5f6fa;
 }
 footer{
   font-size:0.8rem;
-  color:#666;
+  color:#999;
   margin-top:1rem;
 }
 </style>
 </head>
 <body>
+
 <div id="sidebar">
   <h1>📁 CUSeeMe /A — Phase Cycle Versions</h1>
-  <p>Click a version to preview ➜</p>
-  <footer>
-    Auto-indexed list below.
-  </footer>
+  <p>Click a version to preview →</p>
+  <div id="filelist"></div>
+  <footer>Manually listed — last updated Nov 2025</footer>
 </div>
 
-<iframe name="preview" src="phase_cycle_v2_6_neutral_baseline.html"></iframe>
+<iframe name="preview" src=""></iframe>
 
 <script>
-// --- Auto-populate file list from GitHub /A directory ---
-(async ()=>{
-  const sidebar = document.getElementById('sidebar');
-  const resp = await fetch('https://api.github.com/repos/jeff-gompertz/CUseeme/contents/A');
-  const files = await resp.json();
-  const links = files
-    .filter(f => f.name.endsWith('.html') && f.name !== 'index.html')
-    .sort((a,b)=>b.name.localeCompare(a.name)); // newest first
+// ---- List of known files in /A ----
+const files = [
+  "phase_cycle_v2_6_neutral_baseline.html",
+  "phase_cycle_v2.5_asinglesharedvertical.html",
+  "phase_cycle_v2.2_overlapfield.html",
+  "phase_cycle_v2_roomtone_voice.html",
+  "phase_cycle_asinglesharedvideo.html",
+  "scene4_phase_cycle.html"
+];
 
-  const header = document.createElement('h1');
-  header.textContent = '📁 CUSeeMe /A — Phase Cycle Versions';
-  sidebar.innerHTML = '';
-  sidebar.appendChild(header);
+// ---- Build sidebar ----
+const filelist = document.getElementById("filelist");
+files.forEach(f=>{
+  const a = document.createElement("a");
+  a.className = "filelink";
+  a.href = f;
+  a.target = "preview";
+  a.textContent = f;
+  filelist.appendChild(a);
+});
+</script>
 
-  for (const f of links){
+</body>
+</html>
