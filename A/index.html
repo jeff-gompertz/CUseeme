@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CUSeeMe /A — Phase Cycle Versions</title>
+<style>
+body{
+  margin:0;
+  font-family:ui-monospace, monospace;
+  background:#fff;
+  color:#111;
+  display:flex;
+  flex-direction:row;
+  height:100vh;
+  overflow:hidden;
+}
+#sidebar{
+  width:28%;
+  background:#fafafa;
+  border-right:1px solid rgba(0,0,0,0.08);
+  padding:20px;
+  overflow-y:auto;
+}
+#sidebar h1{
+  font-size:1.1rem;
+  margin-bottom:.5rem;
+}
+#sidebar p{
+  font-size:.9rem;
+  color:#666;
+  margin-top:0;
+  margin-bottom:1rem;
+}
+.filelink{
+  display:block;
+  padding:8px 10px;
+  margin-bottom:6px;
+  border-radius:6px;
+  color:#004b8d;
+  text-decoration:none;
+  background:rgba(0,0,0,0.03);
+  transition:background .15s ease, color .15s ease;
+  word-break:break-all;
+}
+.filelink:hover{
+  background:#dff1ff;
+  color:#000;
+}
+iframe{
+  flex:1;
+  border:none;
+  width:72%;
+  height:100%;
+  background:#f5f6fa;
+}
+footer{
+  font-size:0.8rem;
+  color:#999;
+  margin-top:1rem;
+}
+</style>
+</head>
+
+<body>
+
+<div id="sidebar">
+  <h1>📁 CUSeeMe /A — Phase Cycle Versions</h1>
+  <p>Click a version to preview →</p>
+  <div id="filelist">Loading file list…</div>
+  <footer id="footer">Initializing…</footer>
+</div>
+
+<iframe name="preview" src=""></iframe>
+
+<script>
+const sidebarList = document.getElementById("filelist");
+const footer = document.getElementById("footer");
+
+// ---- Local fallback list ----
+const fallbackFiles = [
+  "phase_cycle_v2_6_neutral_baseline.html",
+  "phase_cycle_v2.5_asinglesharedvertical.html",
+  "phase_cycle_v2.2_overlapfield.html",
+  "phase_cycle_v2_roomtone_voice.html",
+  "phase_cycle_asinglesharedvideo.html",
+  "scene4_phase_cycle.html"
+];
+
+// ---- Build the sidebar ----
+function buildList(files, source){
+  sidebarList.innerHTML = "";
+  files.forEach(f=>{
+    const a = document.createElement("a");
+    a.className = "filelink";
+    a.href = f;
+    a.target = "preview";
+    a.textContent = f;
+    sidebarList.appendChild(a);
+  });
+  footer.textContent = source + " • " + new Date().toLocaleString();
+}
+
+// ---- Try to fetch from GitHub ----
+(async ()=>{
+  try {
+    const resp = await fetch("https://api.github.com/repos/jeff-gompertz/CUseeme/contents/A");
+    if (!resp.ok) throw new Error("Fetch blocked");
+    const data = await resp.json();
+    const htmlFiles = data
+      .filter(f => f.name.endsWith(".html") && f.name.startsWith("phase_cycle"))
+      .map(f => f.name)
+      .sort((a,b)=>a.localeCompare(b));
+    if (htmlFiles.length) {
+      buildList(htmlFiles, "Auto-indexed via GitHub API");
+    } else {
+      buildList(fallbackFiles, "Fallback list (no files returned)");
+    }
+  } catch(e) {
+    console.warn("Falling back to local list", e);
+    buildList(fallbackFiles, "Local fallback (GitHub API blocked)");
+  }
+})();
+</script>
+
+</body>
+</html>
