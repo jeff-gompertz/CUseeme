@@ -3,195 +3,241 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Phase Cycle v2.6A — Neutral Baseline (Reverse Cam)</title>
+<title>phase_cycle_v2_7_unified — rear-cam • 9×14</title>
 
-<!-- Neutral neumorphic base -->
+<!-- Neutral neumorphic base (your shared file) -->
 <link rel="stylesheet" href="css/neumorphic_neutral.css">
-<!-- Icons -->
+<!-- Icons (tutorial set) -->
 <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v6.0.0-beta1/css/all.css">
 
 <style>
-:root{
-  --bg:#e5e9f4;
-  --fieldW:min(92vw, 1100px);
-  --fieldAspect:14/9;     /* change to 9/14 for tall portrait */
-  --overlap:6%;           /* horizontal overlap between panels */
-  --headerOffset:110px;   /* space reserved for header */
-}
-html,body{
-  margin:0; height:100%; background:var(--bg); overflow:hidden;
-  font-family:system-ui, sans-serif;
-}
+  :root{
+    --bg:#e5e9f4;            /* neutral light gray (v2.5 tone) */
+    --header-max:560px;
+    --field-max-h:78vh;      /* size of the vertical field under header */
+  }
+  * { box-sizing:border-box; }
+  html,body{
+    margin:0; height:100%;
+    background:var(--bg);
+    font-family:system-ui, sans-serif;
+    overflow:hidden;
+  }
 
-/* ---------- Fixed neumorphic header (6 buttons) ---------- */
-header{
-  position:fixed; top:0; left:0; width:100%;
-  background:#e5e9f4; box-shadow:0 5px 10px rgba(0,0,0,0.05);
-  z-index:1000; display:flex; justify-content:center; padding:1rem 0;
-}
-.buttons{
-  display:grid; gap:1rem;
-  grid-template-columns:repeat(6, minmax(60px, 1fr));
-  width:min(90vw, 560px);
-}
-button.neumorphic{
-  border:.5rem solid transparent; border-radius:1rem;
-  color:hsl(0 0% 10%); background:none;
-  display:grid; place-content:center; gap:.5rem;
-  --shadow:-.5rem -.5rem 1rem hsl(0 0% 100%/.75),
-           .5rem .5rem 1rem hsl(0 0% 50%/.5);
-  box-shadow:var(--shadow);
-  outline:none; transition:all .1s;
-}
-button.neumorphic > i{ font-size:20px; }
-button.neumorphic > span{ font-size:12px; }
-button.neumorphic:hover,button.neumorphic:focus-visible{ color:hsl(10 80% 50%); scale:1.05; }
-button.neumorphic:active,button.neumorphic.active{
-  box-shadow:var(--shadow),
-             inset .5rem .5rem 1rem hsl(0 0% 50%/.5),
-             inset -.5rem -.5rem 1rem hsl(0 0% 100%/.75);
-  color:hsl(10 80% 50%);
-}
-@media (max-width:600px){
-  .buttons{ grid-template-columns:repeat(6, 1fr); gap:.5rem; width:95vw; }
-  button.neumorphic > i{ font-size:16px; }
-  button.neumorphic > span{ font-size:10px; }
-}
+  /* ---------- Fixed, centered neumorphic header (6 buttons) ---------- */
+  header{
+    position:fixed; inset:0 0 auto 0; height:auto;
+    display:flex; justify-content:center; align-items:center;
+    padding:1rem 0;
+    background:#e5e9f4;
+    box-shadow:0 5px 10px rgba(0,0,0,0.05);
+    z-index:1000;
+  }
+  .buttons{
+    display:grid; gap:1rem;
+    grid-template-columns:repeat(6, minmax(60px, 1fr));
+    width:min(92vw, var(--header-max));
+    margin:0 auto;
+  }
+  button.neumorphic{
+    border:.5rem solid transparent; border-radius:1rem;
+    background:none; color:hsl(0 0% 10%);
+    display:grid; place-content:center; gap:.5rem;
+    --shadow:-.5rem -.5rem 1rem hsl(0 0% 100%/.75),
+             .5rem  .5rem 1rem hsl(0 0% 50%/.5);
+    box-shadow:var(--shadow);
+    outline:none; transition:transform .06s ease, color .12s ease, box-shadow .12s ease;
+    touch-action:manipulation;
+  }
+  button.neumorphic > i{ font-size:20px; line-height:1; }
+  button.neumorphic > span{ font-size:12px; line-height:1; }
+  /* “active” style = pressed look from tutorial */
+  button.neumorphic.active{
+    box-shadow:var(--shadow),
+               inset .5rem .5rem 1rem hsl(0 0% 50%/.5),
+               inset -.5rem -.5rem 1rem hsl(0 0% 100%/.75);
+    color:hsl(10 80% 50%);
+  }
+  @media (max-width:600px){
+    .buttons{ gap:.5rem; width:95vw; }
+    button.neumorphic > i{ font-size:16px; }
+    button.neumorphic > span{ font-size:10px; }
+  }
 
-/* ---------- Field container below header ---------- */
-main{
-  position:fixed; inset:0; top:var(--headerOffset);
-  display:flex; align-items:center; justify-content:center; overflow:hidden;
-}
-.field{
-  position:relative; width:var(--fieldW); aspect-ratio:var(--fieldAspect);
-  background:#000; /* behind video */
-}
+  /* ---------- Field container below header ---------- */
+  main{
+    position:fixed; inset:0; top:110px;   /* offset under header */
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+  }
+  .field{
+    position:relative;
+    height:var(--field-max-h);            /* drive size by height */
+    aspect-ratio:9/14;                    /* vertical 9 × 14 */
+    width:auto;
+    background:#000;                      /* behind video */
+    border-radius:22px;
+    box-shadow:
+      inset 1px 1px 2px rgba(255,255,255,0.8),
+      inset -2px -3px 6px rgba(0,0,0,0.15),
+      0 20px 40px rgba(0,0,0,0.15);
+    overflow:hidden;
+  }
 
-/* ---------- Panels (overlapping vertical slices) ---------- */
-.panel{
-  position:absolute; top:0; bottom:0;
-  width:calc(100%/6 + var(--overlap));
-  left:calc((var(--i) * (100%/6)) - (var(--overlap) * .5));
-  overflow:hidden; mix-blend-mode:normal; opacity:1; border-radius:0;
-  box-shadow:0 10px 20px rgba(0,0,0,0.05), inset 0 1px 2px rgba(255,255,255,0.4);
-  transition:filter .15s ease;
-}
-.panel video{
-  position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
-  transform:scaleX(-1); will-change:transform,filter; filter:brightness(1) contrast(1);
-}
+  /* Single unified live video feed (no multi-panels in this file) */
+  #live{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:cover;
+    transform:scaleX(-1);                 /* keep consistent “mirror” feel */
+    will-change:transform, filter;
+    filter:brightness(1) contrast(1);
+  }
 
-/* ---------- Status + AV overlay ---------- */
-.status{
-  position:fixed; left:8px; bottom:6px; z-index:1200;
-  font-family:monospace; font-size:12px; opacity:.7; color:#333; pointer-events:none;
-}
-#avOverlay{
-  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-  background:rgba(229,233,244,.9); z-index:1500;
-}
-#startAV{
-  border:0; border-radius:14px; padding:14px 18px; cursor:pointer;
-  font:600 16px/1 system-ui, sans-serif;
-  background:#fff; box-shadow:0 10px 20px rgba(0,0,0,.08), inset 0 1px 2px rgba(255,255,255,.8);
-}
+  /* ---------- Status ticker (always visible) ---------- */
+  .status{
+    position:fixed; left:8px; bottom:6px; z-index:1200;
+    font-family:monospace; font-size:12px; opacity:.75; color:#333;
+    pointer-events:none;
+    white-space:nowrap;
+    text-shadow:0 1px 0 rgba(255,255,255,.6);
+  }
+
+  /* ---------- Tap-to-allow overlay (no fancy fade-in) ---------- */
+  #avPrompt{
+    position:fixed; inset:0; display:flex;
+    justify-content:center; align-items:center;
+    background:rgba(229,233,244,0.86);   /* soft neutral veil */
+    z-index:1500;
+  }
+  #avPrompt .card{
+    background:rgba(255,255,255,0.7);
+    border:1px solid rgba(255,255,255,0.8);
+    border-radius:16px;
+    padding:14px 16px;
+    box-shadow:0 12px 28px rgba(0,0,0,0.12);
+    font-size:14px; color:#222;
+  }
+  #avPrompt .card b{ font-weight:600; }
+  #avPrompt.hide{ display:none; } /* removed instantly after grant */
+
+  /* Prevent accidental page scrolls on mobile */
+  body, main, .field { touch-action:manipulation; }
 </style>
 </head>
 
 <body>
 
-<!-- Header -->
+<!-- Header: six controls (Room Tone / Voice / Phase / Counter / Step / Reverse Cam) -->
 <header>
   <div class="buttons">
-    <button class="neumorphic active" id="btnRoom"><i class="fa-light fa-waveform"></i><span>Room Tone</span></button>
-    <button class="neumorphic" id="btnVoice"><i class="fa-light fa-microphone"></i><span>Voice</span></button>
-    <button class="neumorphic" id="btnPhase"><i class="fa-light fa-arrows-left-right"></i><span>In-Phase</span></button>
-    <button class="neumorphic" id="btnStep"><i class="fa-light fa-forward-step"></i><span>Cycle Step</span></button>
-    <button class="neumorphic" id="btnAuto"><i class="fa-light fa-arrows-rotate"></i><span>Cycle Auto</span></button>
-    <button class="neumorphic" id="btnReverse"><i class="fa-light fa-camera-rotate"></i><span>Reverse Cam</span></button>
+    <button class="neumorphic active" id="btnRoom">
+      <i class="fa-light fa-waveform"></i><span>Room Tone</span>
+    </button>
+    <button class="neumorphic" id="btnVoice">
+      <i class="fa-light fa-microphone"></i><span>Voice</span>
+    </button>
+    <button class="neumorphic active" id="btnPhase">
+      <i class="fa-light fa-arrows-left-right"></i><span>Phase</span>
+    </button>
+    <button class="neumorphic" id="btnCounter">
+      <i class="fa-light fa-shuffle"></i><span>Counter</span>
+    </button>
+    <button class="neumorphic" id="btnStep">
+      <i class="fa-light fa-forward-step"></i><span>Step</span>
+    </button>
+    <button class="neumorphic" id="btnReverse">
+      <i class="fa-light fa-camera-rotate"></i><span>Reverse Cam</span>
+    </button>
   </div>
 </header>
 
-<!-- Field -->
 <main>
   <div class="field" id="field">
-    <div class="panel" style="--i:0;"><video class="v" muted playsinline autoplay></video></div>
-    <div class="panel" style="--i:1;"><video class="v" muted playsinline autoplay></video></div>
-    <div class="panel" style="--i:2;"><video class="v" muted playsinline autoplay></video></div>
-    <div class="panel" style="--i:3;"><video class="v" muted playsinline autoplay></video></div>
-    <div class="panel" style="--i:4;"><video class="v" muted playsinline autoplay></video></div>
-    <div class="panel" style="--i:5;"><video class="v" muted playsinline autoplay></video></div>
+    <video id="live" muted playsinline autoplay></video>
   </div>
 </main>
 
-<div class="status" id="status">🎙 Room tone active • In-phase • Cycle idle</div>
+<div class="status" id="status">🎙 Room tone active • In-phase • Rear cam</div>
 
-<!-- iOS/desktop friendly explicit start -->
-<div id="avOverlay">
-  <button id="startAV">Allow Camera + Mic</button>
+<!-- Tap-to-allow overlay -->
+<div id="avPrompt">
+  <div class="card"><b>Tap to allow camera + mic</b></div>
 </div>
 
 <script>
 /* =========================================================
-  v2.6A — mic-reactive, dephased panels + Reverse Cam
+  phase_cycle_v2_7_unified — rear-cam default • 9×14
+  - Single unified video field
+  - Always-visible ticker
+  - Tap-to-allow overlay (no fade-in), hides once granted
+  - Controls: Room / Voice, Phase / Counter, Step, Reverse Cam
+  - “Mechanical” mic-driven modulation (no panel drift)
 ========================================================= */
 let mediaStream = null;
+let facing = 'environment';     // default rear camera
 let audioCtx = null, analyser = null, dataTime = null, dataFreq = null;
-let facing = 'environment';           // 'environment' | 'user'
 
+const live = document.getElementById('live');
 const statusEl = document.getElementById('status');
-const videos = [...document.querySelectorAll('.v')];
-const startBtn = document.getElementById('startAV');
-const overlay = document.getElementById('avOverlay');
+const promptEl = document.getElementById('avPrompt');
 
 const BTN = {
-  room: document.getElementById('btnRoom'),
-  voice: document.getElementById('btnVoice'),
-  phase: document.getElementById('btnPhase'),
-  step:  document.getElementById('btnStep'),
-  auto:  document.getElementById('btnAuto'),
-  reverse: document.getElementById('btnReverse')
+  room:     document.getElementById('btnRoom'),
+  voice:    document.getElementById('btnVoice'),
+  phase:    document.getElementById('btnPhase'),
+  counter:  document.getElementById('btnCounter'),
+  step:     document.getElementById('btnStep'),
+  reverse:  document.getElementById('btnReverse')
 };
 
 let mode = 'room';          // 'room' | 'voice'
-let inPhase = true;         // true=in-phase, false=counter-phase
-let cycleShift = 0;         // manual cycle step accumulator
-let autoTimer = null;       // cycle auto interval
+let counterPhase = false;   // false=in-phase, true=counter
+let cycleShift = 0;         // manual cycle phase accumulator
 
 function setActive(btn, on){ btn.classList.toggle('active', !!on); }
 function setStatus(){
+  const camLabel = facing === 'user' ? 'Front cam' : 'Rear cam';
   statusEl.textContent =
     `${mode==='room'?'🎙 Room tone active':'🎤 Voice mode'} • ` +
-    `${inPhase?'In-phase':'Counter'} • ` +
-    `${autoTimer?'Cycle auto':'Cycle idle'} • ` +
-    `${facing==='user'?'Front cam':'Rear cam'}`;
+    `${counterPhase?'Counter':'In-phase'} • ${camLabel}`;
 }
 
-/* --------- Start / Restart AV with current facing --------- */
-async function startAV(){
+/* ---- Audio helpers ---- */
+function getRMS(){
+  if(!analyser) return 0;
+  analyser.getByteTimeDomainData(dataTime);
+  let sum=0;
+  for(let i=0;i<dataTime.length;i++){
+    const v=(dataTime[i]-128)/128;
+    sum+=v*v;
+  }
+  return Math.sqrt(sum/dataTime.length); // ~0..0.5
+}
+function getLowEnergy(){
+  if(!analyser) return 0;
+  analyser.getByteFrequencyData(dataFreq);
+  const nyquist = audioCtx.sampleRate/2;
+  const limitHz = 300;
+  const limitBin = Math.max(1, Math.floor(dataFreq.length * (limitHz/nyquist)));
+  let sum=0;
+  for(let i=0;i<limitBin;i++) sum+=dataFreq[i];
+  return sum/(limitBin*255); // 0..1
+}
+
+/* ---- Start camera+mic ---- */
+async function startAV() {
+  if(mediaStream) return;
   try{
-    // stop old tracks
-    if(mediaStream){
-      mediaStream.getTracks().forEach(t=>t.stop());
-      mediaStream = null;
-    }
     mediaStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: facing } },
       audio: true
     });
+    live.srcObject = mediaStream;
+    await live.play().catch(()=>{});
 
-    // attach stream to all videos
-    videos.forEach(v=>{
-      v.srcObject = mediaStream;
-      v.muted = true;
-      v.playsInline = true;
-      v.autoplay = true;
-      v.play().catch(()=>{});
-    });
-
-    // audio analysis
-    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Audio analysis
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const src = audioCtx.createMediaStreamSource(mediaStream);
     analyser = audioCtx.createAnalyser();
     analyser.fftSize = 2048;
@@ -200,104 +246,92 @@ async function startAV(){
     dataFreq = new Uint8Array(analyser.frequencyBinCount);
     src.connect(analyser);
 
-    overlay.style.display = 'none';
+    // Hide overlay promptly (no fancy fade-in/out)
+    promptEl.classList.add('hide');
     setStatus();
   }catch(err){
-    overlay.style.display = 'flex';
-    statusEl.textContent = '⚠️ Tap “Allow Camera + Mic”';
     console.error(err);
+    statusEl.textContent = '⚠️ Permission required (tap top message)';
   }
 }
-startBtn.addEventListener('click', startAV, { once:false });
 
-/* Also try to prompt immediately (desktop browsers may allow) */
-document.addEventListener('DOMContentLoaded', ()=>{
-  // Some browsers will still require user gesture; overlay remains as fallback.
-  startAV().catch(()=>{ /* ignore */ });
-});
+/* Require a tap (reliable on iOS/Safari) */
+window.addEventListener('pointerdown', startAV, { once:true });
+window.addEventListener('touchstart', startAV, { once:true });
+promptEl.addEventListener('click', startAV);
 
-/* --------- Audio metrics --------- */
-function getRMS(){
-  if(!analyser) return 0;
-  analyser.getByteTimeDomainData(dataTime);
-  let sum = 0; for(let i=0;i<dataTime.length;i++){ const v=(dataTime[i]-128)/128; sum += v*v; }
-  return Math.sqrt(sum / dataTime.length); // ~0..0.5
-}
-function getLowEnergy(){
-  if(!analyser) return 0;
-  analyser.getByteFrequencyData(dataFreq);
-  const nyquist = audioCtx.sampleRate / 2;
-  const limitHz = 300;
-  const limitBin = Math.max(1, Math.floor(dataFreq.length * (limitHz/nyquist)));
-  let sum=0; for(let i=0;i<limitBin;i++) sum+=dataFreq[i];
-  return sum / (limitBin*255); // 0..1
+/* ---- Reverse cam ---- */
+async function switchCamera() {
+  if(!mediaStream){
+    await startAV(); // ensure permission
+    return;
+  }
+  // stop old tracks
+  mediaStream.getTracks().forEach(t=>t.stop());
+  mediaStream = null;
+
+  facing = (facing === 'user') ? 'environment' : 'user';
+  await startAV();
 }
 
-/* --------- Animation (internal motion only) --------- */
-let t = 0;
+/* ---- Animation: mechanical mic-driven modulation (no drift) ---- */
+let t=0;
 function animate(){
   requestAnimationFrame(animate);
   t += 0.015;
 
   let driver = 0.0;
   if(analyser){
-    if(mode === 'room'){ driver = 0.12 * getLowEnergy(); }
-    else { driver = Math.min(0.35, getRMS() * 1.2); } // punchier on voice
+    if(mode==='room'){
+      const low = getLowEnergy();             // 0..1
+      driver = 0.18 * low;                    // gentle, but visible
+    }else{
+      const rms = getRMS();                   // 0..~0.5
+      driver = Math.min(0.35, rms * 1.4);     // punchier (asked for “go extreme”)
+    }
   }
 
-  const baseSpeed = mode === 'room' ? 0.6 : 1.8;
-  const phaseStride = (inPhase ? Math.PI/8 : Math.PI/4);
+  // “Phase” vs “Counter”: steer a small oscillation sign
+  const base = (counterPhase ? -1 : 1);
+  const local = base * Math.sin(t*1.7 + cycleShift);   // −1..1
+  const wobble = local * driver;
 
-  document.querySelectorAll('.panel').forEach((p, i)=>{
-    const localPhase = t * baseSpeed + i * phaseStride + cycleShift;
-    const wobble = Math.sin(localPhase) * driver;   // −d..+d
-    const v = p.querySelector('video');
-    const px = wobble * 8;                          // more responsive
-    const br = 1 + wobble * 0.18;
-    const ct = 1 + wobble * 0.14;
-    v.style.transform = `translateX(${px}px) scaleX(-1)`;
-    v.style.filter = `brightness(${br}) contrast(${ct})`;
-  });
+  // Mechanical adjustments: tiny translate + contrast/brightness
+  const px = wobble * 10;                      // pixels left/right
+  const br = 1 + wobble * 0.18;
+  const ct = 1 + wobble * 0.15;
+
+  live.style.transform = `translateX(${px}px) scaleX(-1)`;
+  live.style.filter    = `brightness(${br}) contrast(${ct})`;
 }
 animate();
 
-/* --------- Header controls --------- */
-// Modes
+/* ---- Header controls ---- */
 BTN.room.addEventListener('click', ()=>{
-  mode = 'room';
-  setActive(BTN.room,true); setActive(BTN.voice,false);
+  mode='room';
+  setActive(BTN.room, true); setActive(BTN.voice, false);
   setStatus();
 });
 BTN.voice.addEventListener('click', ()=>{
-  mode = 'voice';
-  setActive(BTN.voice,true); setActive(BTN.room,false);
+  mode='voice';
+  setActive(BTN.voice, true); setActive(BTN.room, false);
   setStatus();
 });
-
-// Phase
 BTN.phase.addEventListener('click', ()=>{
-  inPhase = !inPhase;
-  setActive(BTN.phase, inPhase);
+  counterPhase=false;
+  setActive(BTN.phase, true); setActive(BTN.counter, false);
   setStatus();
 });
-
-// Cycle step / auto
+BTN.counter.addEventListener('click', ()=>{
+  counterPhase=true;
+  setActive(BTN.counter, true); setActive(BTN.phase, false);
+  setStatus();
+});
 BTN.step.addEventListener('click', ()=>{
-  cycleShift += Math.PI/9;
+  cycleShift += Math.PI/9;  // small advance
   setStatus();
 });
-BTN.auto.addEventListener('click', ()=>{
-  if(autoTimer){ clearInterval(autoTimer); autoTimer = null; setActive(BTN.auto,false); }
-  else{ autoTimer = setInterval(()=>{ cycleShift += Math.PI/12; }, 900); setActive(BTN.auto,true); }
-  setStatus();
-});
-
-// Reverse Cam (far right)
-BTN.reverse.addEventListener('click', async ()=>{
-  facing = (facing === 'user') ? 'environment' : 'user';
-  await startAV();
-  setStatus();
-});
+BTN.reverse.addEventListener('click', switchCamera);
 </script>
 </body>
 </html>
