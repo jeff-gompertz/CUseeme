@@ -52,12 +52,31 @@
   button.neumorphic > i{ font-size:20px; line-height:1; }
   button.neumorphic > span{ font-size:12px; line-height:1; }
   /* “active” style = pressed look from tutorial */
-  button.neumorphic.active{
-    box-shadow:var(--shadow),
-               inset .5rem .5rem 1rem hsl(0 0% 50%/.5),
-               inset -.5rem -.5rem 1rem hsl(0 0% 100%/.75);
-    color:hsl(10 80% 50%);
-  }
+/* === Fixed neumorphic button behavior === */
+
+/* Default raised (flat) */
+button.neumorphic{
+  box-shadow:var(--shadow);
+  transition:all 0.15s ease;
+}
+
+/* Momentary physical press */
+button.neumorphic:active{
+  box-shadow:var(--shadow),
+              inset .5rem .5rem 1rem hsl(0 0% 50%/.4),
+              inset -.5rem -.5rem 1rem hsl(0 0% 100%/.6);
+  transform:translateY(1px);
+}
+
+/* Toggled (stays pressed only for paired states) */
+button.neumorphic.toggled{
+  box-shadow:var(--shadow),
+              inset .5rem .5rem 1rem hsl(0 0% 50%/.5),
+              inset -.5rem -.5rem 1rem hsl(0 0% 100%/.75);
+  color:hsl(10 80% 50%);
+}
+
+  
   @media (max-width:600px){
     .buttons{ gap:.5rem; width:95vw; }
     button.neumorphic > i{ font-size:16px; }
@@ -307,31 +326,54 @@ function animate(){
 animate();
 
 /* ---- Header controls ---- */
+/* ---- Header controls (with correct button behavior) ---- */
+
+// Helper for visual toggle states
+function setActive(btn, on){
+  btn.classList.toggle('toggled', !!on);
+}
+
+// Room Tone / Voice
 BTN.room.addEventListener('click', ()=>{
-  mode='room';
-  setActive(BTN.room, true); setActive(BTN.voice, false);
+  mode = 'room';
+  setActive(BTN.room, true);
+  setActive(BTN.voice, false);
   setStatus();
 });
+
 BTN.voice.addEventListener('click', ()=>{
-  mode='voice';
-  setActive(BTN.voice, true); setActive(BTN.room, false);
+  mode = 'voice';
+  setActive(BTN.voice, true);
+  setActive(BTN.room, false);
   setStatus();
 });
+
+// Phase / Counter
 BTN.phase.addEventListener('click', ()=>{
-  counterPhase=false;
-  setActive(BTN.phase, true); setActive(BTN.counter, false);
+  counterPhase = false;
+  setActive(BTN.phase, true);
+  setActive(BTN.counter, false);
   setStatus();
 });
+
 BTN.counter.addEventListener('click', ()=>{
-  counterPhase=true;
-  setActive(BTN.counter, true); setActive(BTN.phase, false);
+  counterPhase = true;
+  setActive(BTN.counter, true);
+  setActive(BTN.phase, false);
   setStatus();
 });
+
+// Step (momentary only)
 BTN.step.addEventListener('click', ()=>{
-  cycleShift += Math.PI/9;  // small advance
+  cycleShift += Math.PI / 9;  // small advance
   setStatus();
 });
+
+// Reverse Cam (momentary only)
 BTN.reverse.addEventListener('click', switchCamera);
+
+
+  
 </script>
 </body>
 </html>
