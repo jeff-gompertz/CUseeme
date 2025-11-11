@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CUSeeMe Archive / Root Index</title>
+<style>
+/* ---------- Wikipedia-style baseline ---------- */
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  background:#f8f9fa;
+  color:#202122;
+  display:flex;
+  flex-direction:row;
+  height:100vh;
+  overflow:hidden;
+  line-height:1.6;
+}
+#sidebar{
+  width:28%;
+  background:#ffffff;
+  border-right:1px solid #a2a9b1;
+  padding:20px;
+  overflow-y:auto;
+}
+#sidebar h1{
+  font-size:1.25rem;
+  margin-bottom:1rem;
+  color:#202122;
+  font-weight:600;
+}
+details{
+  margin-bottom:10px;
+}
+details summary{
+  cursor:pointer;
+  font-weight:600;
+  color:#0645ad;
+  padding:4px 0;
+}
+.filelink{
+  display:block;
+  padding:6px 10px;
+  margin:3px 0;
+  border-radius:6px;
+  color:#0645ad;
+  text-decoration:none;
+  background:#f8f9fa;
+  transition:background .15s ease, color .15s ease;
+  word-break:break-all;
+}
+.filelink:hover{
+  background:#eaf3ff;
+  color:#000;
+}
+iframe{
+  flex:1;
+  border:none;
+  width:72%;
+  height:100%;
+  background:#ffffff;
+}
+footer{
+  font-size:0.8rem;
+  color:#54595d;
+  margin-top:1rem;
+  border-top:1px solid #a2a9b1;
+  padding-top:0.5rem;
+}
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <h1>📂 CUSeeMe Archive / Root Index</h1>
+  <p style="font-size:0.9rem;color:#54595d;">Click a version to preview →</p>
+  <div id="filegroups">Loading file list…</div>
+  <footer id="footer"></footer>
+</div>
+
+<iframe name="preview"></iframe>
+
+<script>
+/* ---------- Auto-index by prefix ---------- */
+async function loadFiles(){
+  const fileGroups = {};
+  const resp = await fetch('https://api.github.com/repos/jeff-gompertz/CUseeme/contents/');
+  const files = await resp.json();
+  const htmlFiles = files.filter(f=>f.name.endsWith('.html'));
+  for(const f of htmlFiles){
+    const prefix = f.name.split('_')[0].toLowerCase();
+    if(!fileGroups[prefix]) fileGroups[prefix] = [];
+    fileGroups[prefix].push(f);
+  }
+  const sidebar = document.getElementById('filegroups');
+  sidebar.innerHTML = '';
+  const prefixes = Object.keys(fileGroups).sort();
+  for(const p of prefixes){
+    const det = document.createElement('details');
+    const sum = document.createElement('summary');
+    sum.textContent = p;
+    det.appendChild(sum);
+    for(const f of fileGroups[p]){
+      const a = document.createElement('a');
+      a.className = 'filelink';
+      a.href = f.name;
+      a.textContent = f.name;
+      a.target = 'preview';
+      det.appendChild(a);
+    }
+    sidebar.appendChild(det);
+  }
+  document.getElementById('footer').textContent =
+    `Auto-indexed from GitHub • ${new Date().toLocaleString()}`;
+}
+loadFiles();
+</script>
+</body>
+</html>
