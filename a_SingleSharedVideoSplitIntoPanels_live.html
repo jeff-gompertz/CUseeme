@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Live Camera — Single Shared Video Split into Panels</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; touch-action: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+/* === Canvas setup === */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+function resize(){
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+addEventListener("resize", resize);
+resize();
+
+/* === Live camera instead of fetched video === */
+async function loadVideo(){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ ideal:"environment" } },
+      audio:false
+    });
+
+    const v = document.createElement("video");
+    v.srcObject = stream;
+    v.muted = true;
+    v.playsInline = true;
+    v.autoplay = true;
+    v.style.display = "none";
+    document.body.appendChild(v);
+
+    await new Promise(res=>{
+      const ready=()=>res();
+      v.oncanplay = ready;
+      v.onerror = ready;
+      setTimeout(ready,1200);
+    });
+
+    v.play().catch(()=>{});
+    console.log("🎥 Live camera feed active");
+    return v;
+
+  }catch(e){
+    console.error("⚠️ Camera access denied/unavailable", e);
+    const errVid = document.createElement("video");
+    errVid.loop = true;
+    errVid.autoplay = true;
+    errVid.muted = true;
+    errVid.src = "fallback.mp4"; // optional local backup
+    document.body.appendChild(errVid);
+    return errVid;
+  }
+}
+
+/* === iOS autoplay unlock === */
+function startVideos(){ document.querySelectorAll("video").forEach(v=>v.play().catch(()=>{})); }
+addEventListener("touchstart", startVideos, { once:true });
+addEventListener("click", startVideos, { once:true });
+
+/* === Panel setup — unified spine overlap === */
+let cards = [];
+const NUM_CARDS = 6;           // 6 vertical panels
+const CENTER_OVERLAP = 180;    // how tightly panels press toward center
+const EDGE_OFFSET = 60;        // outermost margin
+const SPINE_ALIGNMENT = 0.95;  // 1 = perfect seam
+const DEPTH_JITTER = 0.3;      // subtle alpha variance
+
+function initCards(v){
+  const W = canvas.width, H = canvas.height;
+  const perSide = NUM_CARDS / 2;
+  const w = W / 2 + CENTER_OVERLAP;
+  const h = H;
+  cards = [];
+
+  for(let i = 0; i < NUM_CARDS; i++){
+    const side = i < perSide ? "left" : "right";
+    const idx = i % perSide;
+    const t = idx / (perSide - 1);
+    let xBase;
+
+    if(side === "left"){
+      const edge = -EDGE_OFFSET;
+      const center = (W / 2 - w * SPINE_ALIGNMENT);
+      xBase = edge + (center - edge) * t;
+    } else {
+      const edge = W - w + EDGE_OFFSET;
+      const center = (W / 2 - w * (1 - SPINE_ALIGNMENT));
+      xBase = edge + (center - edge) * t;
+    }
+
+    cards.push({
+      x: xBase,
+      y: 0,
+      w, h,
+      alpha: 0.5 + Math.random() * DEPTH_JITTER,
+      vid: v
+    });
+  }
+}
+
+/* === Draw helper === */
+function drawVideo(v,card){
+  if(!v || v.readyState < 2) return;
+  const {x,y,w,h,alpha}=card;
+  const iw=v.videoWidth||v.width, ih=v.videoHeight||v.height;
+  const r=Math.max(w/iw,h/ih);
+  const nw=iw*r, nh=ih*r;
+  const ox=x+(w-nw)/2, oy=y+(h-nh)/2;
+  ctx.globalAlpha=alpha;
+  ctx.drawImage(v,ox,oy,nw,nh);
+  ctx.globalAlpha=1;
+}
+
+/* === Render loop === */
+function render(){
+  ctx.fillStyle="rgba(0,0,0,0.05)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  for(const card of cards) drawVideo(card.vid,card);
+  requestAnimationFrame(render);
+}
+
+/* === Boot === */
+(async()=>{
+  const liveVid = await loadVideo();
+  if(!liveVid){
+    console.warn("⚠️ No camera feed available");
+    return;
+  }
+  initCards(liveVid);
+  render();
+})();
+</script>
+</body>
+</html>
