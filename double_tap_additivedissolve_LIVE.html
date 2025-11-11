@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>6Cards — Vertical Diptych Scene Dissolve</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+/* === Canvas setup === */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+function resize(){ 
+  canvas.width = innerWidth; 
+  canvas.height = innerHeight; 
+}
+addEventListener("resize", resize); 
+resize();
+
+/* === Keyword scenes === */
+/* === const SCENE_KEYWORDS = [
+  ["ghost"],
+  ["zero"],
+  ["bus"],
+  ["mask"]
+];
+let currentScene = 0;  === */
+
+/* === Load videos from WP Media === */
+/* === Replace WordPress video fetch with live camera === */
+async function loadVideo(){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ ideal:"environment" } },
+      audio:false
+    });
+
+    const v = document.createElement("video");
+    v.srcObject = stream;
+    v.muted = true;
+    v.playsInline = true;
+    v.autoplay = true;
+    v.style.display = "none";
+    document.body.appendChild(v);
+
+    await new Promise(res=>{
+      const ready=()=>res();
+      v.oncanplay = ready;
+      v.onerror = ready;
+      setTimeout(ready,1200);
+    });
+
+    v.play().catch(()=>{});
+    console.log("🎥 Live camera feed active");
+    return v;
+
+  }catch(e){
+    console.error("⚠️ Camera access denied/unavailable", e);
+    const errVid = document.createElement("video");
+    errVid.loop = true;
+    errVid.autoplay = true;
+    errVid.muted = true;
+    errVid.src = "fallback.mp4"; // optional local backup
+    document.body.appendChild(errVid);
+    return errVid;
+  }
+}
+
+
+/* === Basic unlock for iOS autoplay === */
+function startVideos(){ 
+  document.querySelectorAll("video").forEach(v=>v.play().catch(()=>{})); 
+}
+addEventListener("touchstart", startVideos, { once:true });
+addEventListener("click", startVideos, { once:true });
+
+/* === Card / Panel setup (diptych, inward overlap at center) === */
+let cards = [];
+const NUM_CARDS = 6;
+const CENTER_OVERLAP = 120;   // inward push
+const STAGGER_X = 40;         // random jitter
+
+function initCards(vids){
+  const W = canvas.width, H = canvas.height;
+  const w = W / 2, h = H;
+  cards = [];
+
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const side = i < NUM_CARDS / 2 ? "left" : "right";
+    const inward = (Math.random() - 0.5) * STAGGER_X;
+    const xBase = side === "left"
+      ? CENTER_OVERLAP + inward
+      : (W / 2) - CENTER_OVERLAP + inward;
+
+    cards.push({
+      x: xBase,
+      y: 0,
+      w, h,
+      side,
+      vid: vids.length ? vids[i % vids.length] : null,
+      dragging: false,
+      offsetX: 0,
+      offsetY: 0
+    });
+  }
+}
+
+/* === Draw helper === */
+function drawVideoCover(vid,x,y,w,h,a=1){
+  if(!vid||vid.readyState<2) return;
+  const iw=vid.videoWidth||vid.width, ih=vid.videoHeight||vid.height;
+  const r=Math.max(w/iw,h/ih);
+  const nw=iw*r, nh=ih*r;
+  const ox=x+(w-nw)/2, oy=y+(h-nh)/2;
+  ctx.globalAlpha=a;
+  ctx.drawImage(vid,ox,oy,nw,nh);
+  ctx.globalAlpha=1;
+}
+
+/* === Fade manager === */
+let activeFades=[];
+function triggerFade(card,newVid){
+  activeFades.push({card,oldVid:card.vid,newVid,progress:0});
+}
+
+/* === Sequential fade replace === */
+async function sequentialFadeReplace(newVids){
+  console.log("🎬 Sequential fade replace...");
+  for(const c of cards){
+    const newVid=newVids[Math.floor(Math.random()*newVids.length)];
+    triggerFade(c,newVid);
+    await new Promise(r=>setTimeout(r,700));
+  }
+}
+
+/* === Scene changer === */
+async function nextScene(){
+  if(activeFades.length>0) return;
+  currentScene=(currentScene+1)%SCENE_KEYWORDS.length;
+  const newVids=await loadVideos();
+  if(newVids.length) sequentialFadeReplace(newVids);
+}
+
+/* === Double-tap / Double-click Scene Advance === */
+let sceneAdvancing=false;
+let lastTapTime=0;
+
+function handleSceneAdvance(e){
+  const now=Date.now();
+  const delta=now-lastTapTime;
+
+  if(delta<400 && !sceneAdvancing){
+    sceneAdvancing=true;
+    nextScene().finally(()=>sceneAdvancing=false);
+    e.preventDefault();
+  }
+
+  lastTapTime=now;
+}
+
+canvas.addEventListener("touchstart", handleSceneAdvance, { passive:false });
+canvas.addEventListener("click", handleSceneAdvance);
+
+/* === Drag control (viewport constrained) === */
+let active=null;
+function pointerDown(e){
+  const rect=canvas.getBoundingClientRect();
+  const x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  const y=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+  for(let i=cards.length-1;i>=0;i--){
+    const c=cards[i];
+    if(x>c.x&&x<c.x+c.w&&y>c.y&&y<c.y+c.h){
+      c.dragging=true; c.offsetX=x-c.x; c.offsetY=y-c.y; active=c; break;
+    }
+  }
+}
+function pointerMove(e){
+  if(!active) return;
+  const rect=canvas.getBoundingClientRect();
+  const x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  const y=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+  active.x=Math.max(0,Math.min(canvas.width-active.w,x-active.offsetX));
+  active.y=Math.max(0,Math.min(canvas.height-active.h,y-active.offsetY));
+}
+function pointerUp(){ if(active){active.dragging=false;active=null;} }
+
+canvas.addEventListener("mousedown",pointerDown);
+canvas.addEventListener("mousemove",pointerMove);
+canvas.addEventListener("mouseup",pointerUp);
+canvas.addEventListener("touchstart",pointerDown);
+canvas.addEventListener("touchmove",pointerMove);
+canvas.addEventListener("touchend",pointerUp);
+
+/* === Render loop === */
+function render(){
+  ctx.fillStyle="rgba(0,0,0,0.05)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  for(const c of cards){
+    const fade=activeFades.find(f=>f.card===c);
+    if(fade){
+      fade.progress+=0.02;
+      const p=Math.min(1,fade.progress);
+      drawVideoCover(fade.oldVid,c.x,c.y,c.w,c.h,0.35*(1-p*0.8));
+      drawVideoCover(fade.newVid,c.x,c.y,c.w,c.h,0.35*p);
+      if(p>=1){ c.vid=fade.newVid; activeFades=activeFades.filter(f=>f!==fade); }
+    }else{
+      drawVideoCover(c.vid,c.x,c.y,c.w,c.h,0.35);
+    }
+  }
+  requestAnimationFrame(render);
+}
+
+/* === Boot === */
+(async function(){
+  const vids=await loadVideos();
+  if(!vids.length){ console.warn("⚠️ No videos found"); return; }
+  initCards(vids);
+  render();
+})();
+</script>
+</body>
+</html>
