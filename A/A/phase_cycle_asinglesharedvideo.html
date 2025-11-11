@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Phase Cycle v2.4 — Unified Canvas (Room Tone + Voice)</title>
+
+<!-- Your neutral neumorphic base -->
+<link rel="stylesheet" href="css/neumorphic_neutral.css">
+<!-- Icons (tutorial set) -->
+<link rel="stylesheet" href="https://pro.fontawesome.com/releases/v6.0.0-beta1/css/all.css">
+
+<style>
+:root{
+  --bg:#e5e9f4;
+  --fieldW:min(92vw, 1100px);
+  --overlap:6%;                 /* panel overlap amount */
+}
+html,body{
+  margin:0; height:100%;
+  background:var(--bg); overflow:hidden;
+  font-family:system-ui, sans-serif;
+}
+
+/* ---------- Fixed neumorphic header ---------- */
+header{
+  position:fixed; top:0; left:0; width:100%;
+  background:#e5e9f4;
+  box-shadow:0 5px 10px rgba(0,0,0,0.05);
+  z-index:1000;
+  display:flex; justify-content:center; padding:1rem 0;
+}
+.buttons{
+  display:grid; gap:1rem;
+  grid-template-columns:repeat(6, minmax(60px, 1fr));
+  width:min(90vw, 560px);
+}
+button.neumorphic{
+  border:.5rem solid transparent; border-radius:1rem;
+  color:hsl(0 0% 10%); background:none;
+  display:grid; place-content:center; gap:.5rem;
+  --shadow:-.5rem -.5rem 1rem hsl(0 0% 100%/.75),
+           .5rem .5rem 1rem hsl(0 0% 50%/.5);
+  box-shadow:var(--shadow);
+  outline:none; transition:all .1s;
+}
+button.neumorphic > i{ font-size:20px; }
+button.neumorphic > span{ font-size:12px; }
+button.neumorphic:hover,button.neumorphic:focus-visible{ color:hsl(10 80% 50%); scale:1.05; }
+button.neumorphic:active,button.neumorphic.active{
+  box-shadow:var(--shadow),
+             inset .5rem .5rem 1rem hsl(0 0% 50%/.5),
+             inset -.5rem -.5rem 1rem hsl(0 0% 100%/.75);
+  color:hsl(10 80% 50%);
+}
+@media (max-width:600px){
+  .buttons{ grid-template-columns:repeat(6, 1fr); gap:.5rem; width:95vw; }
+  button.neumorphic > i{ font-size:16px; }
+  button.neumorphic > span{ font-size:10px; }
+}
+
+/* ---------- Field (14:9) below header ---------- */
+main{
+  position:fixed; inset:0; top:110px; /* header offset */
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden;
+}
+.field{
+  position:relative;
+  width:var(--fieldW);
+  aspect-ratio:14/9;          /* ✅ your preferred proportion */
+  background:#000;            /* behind the video */
+  box-shadow:0 10px 24px rgba(0,0,0,.15);
+}
+#canvas{
+  position:absolute; inset:0; width:100%; height:100%;
+  display:block; touch-action:none;
+}
+
+/* ---------- Status ---------- */
+.status{
+  position:fixed; left:8px; bottom:6px; z-index:1200;
+  font-family:monospace; font-size:12px; opacity:.75; color:#333;
+  pointer-events:none;
+}
+</style>
+</head>
+
+<body>
+
+<!-- Header: 6 controls (fixed across pages) -->
+<header>
+  <div class="buttons">
+    <button class="neumorphic active" id="btnRoom"><i class="fa-light fa-waveform"></i><span>Room Tone</span></button>
+    <button class="neumorphic" id="btnVoice"><i class="fa-light fa-microphone"></i><span>Voice</span></button>
+    <button class="neumorphic" id="btnPhase"><i class="fa-light fa-arrows-left-right"></i><span>In-Phase</span></button>
+    <button class="neumorphic" id="btnCounter"><i class="fa-light fa-shuffle"></i><span>Counter</span></button>
+    <button class="neumorphic" id="btnStep"><i class="fa-light fa-forward-step"></i><span>Cycle Step</span></button>
+    <button class="neumorphic" id="btnAuto"><i class="fa-light fa-arrows-rotate"></i><span>Cycle Auto</span></button>
+  </div>
+</header>
+
+<!-- Field -->
+<main>
+  <div class="field">
+    <canvas id="canvas"></canvas>
+  </div>
+</main>
+
+<div class="status" id="status">🎙 Room tone active • In-phase • Cycle idle</div>
+
+<script>
+/* =========================================================
+   Phase Cycle v2.4 — Unified Canvas (one live video → 6 slices)
+   Mechanical, mic-reactive, no drifting panels.
+========================================================= */
+const N_SLICES = 6;
+const OVERLAP_FRAC = 0.06;          // 6% overlap
+const PHASE_INCR_IN = Math.PI/10;   // in-phase stride
+const PHASE_INCR_COUNTER = Math.PI/4;// counter stride (stronger opposition)
+
+// State
+let mode = 'room';          // 'room' | 'voice'
+let counterPhase = false;
+let cycleShift = 0;
+let autoTimer = null;
+
+const statusEl = document.getElementById('status');
+const BTN = {
+  room: document.getElementById('btnRoom'),
+  voice: document.getElementById('btnVoice'),
+  phase: document.getElementById('btnPhase'),
+  counter: document.getElementById('btnCounter'),
+  step: document.getElementById('btnStep'),
+  auto: document.getElementById('btnAuto')
+};
+
+// Canvas + offscreen
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d', { alpha:false });
+let off = document.createElement('canvas');
+let offCtx = off.getContext('2d');
+
+// Live video
+let stream = null;
+const video = document.createElement('video');
+video.muted = true; video.playsInline = true; video.autoplay = true;
+
+// Audio analysis
+let audioCtx=null, analyser=null, dataTime=null, dataFreq=null;
+
+// Resize to field size
+function fitCanvas(){
+  const r = canvas.getBoundingClientRect();
+  const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+  canvas.width = Math.floor(r.width * dpr);
+  canvas.height = Math.floor(r.height * dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+
+  off.width = Math.floor(r.width);
+  off.height = Math.floor(r.height);
+}
+window.addEventListener('resize', fitCanvas);
+fitCanvas();
+
+// Start AV after first user gesture (iOS-friendly)
+async function startAV(){
+  if(stream) return;
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: true
+    });
+    video.srcObject = stream;
+    video.play().catch(()=>{});
+
+    // Audio
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.8;
+    dataTime = new Uint8Array(analyser.fftSize);
+    dataFreq = new Uint8Array(analyser.frequencyBinCount);
+    src.connect(analyser);
+
+    setStatus();
+  }catch(e){
+    statusEl.textContent = '⚠️ Tap to allow camera/mic';
+    console.error(e);
+  }
+}
+window.addEventListener('pointerdown', startAV, { once:true });
+window.addEventListener('touchstart', startAV, { once:true });
+
+// Analysis helpers (strong, “extreme” drive; we’ll cap)
+function getRMS(){
+  if(!analyser) return 0;
+  analyser.getByteTimeDomainData(dataTime);
+  let sum = 0;
+  for(let i=0;i<dataTime.length;i++){
+    const v = (dataTime[i]-128)/128;
+    sum += v*v;
+  }
+  return Math.sqrt(sum / dataTime.length);    // ~0..0.5
+}
+function getLowEnergy(){
+  if(!analyser) return 0;
+  analyser.getByteFrequencyData(dataFreq);
+  const nyq = audioCtx.sampleRate/2;
+  const limitHz = 300;
+  const limitBin = Math.max(1, Math.floor(dataFreq.length * (limitHz/nyq)));
+  let sum = 0;
+  for(let i=0;i<limitBin;i++) sum += dataFreq[i];
+  return sum / (limitBin*255);                // 0..1
+}
+
+// Render
+let t = 0;
+function draw(){
+  requestAnimationFrame(draw);
+  t += 0.016;
+
+  // Skip until video has frames
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if(!vw || !vh){ ctx.clearRect(0,0,canvas.width,canvas.height); return; }
+
+  // Draw video scaled to offscreen (cover)
+  const W = off.width, H = off.height;
+  const r = Math.max(W/vw, H/vh);
+  const nw = vw*r, nh = vh*r;
+  const ox = (W - nw)/2, oy = (H - nh)/2;
+
+  offCtx.clearRect(0,0,W,H);
+  offCtx.drawImage(video, ox, oy, nw, nh);
+
+  // Mic driver (extreme by default; then clamped)
+  let driver = 0;
+  if(analyser){
+    if(mode==='room'){
+      // Room tone: use low freqs, scale strong
+      driver = getLowEnergy() * 1.4;     // 0..~1.4
+    }else{
+      // Voice: RMS punchier
+      driver = getRMS() * 3.0;           // 0..~1.5
+    }
+    driver = Math.min(1.25, driver);     // clamp
+  }
+
+  // Clear main, draw slices with overlap + dephased internal motion
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const sliceW = W / N_SLICES;
+  const stride = counterPhase ? PHASE_INCR_COUNTER : PHASE_INCR_IN;
+
+  for(let i=0;i<N_SLICES;i++){
+    const localPhase = (t * (mode==='room' ? 1.2 : 2.4)) + i*stride + cycleShift;
+
+    // Mechanical transform derived from driver (extreme then capped)
+    const px = (Math.sin(localPhase) * driver) * 14;           // translate X px
+    const br = 1 + (Math.sin(localPhase+Math.PI/2) * driver)*0.25; // brightness
+    const ct = 1 + (Math.cos(localPhase) * driver)*0.22;           // contrast
+
+    // Panel rect with overlap
+    const overlap = sliceW * OVERLAP_FRAC;
+    const sx = Math.max(0, i*sliceW - overlap/2);
+    const sw = Math.min(W - sx, sliceW + overlap);
+
+    // Clip region for this slice
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(sx, 0, sw, H);
+    ctx.clip();
+
+    // Apply filter + draw from offscreen with internal offset
+    ctx.filter = `brightness(${br}) contrast(${ct})`;
+    ctx.drawImage(off, ox + px, oy, nw, nh);
+    ctx.filter = 'none';
+    ctx.restore();
+  }
+}
+draw();
+
+// UI helpers
+function setActive(btn, on){ btn.classList.toggle('active', !!on); }
+function setStatus(){
+  statusEl.textContent =
+    `${mode==='room'?'🎙 Room tone active':'🎤 Voice mode'} • ` +
+    `${counterPhase?'Counter':'In-phase'} • ` +
+    `${autoTimer?'Cycle auto':'Cycle idle'}`;
+}
+
+// Button wiring
+BTN.room.addEventListener('click', ()=>{
+  mode='room';
+  setActive(BTN.room,true); setActive(BTN.voice,false);
+  setStatus();
+});
+BTN.voice.addEventListener('click', ()=>{
+  mode='voice';
+  setActive(BTN.voice,true); setActive(BTN.room,false);
+  setStatus();
+});
+BTN.phase.addEventListener('click', ()=>{
+  counterPhase=false;
+  setActive(BTN.phase,true); setActive(BTN.counter,false);
+  setStatus();
+});
+BTN.counter.addEventListener('click', ()=>{
+  counterPhase=true;
+  setActive(BTN.counter,true); setActive(BTN.phase,false);
+  setStatus();
+});
+BTN.step.addEventListener('click', ()=>{
+  cycleShift += Math.PI/8;     // small manual step
+  setStatus();
+});
+BTN.auto.addEventListener('click', ()=>{
+  if(autoTimer){
+    clearInterval(autoTimer); autoTimer=null;
+    setActive(BTN.auto,false);
+  }else{
+    autoTimer = setInterval(()=>{ cycleShift += Math.PI/10; }, 700);
+    setActive(BTN.auto,true);
+  }
+  setStatus();
+});
+</script>
+</body>
+</html>
