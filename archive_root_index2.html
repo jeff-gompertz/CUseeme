@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CUSeeMe Archive / Root Index</title>
+<style>
+body{
+  margin:0;
+  font-family:ui-monospace, monospace;
+  background:#fafafa;
+  color:#111;
+  display:flex;
+  flex-direction:row;
+  height:100vh;
+  overflow:hidden;
+}
+#sidebar{
+  width:28%;
+  background:#f0f4f8;
+  border-right:1px solid rgba(0,0,0,0.1);
+  padding:20px;
+  overflow-y:auto;
+}
+#sidebar h1{
+  font-size:1.2rem;
+  margin-bottom:1rem;
+  color:#333;
+}
+.filelink{
+  display:block;
+  padding:8px 10px;
+  margin-bottom:6px;
+  border-radius:6px;
+  color:#004b8d;
+  text-decoration:none;
+  background:rgba(255,255,255,0.7);
+  transition:background .15s ease, color .15s ease;
+  word-break:break-all;
+}
+.filelink:hover{
+  background:#dff1ff;
+  color:#000;
+}
+iframe{
+  flex:1;
+  border:none;
+  width:72%;
+  height:100%;
+  background:#fff;
+}
+footer{
+  font-size:0.8rem;
+  color:#666;
+  margin-top:1rem;
+}
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <h1>📁 CUSeeMe Archive / Root Index</h1>
+  <div id="fileList">Loading...</div>
+  <footer>
+    Auto-indexed from GitHub<br>
+    <span id="lastSync"></span>
+  </footer>
+</div>
+
+<iframe name="preview" id="preview" src=""></iframe>
+
+<script>
+(async ()=>{
+  const list = document.getElementById('fileList');
+  const footerTime = document.getElementById('lastSync');
+  try {
+    const resp = await fetch('https://api.github.com/repos/jeff-gompertz/CUseeme/contents/');
+    const files = await resp.json();
+    const htmlFiles = files.filter(f => f.name.endsWith('.html'));
+    list.innerHTML = '';
+    htmlFiles.sort((a,b)=>a.name.localeCompare(b.name));
+    htmlFiles.forEach(f=>{
+      const a = document.createElement('a');
+      a.className = 'filelink';
+      a.href = '#';
+      a.textContent = f.name;
+      a.onclick = e=>{
+        e.preventDefault();
+        document.getElementById('preview').src =
+          `https://jeff-gompertz.github.io/CUseeme/${f.name}`;
+      };
+      list.appendChild(a);
+    });
+    footerTime.textContent = 'Last sync: ' + new Date().toLocaleString();
+  } catch (e) {
+    console.error(e);
+    list.textContent = '⚠ Error fetching file list.';
+  }
+})();
+</script>
+</body>
+</html>
