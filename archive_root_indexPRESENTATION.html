@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CUSeeMe Archive / Presentation Index</title>
+<style>
+body{
+  margin:0;
+  font-family:ui-monospace, monospace;
+  background:#fafafa;
+  color:#111;
+  display:flex;
+  flex-direction:row;
+  height:100vh;
+  overflow:hidden;
+  transition:background .4s ease;
+}
+#sidebar{
+  width:28%;
+  background:#f0f4f8;
+  border-right:1px solid rgba(0,0,0,0.1);
+  padding:20px;
+  overflow-y:auto;
+  transition:opacity .4s ease,width .4s ease;
+  z-index:2;
+}
+#sidebar.hidden{
+  opacity:0;
+  width:0;
+  pointer-events:none;
+}
+#sidebar h1{
+  font-size:1.2rem;
+  margin-bottom:1rem;
+  color:#333;
+}
+.filelink{
+  display:block;
+  padding:8px 10px;
+  margin-bottom:6px;
+  border-radius:6px;
+  color:#004b8d;
+  text-decoration:none;
+  background:rgba(255,255,255,0.7);
+  transition:background .15s ease, color .15s ease;
+  word-break:break-all;
+}
+.filelink:hover{ background:#dff1ff; color:#000; }
+
+#viewer{
+  position:relative;
+  flex:1;
+  height:100%;
+  transition:all .4s ease;
+}
+#viewer iframe{
+  position:absolute;
+  inset:0;
+  border:none;
+  width:100%;
+  height:100%;
+  background:#fff;
+  transition:all .4s ease;
+  box-shadow:0 0 20px rgba(0,0,0,0.15);
+}
+#expandBtn{
+  position:absolute;
+  top:10px;
+  right:14px;
+  z-index:10;
+  background:rgba(255,255,255,0.9);
+  border:1px solid rgba(0,0,0,0.1);
+  border-radius:6px;
+  font-size:14px;
+  cursor:pointer;
+  padding:4px 8px;
+  color:#222;
+  transition:background .2s ease;
+}
+#expandBtn:hover{ background:#dff1ff; }
+
+.fullscreen #sidebar{ opacity:0; width:0; pointer-events:none; }
+.fullscreen #viewer{ flex:1; width:100%; }
+.fullscreen #expandBtn::after{ content:"⤺ Return"; }
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <h1>📁 CUSeeMe Archive / Root Index</h1>
+  <div id="fileList">Loading...</div>
+  <footer style="font-size:0.8rem;color:#666;margin-top:1rem;">
+    Auto-indexed from GitHub<br><span id="lastSync"></span>
+  </footer>
+</div>
+
+<div id="viewer">
+  <button id="expandBtn">⛶ Expand</button>
+  <iframe name="preview" id="preview"></iframe>
+</div>
+
+<script>
+(async ()=>{
+  const list = document.getElementById('fileList');
+  const footerTime = document.getElementById('lastSync');
+  const sidebar = document.getElementById('sidebar');
+  const body = document.body;
+
+  try {
+    const resp = await fetch('https://api.github.com/repos/jeff-gompertz/CUseeme/contents/');
+    const files = await resp.json();
+    const htmlFiles = files.filter(f => f.name.endsWith('.html'));
+    list.innerHTML = '';
+    htmlFiles.sort((a,b)=>a.name.localeCompare(b.name));
+    htmlFiles.forEach(f=>{
+      const a = document.createElement('a');
+      a.className = 'filelink';
+      a.href = '#';
+      a.textContent = f.name;
+      a.onclick = e=>{
+        e.preventDefault();
+        document.getElementById('preview').src =
+          `https://jeff-gompertz.github.io/CUseeme/${f.name}`;
+      };
+      list.appendChild(a);
+    });
+    footerTime.textContent = 'Last sync: ' + new Date().toLocaleString();
+  } catch (e) {
+    console.error(e);
+    list.textContent = '⚠ Error fetching file list.';
+  }
+
+  // Expand toggle
+  const expandBtn = document.getElementById('expandBtn');
+  expandBtn.addEventListener('click', ()=>{
+    body.classList.toggle('fullscreen');
+  });
+})();
+</script>
+</body>
+</html>
