@@ -139,12 +139,12 @@ async function sequentialFadeReplace(newVids){
 }
 
 /* === Scene changer === */
-async function nextScene(){
+/* === async function nextScene(){
   if(activeFades.length>0) return;
   currentScene=(currentScene+1)%SCENE_KEYWORDS.length;
   const newVids=await loadVideos();
   if(newVids.length) sequentialFadeReplace(newVids);
-}
+}*/
 
 /* === Double-tap / Double-click Scene Advance === */
 /* ===let sceneAdvancing=false;
