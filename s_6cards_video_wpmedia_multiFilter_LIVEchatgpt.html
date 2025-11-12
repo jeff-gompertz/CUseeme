@@ -156,6 +156,28 @@ function animate(){
   requestAnimationFrame(animate);
 }
 
+// --- Live-cam helper (returns a <video> with srcObject=stream) ---
+async function createLiveCamVideo(){
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video:{ facingMode:{ ideal:"environment" } },
+    audio:false
+  });
+  const v = document.createElement("video");
+  v.srcObject = stream;
+  v.muted = true;
+  v.playsInline = true;
+  v.autoplay = true;
+  v.style.display = "none";
+  document.body.appendChild(v);
+  await new Promise(res=>{
+    const ok=()=>res();
+    v.oncanplay = ok; v.onerror = ok; setTimeout(ok,1200);
+  });
+  v.play().catch(()=>{});
+  return v;
+}
+
+  
 /* === Boot === */
 (async function(){
   const vids = await loadVideos();
