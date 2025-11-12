@@ -137,56 +137,47 @@ document.getElementById("nextFloat").addEventListener("click", ()=>{
 
 /* --- triple-tap logic --- */
 /* === FLOAT button — press-and-hold advance with gentle pulse === */
-const floatBtn = document.getElementById("nextFloat");
-let holdTimer = null;
-let holdActive = false;
-
-// create pulsing glow effect when idle
-function startPulse() {
-  floatBtn.animate(
-    [
-      { boxShadow: "0 0 6px rgba(66,227,181,0.1)" },
-      { boxShadow: "0 0 20px rgba(66,227,181,0.4)" },
-      { boxShadow: "0 0 6px rgba(66,227,181,0.1)" }
-    ],
-    { duration: 2400, iterations: Infinity }
-  );
+/* =========================
+   4) Navigation (edge taps + keyboard)
+   ========================= */
+let lastTap = 0;
+function debounceTap(){
+  const now = performance.now();
+  if (now - lastTap < 220) return false; // 220ms guard
+  lastTap = now; return true;
 }
-startPulse();
+function next(){ if(!debounceTap()) return; i = (i+1) % SLIDES.length; show(i); }
+function prev(){ if(!debounceTap()) return; i = (i-1+SLIDES.length) % SLIDES.length; show(i); }
 
-/* --- mobile / touch behavior --- */
-floatBtn.addEventListener("touchstart", () => {
-  floatBtn.style.transform = "scale(0.96)";
-  floatBtn.style.boxShadow = "0 0 14px rgba(66,227,181,0.7)";
-  floatBtn.textContent = "HOLD…";
+const leftEdge  = document.getElementById('edgeL');
+const rightEdge = document.getElementById('edgeR');
 
-  holdTimer = setTimeout(() => {
-    holdActive = true;
-    floatBtn.textContent = "›";
-    floatBtn.style.boxShadow = "0 0 24px rgba(66,227,181,0.8)";
-    next(); // advance slide
-    setTimeout(() => {
-      floatBtn.style.boxShadow = "";
-    }, 600);
-  }, 800); // hold for 0.8s to trigger
+function bindEdge(edge, fn){
+  const flash = ()=>{ edge.classList.add('flash'); setTimeout(()=>edge.classList.remove('flash'), 180); };
+  const go = (e)=>{ e.preventDefault(); e.stopPropagation(); flash(); fn(); hideHintsOnce(); };
+  edge.addEventListener('click', go, {passive:false});
+  edge.addEventListener('touchstart', go, {passive:false});
+}
+bindEdge(leftEdge,  prev);
+bindEdge(rightEdge, next);
+
+window.addEventListener('keydown', e=>{
+  if(e.key==='ArrowRight' || e.key===' '){ next(); hideHintsOnce(); }
+  if(e.key==='ArrowLeft'){ prev(); hideHintsOnce(); }
 });
 
-floatBtn.addEventListener("touchend", () => {
-  clearTimeout(holdTimer);
-  floatBtn.style.transform = "scale(1)";
-  if (!holdActive) {
-    floatBtn.textContent = "›";
-    floatBtn.style.boxShadow = "";
-  }
-  holdActive = false;
-});
+/* one-time hint hide */
+let hintsHidden = false;
+function hideHintsOnce(){
+  if (hintsHidden) return;
+  hintsHidden = true;
+  hints.classList.add('hide');
+  setTimeout(()=>hints.remove(), 600);
+}
+// auto-hide after 4s if user doesn’t touch
+setTimeout(hideHintsOnce, 4000);
 
-floatBtn.addEventListener("touchcancel", () => {
-  clearTimeout(holdTimer);
-  floatBtn.style.transform = "scale(1)";
-  floatBtn.style.boxShadow = "";
-  holdActive = false;
-});
+  
 
 /* --- desktop fallback (click or press) --- */
 floatBtn.addEventListener("mousedown", () => {
@@ -203,10 +194,6 @@ floatBtn.addEventListener("mouseup", () => {
   floatBtn.style.boxShadow = "";
   floatBtn.style.transform = "scale(1)";
 });
-
-
-
-  
 
 /* keyboard fallback */
 window.addEventListener("keydown", e=>{
