@@ -3,37 +3,63 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Presentation Frame — Inline Slideshow (no iframes)</title>
+<title>Presentation Frame — CUSeeMe FLOAT Slideshow</title>
 <style>
   :root{
-    --bg:#121315;            /* graphite */
+    --bg:#0b0c0e;
     --ink:#e6e7ea;
-    --muted:#8b8f97;
-    --accent:#42e3b5;
-    --fade:0.6s;             /* crossfade duration */
+    --muted:#6b6f77;
+    --accent:#00ff66;
+    --fade:0.6s; /* crossfade duration */
   }
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 ui-monospace,Menlo,Consolas,monospace;overflow:hidden}
+  html,body{
+    height:100%;margin:0;background:var(--bg);
+    color:var(--ink);font:16px/1.45 "VT323", ui-monospace, Menlo, Consolas, monospace;
+    overflow:hidden;
+  }
   #app{position:fixed;inset:0;display:grid;place-items:center}
 
-  /* Two slide layers for crossfade */
-  .stage{position:absolute;inset:0;opacity:0;transition:opacity var(--fade) ease;pointer-events:none}
-  .stage.active{opacity:1;pointer-events:auto}
-  .stage > .slide-root{position:absolute;inset:0}
-
-  /* Tiny HUD: index + “blob” next button */
-  #hud{position:fixed;left:16px;bottom:14px;display:flex;gap:12px;align-items:center;z-index:9999}
-  #idx{font-size:12px;color:var(--muted)}
-  #nextBlob{
-    width:34px;height:34px;border-radius:50%;
-    background:radial-gradient(40% 40% at 30% 30%,rgba(255,255,255,.18),rgba(255,255,255,.04));
-    border:1px solid rgba(255,255,255,.15);
-    box-shadow:0 6px 18px rgba(0,0,0,.35), inset 0 1px 2px rgba(255,255,255,.25);
-    cursor:pointer;display:grid;place-items:center;color:var(--accent);user-select:none
+  /* --- Two slide layers for crossfade --- */
+  .stage{
+    position:absolute;inset:0;opacity:0;
+    transition:opacity var(--fade) ease;
+    pointer-events:none;
   }
-  #nextBlob:hover{transform:translateY(-1px)}
-  #overlayAdvance{position:fixed;inset:0;cursor:pointer;z-index:888; background:transparent}
+  .stage.active{opacity:1;pointer-events:auto}
+  .stage>.slide-root{position:absolute;inset:0}
 
-  /* optional: scope slide <style>/<link> cleanup container in <head> */
+  /* --- HUD index (bottom-left) --- */
+  #hud{
+    position:fixed;left:16px;bottom:14px;
+    display:flex;gap:12px;align-items:center;
+    z-index:9999;
+  }
+  #idx{font-size:12px;color:var(--muted)}
+
+  /* --- FLOAT button (top-right) --- */
+  #nextFloat{
+    position:fixed;top:10px;right:14px;
+    z-index:9999;
+    background:rgba(0,255,0,0.08);
+    border:1px solid rgba(0,255,0,0.25);
+    border-radius:6px;
+    color:var(--accent);
+    font-family:"VT323", monospace;
+    font-size:14px;
+    padding:4px 10px 5px;
+    letter-spacing:1px;
+    cursor:pointer;
+    backdrop-filter:blur(4px);
+    transition:all .25s ease;
+  }
+  #nextFloat:hover{
+    background:rgba(0,255,0,0.15);
+    box-shadow:0 0 15px rgba(0,255,100,0.25);
+  }
+  #overlayAdvance{
+    position:fixed;inset:0;cursor:pointer;
+    z-index:888;background:transparent;
+  }
 </style>
 </head>
 <body>
@@ -42,117 +68,114 @@
   <div id="stageB" class="stage"><div class="slide-root"></div></div>
 </div>
 
-<!-- minimal HUD -->
-<div id="hud">
-  <div id="idx">1 / 1</div>
-  <div id="nextBlob" title="Next (click / tap / →)">›</div>
-</div>
-<!-- full-screen click-to-advance (kept transparent so your slides remain visible/interactive) -->
+<!-- bottom-left HUD index -->
+<div id="hud"><div id="idx">1 / 1</div></div>
+
+<!-- top-right FLOAT navigation button -->
+<div id="nextFloat">⧉ FLOAT</div>
+
+<!-- full-screen click-to-advance -->
 <div id="overlayAdvance" aria-hidden="true"></div>
 
 <script>
-/* ---------- 1) curate your slides here (same-origin URLs) ---------- */
-/* Tip: prefer root-relative paths (e.g. "/CUSeeMe/cuseeme_v1_8.html")
-   so resources resolve correctly when injected. */
+/* =========================================================
+  1) List of slides (same-origin URLs)
+========================================================= */
 const SLIDES = [
   "A/CUseeme_v1.7_dynamic_restyleBLACK.html",
   "a_testCuseeme_modularTemplateRESTYLE.html",
   "a_SingleSharedVideoSplitIntoPanels_live.html",
   "double_tap_additivedissolve_LIVE.html",
-  "s_6cards_video_wpmedia_multiFilter_LIVEchatgpt2.html",
-  
-
+  "s_6cards_video_wpmedia_multiFilter_LIVEchatgpt2.html"
 ];
-  
-/* ---------- 2) simple state ---------- */
+
+/* =========================================================
+  2) State
+========================================================= */
 let i = 0;
 let front = document.getElementById("stageA");
 let back  = document.getElementById("stageB");
 const idxEl = document.getElementById("idx");
 
-/* a place in <head> to mount per-slide <style>/<link> so we can swap cleanly */
-let headMount = document.createElement("template");
-headMount.id = "slide-head-mount";
-document.head.appendChild(headMount);
-
-/* ---------- 3) helper: load + inject HTML, styles, and scripts ---------- */
+/* =========================================================
+  3) Helper — load and inject HTML slides
+========================================================= */
 async function loadSlide(url, intoStage){
+  console.log("🔄 Loading slide:", url);
   const res = await fetch(url, {cache:"no-store"});
   const html = await res.text();
-
-  // Parse once
   const doc = new DOMParser().parseFromString(html, "text/html");
 
-  // (a) swap head assets: <style> and <link rel="stylesheet">
-  //    clear previous
+  // (a) Remove prior slide styles
   document.querySelectorAll('link[data-slide], style[data-slide]').forEach(n=>n.remove());
-  //    add new (mark with data-slide so we can clean them next time)
+
+  // (b) Copy <style> / <link> from new slide
   doc.querySelectorAll('link[rel="stylesheet"], style').forEach(n=>{
     const tag = n.tagName.toLowerCase();
     const clone = document.createElement(tag);
     if(tag==="link"){
       clone.rel = "stylesheet";
       clone.href = n.getAttribute("href");
-    }else{
+    } else {
       clone.textContent = n.textContent;
     }
     clone.setAttribute("data-slide","1");
     document.head.appendChild(clone);
   });
 
-  // (b) body content → mount in stage
+  // (c) Replace stage content
   const body = doc.body || document.createElement("body");
   const mount = intoStage.querySelector(".slide-root");
-  mount.innerHTML = ""; // clear current slide DOM
-  // copy children
+  mount.innerHTML = "";
   [...body.childNodes].forEach(n=>mount.appendChild(n.cloneNode(true)));
 
-  // (c) execute scripts (inline & external) in order
+  // (d) Execute scripts
   const scripts = [...doc.querySelectorAll("script")];
-  for (const s of scripts){
+  for(const s of scripts){
     const scr = document.createElement("script");
-    // copy attributes
     [...s.attributes].forEach(a=>scr.setAttribute(a.name,a.value));
-    if (!s.src) scr.textContent = s.textContent;
-    // important: ensure same-origin and defer execution to current document
-    await new Promise((ok, err)=>{
-      scr.onload = ()=>ok();
-      scr.onerror = ()=>ok(); // don’t block on errors
+    if(!s.src) scr.textContent = s.textContent;
+    await new Promise(ok=>{
+      scr.onload = scr.onerror = ()=>ok();
       mount.appendChild(scr);
       if(!s.src) ok();
     });
   }
 }
 
-/* ---------- 4) crossfade swap ---------- */
+/* =========================================================
+  4) Crossfade transition
+========================================================= */
 async function show(index){
   const url = SLIDES[index];
-  // load into the "back" stage
-  await loadSlide(url, back);
-
-  // crossfade
-  back.classList.add("active");
-  front.classList.remove("active");
-
-  // swap refs
-  [front, back] = [back, front];
-
-  // update index HUD
-  idxEl.textContent = `${index+1} / ${SLIDES.length}`;
+  try{
+    await loadSlide(url, back);
+    back.classList.add("active");
+    front.classList.remove("active");
+    [front, back] = [back, front];
+    idxEl.textContent = `${index+1} / ${SLIDES.length}`;
+  }catch(e){
+    console.error("❌ Slide load failed:", url, e);
+    idxEl.textContent = `⚠ ${index+1}/${SLIDES.length} failed`;
+  }
 }
 
-/* ---------- 5) navigation ---------- */
+/* =========================================================
+  5) Navigation
+========================================================= */
 function next(){ i = (i+1) % SLIDES.length; show(i); }
 function prev(){ i = (i-1+SLIDES.length) % SLIDES.length; show(i); }
 
-document.getElementById("nextBlob").addEventListener("click", next);
+document.getElementById("nextFloat").addEventListener("click", next);
 document.getElementById("overlayAdvance").addEventListener("click", next);
-window.addEventListener("keydown", (e)=>{
+window.addEventListener("keydown", e=>{
   if(e.key==="ArrowRight"||e.key===" "){ next(); }
   if(e.key==="ArrowLeft"){ prev(); }
 });
 
-/* ---------- 6) boot ---------- */
+/* =========================================================
+  6) Boot
+========================================================= */
 show(0);
 </script>
 </body>
