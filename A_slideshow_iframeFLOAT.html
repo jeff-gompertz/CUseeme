@@ -136,18 +136,77 @@ document.getElementById("nextFloat").addEventListener("click", ()=>{
 });
 
 /* --- triple-tap logic --- */
-let tapCount = 0, tapTimer = null;
-function handleTapAdvance(){
-  tapCount++;
-  clearTimeout(tapTimer);
-  tapTimer = setTimeout(()=>tapCount=0, 450);
-  if (tapCount >= 3){
-    tapCount = 0;
-    next();
-  }
+/* === FLOAT button — press-and-hold advance with gentle pulse === */
+const floatBtn = document.getElementById("nextFloat");
+let holdTimer = null;
+let holdActive = false;
+
+// create pulsing glow effect when idle
+function startPulse() {
+  floatBtn.animate(
+    [
+      { boxShadow: "0 0 6px rgba(66,227,181,0.1)" },
+      { boxShadow: "0 0 20px rgba(66,227,181,0.4)" },
+      { boxShadow: "0 0 6px rgba(66,227,181,0.1)" }
+    ],
+    { duration: 2400, iterations: Infinity }
+  );
 }
-overlay.addEventListener("touchstart", handleTapAdvance);
-overlay.addEventListener("click", handleTapAdvance);
+startPulse();
+
+/* --- mobile / touch behavior --- */
+floatBtn.addEventListener("touchstart", () => {
+  floatBtn.style.transform = "scale(0.96)";
+  floatBtn.style.boxShadow = "0 0 14px rgba(66,227,181,0.7)";
+  floatBtn.textContent = "HOLD…";
+
+  holdTimer = setTimeout(() => {
+    holdActive = true;
+    floatBtn.textContent = "›";
+    floatBtn.style.boxShadow = "0 0 24px rgba(66,227,181,0.8)";
+    next(); // advance slide
+    setTimeout(() => {
+      floatBtn.style.boxShadow = "";
+    }, 600);
+  }, 800); // hold for 0.8s to trigger
+});
+
+floatBtn.addEventListener("touchend", () => {
+  clearTimeout(holdTimer);
+  floatBtn.style.transform = "scale(1)";
+  if (!holdActive) {
+    floatBtn.textContent = "›";
+    floatBtn.style.boxShadow = "";
+  }
+  holdActive = false;
+});
+
+floatBtn.addEventListener("touchcancel", () => {
+  clearTimeout(holdTimer);
+  floatBtn.style.transform = "scale(1)";
+  floatBtn.style.boxShadow = "";
+  holdActive = false;
+});
+
+/* --- desktop fallback (click or press) --- */
+floatBtn.addEventListener("mousedown", () => {
+  floatBtn.style.transform = "scale(0.95)";
+  floatBtn.style.boxShadow = "0 0 16px rgba(66,227,181,0.6)";
+  holdTimer = setTimeout(() => {
+    next();
+    floatBtn.style.boxShadow = "";
+    floatBtn.style.transform = "scale(1)";
+  }, 700);
+});
+floatBtn.addEventListener("mouseup", () => {
+  clearTimeout(holdTimer);
+  floatBtn.style.boxShadow = "";
+  floatBtn.style.transform = "scale(1)";
+});
+
+
+
+  
 
 /* keyboard fallback */
 window.addEventListener("keydown", e=>{
