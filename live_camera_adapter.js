@@ -1,45 +1,45 @@
 // live_camera_adapter.js
-// Replaces ALL <video> elements on the page with a live camera stream
-// after a first user interaction (tap/click). Works on iOS Safari.
+// Universal auto-switch for WordPress-video pages → Live Camera override
 
-(function () {
-  let started = false;
-  let stream = null;
+(async () => {
+  // Check if camera mode is explicitly requested in HTML
+  const useLiveCam = document.body.dataset.livecam === "true";
 
-  async function startCamera() {
-    if (started) return;
-    started = true;
-
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-        audio: false
-      });
-
-      const vids = document.querySelectorAll("video");
-      vids.forEach(v => {
-        // Keep any sizing/styles already on the <video>
-        v.muted = true;
-        v.playsInline = true;
-        v.autoplay = true;
-        v.srcObject = stream;
-        v.play().catch(() => {});
-      });
-
-      console.log("🎥 Live camera attached to all <video> elements.");
-    } catch (err) {
-      console.error("⚠️ Camera access failed:", err);
-      alert("Camera permission was denied or unavailable.");
-    }
+  if (!useLiveCam) {
+    console.log("📡 Live camera adapter loaded but inactive (data-livecam=false)");
+    return;
   }
 
-  // iOS/Android: require a user gesture to start
-  const unlock = () => {
-    startCamera();
-    window.removeEventListener("touchend", unlock);
-    window.removeEventListener("click", unlock);
-  };
+  console.log("🎥 Live camera adapter active — requesting stream...");
 
-  window.addEventListener("touchend", unlock, { once: true });
-  window.addEventListener("click", unlock, { once: true });
+  let stream = null;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+      audio: false
+    });
+
+    const vids = document.querySelectorAll("video");
+    vids.forEach(v => {
+      v.srcObject = stream;
+      v.muted = true;
+      v.playsInline = true;
+      v.autoplay = true;
+      v.play().catch(()=>{});
+    });
+
+    console.log("✅ Live camera connected to all <video> elements");
+
+  } catch (err) {
+    console.error("⚠️ Camera permission denied or unavailable:", err);
+  }
+
+  // iOS / Safari unlock gesture
+  const unlock = () => {
+    document.querySelectorAll("video").forEach(v => v.play().catch(()=>{}));
+    window.removeEventListener("click", unlock);
+    window.removeEventListener("touchend", unlock);
+  };
+  window.addEventListener("click", unlock, { once:true });
+  window.addEventListener("touchend", unlock, { once:true });
 })();
