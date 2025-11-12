@@ -121,85 +121,71 @@ function show(index){
 /* =========================================================
   4) Navigation + triple-tap gesture
 ========================================================= */
-function next(){
-  i = (i+1) % SLIDES.length;
-  show(i);
-}
-function prev(){
-  i = (i-1+SLIDES.length) % SLIDES.length;
-  show(i);
-}
-document.getElementById("nextFloat").addEventListener("click", ()=>{
-  overlay.classList.add("armed");
-  setTimeout(()=>overlay.classList.remove("armed"), 4000); // 4s arm window
-  console.log("🟢 Overlay armed for 4s (triple-tap to advance)");
+
+/* === EDGE-TAP NAVIGATION WITH SOFT GLOW === */
+const leftEdge = document.createElement('div');
+const rightEdge = document.createElement('div');
+[leftEdge, rightEdge].forEach(edge=>{
+  Object.assign(edge.style,{
+    position:'fixed',
+    top:'0',height:'100%',width:'10vw',
+    background:'transparent',
+    zIndex:'9999',cursor:'pointer',
+    touchAction:'manipulation',transition:'background .25s ease'
+  });
+  document.body.appendChild(edge);
 });
+leftEdge.style.left='0';
+rightEdge.style.right='0';
 
-/* --- triple-tap logic --- */
-/* === FLOAT button — press-and-hold advance with gentle pulse === */
-/* =========================
-   4) Navigation (edge taps + keyboard)
-   ========================= */
-let lastTap = 0;
-function debounceTap(){
-  const now = performance.now();
-  if (now - lastTap < 220) return false; // 220ms guard
-  lastTap = now; return true;
+/* Flash feedback */
+function flash(edge){
+  edge.style.background='rgba(66,227,181,0.18)';
+  setTimeout(()=>edge.style.background='transparent',180);
 }
-function next(){ if(!debounceTap()) return; i = (i+1) % SLIDES.length; show(i); }
-function prev(){ if(!debounceTap()) return; i = (i-1+SLIDES.length) % SLIDES.length; show(i); }
 
-const leftEdge  = document.getElementById('edgeL');
-const rightEdge = document.getElementById('edgeR');
-
-function bindEdge(edge, fn){
-  const flash = ()=>{ edge.classList.add('flash'); setTimeout(()=>edge.classList.remove('flash'), 180); };
-  const go = (e)=>{ e.preventDefault(); e.stopPropagation(); flash(); fn(); hideHintsOnce(); };
-  edge.addEventListener('click', go, {passive:false});
-  edge.addEventListener('touchstart', go, {passive:false});
+/* Edge navigation */
+function bindEdge(edge,dir){
+  ['click','touchstart'].forEach(evt=>{
+    edge.addEventListener(evt,e=>{
+      e.preventDefault();flash(edge);
+      if(dir==='next')next(); else prev();
+      hideHintsOnce();
+    },{passive:false});
+  });
 }
-bindEdge(leftEdge,  prev);
-bindEdge(rightEdge, next);
+bindEdge(leftEdge,'prev');
+bindEdge(rightEdge,'next');
 
-window.addEventListener('keydown', e=>{
-  if(e.key==='ArrowRight' || e.key===' '){ next(); hideHintsOnce(); }
-  if(e.key==='ArrowLeft'){ prev(); hideHintsOnce(); }
+/* One-time hint fade-in/out */
+const hintWrap=document.createElement('div');
+hintWrap.id='edgeHints';
+Object.assign(hintWrap.style,{
+  position:'fixed',inset:'0',zIndex:'9998',
+  display:'flex',justifyContent:'space-between',alignItems:'center',
+  pointerEvents:'none',opacity:'0.85',transition:'opacity .6s ease'
 });
+hintWrap.innerHTML=`
+  <div style="width:10vw;height:100%;display:grid;place-items:center;
+    color:rgba(66,227,181,.6);font-size:13px;letter-spacing:.06em">‹ PREV</div>
+  <div style="width:10vw;height:100%;display:grid;place-items:center;
+    color:rgba(66,227,181,.6);font-size:13px;letter-spacing:.06em">NEXT ›</div>`;
+document.body.appendChild(hintWrap);
 
-/* one-time hint hide */
-let hintsHidden = false;
 function hideHintsOnce(){
-  if (hintsHidden) return;
-  hintsHidden = true;
-  hints.classList.add('hide');
-  setTimeout(()=>hints.remove(), 600);
+  if(!hintWrap) return;
+  hintWrap.style.opacity='0';
+  setTimeout(()=>hintWrap.remove(),600);
 }
-// auto-hide after 4s if user doesn’t touch
-setTimeout(hideHintsOnce, 4000);
+setTimeout(hideHintsOnce,4000);
 
-  
-
-/* --- desktop fallback (click or press) --- */
-floatBtn.addEventListener("mousedown", () => {
-  floatBtn.style.transform = "scale(0.95)";
-  floatBtn.style.boxShadow = "0 0 16px rgba(66,227,181,0.6)";
-  holdTimer = setTimeout(() => {
-    next();
-    floatBtn.style.boxShadow = "";
-    floatBtn.style.transform = "scale(1)";
-  }, 700);
-});
-floatBtn.addEventListener("mouseup", () => {
-  clearTimeout(holdTimer);
-  floatBtn.style.boxShadow = "";
-  floatBtn.style.transform = "scale(1)";
+/* Keyboard fallback */
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key===' '){next();hideHintsOnce();}
+  if(e.key==='ArrowLeft'){prev();hideHintsOnce();}
 });
 
-/* keyboard fallback */
-window.addEventListener("keydown", e=>{
-  if(e.key==="ArrowRight"||e.key===" "){ next(); }
-  if(e.key==="ArrowLeft"){ prev(); }
-});
+
 
 /* =========================================================
   5) Boot
