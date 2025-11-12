@@ -159,22 +159,53 @@ function animate(){
 }
 
 /* === Boot === */
+/* === Boot === */
 (async function(){
-  const vids = await loadVideos();
-  if(!vids.length){
-    console.warn("⚠️ No videos found for keywords:", FILTER_KEYWORDS);
-    return;
+  if (document.body.dataset.livecam === "true") {
+    console.log("🎥 Attempting live camera mode...");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false
+      });
+
+      const vid = document.createElement("video");
+      vid.srcObject = stream;
+      vid.muted = true;
+      vid.playsInline = true;
+      vid.autoplay = true;
+      vid.style.display = "none";
+      document.body.appendChild(vid);
+      vid.play().catch(()=>{});
+
+      initCards([vid]);
+      animate();
+
+    } catch (err) {
+      console.warn("⚠️ Camera access denied or unavailable:", err);
+      // Neutral fallback if user denies camera
+      ctx.fillStyle = "rgba(64,64,64,0.85)";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = "white";
+      ctx.font = "20px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("Camera access denied", canvas.width/2, canvas.height/2);
+    }
+
+  } else {
+    console.log("🗂 WordPress mode placeholder (disabled for live)");
+    // Optional: Re-enable your WordPress fetch logic here later if needed
   }
-  initCards(vids);
-  animate();
 })();
-</script>
   
 
-<!-- Invisible Click-to-Advance Overlay 
-<div id="nextPageOverlay"></div>
+<!-- Invisible Click-to-Advance Overlay-->
+/*<div id="nextPageOverlay"></div>
 <script>
 
+<!-- 
+<div id="nextPageOverlay"></div>
+<script>
 const NEXT_PAGE_URL = "https://art.jeffgompertz.site/";
 const overlay = document.getElementById("nextPageOverlay");
 Object.assign(overlay.style, {
@@ -187,7 +218,8 @@ Object.assign(overlay.style, {
 });
 overlay.addEventListener("click", ()=> window.location.href = NEXT_PAGE_URL);
 overlay.addEventListener("touchstart", ()=> window.location.href = NEXT_PAGE_URL);
-</script> -->
+</script>
+-->
 
 <script src="live_camera_adapter.js"></script>
 
