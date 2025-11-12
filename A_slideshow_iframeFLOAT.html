@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe FLOAT Slideshow — Triple-Tap Advance</title>
+<style>
+  :root{
+    --bg:#0b0c0e;
+    --ink:#e6e7ea;
+    --muted:#6b6f77;
+    --accent:#00ff66;
+    --fade:0.6s;
+  }
+  html,body{
+    margin:0;height:100%;
+    background:var(--bg);color:var(--ink);
+    font:16px/1.45 "VT323",ui-monospace,Menlo,Consolas,monospace;
+    overflow:hidden;
+  }
+
+  #stageWrap{position:fixed;inset:0;}
+  .slideFrame{
+    position:absolute;inset:0;width:100%;height:100%;
+    border:none;opacity:0;
+    transition:opacity var(--fade) ease;
+    pointer-events:none;
+  }
+  .slideFrame.active{opacity:1;pointer-events:auto;}
+
+  /* HUD index (bottom-left) */
+  #hud{
+    position:fixed;left:16px;bottom:14px;
+    display:flex;gap:12px;align-items:center;
+    z-index:10000;
+  }
+  #idx{font-size:12px;color:var(--muted)}
+
+  /* FLOAT button (top-right) */
+  #nextFloat{
+    position:fixed;top:10px;right:14px;
+    z-index:10001;
+    background:rgba(0,255,0,0.08);
+    border:1px solid rgba(0,255,0,0.25);
+    border-radius:6px;
+    color:var(--accent);
+    font-family:"VT323",monospace;
+    font-size:14px;
+    padding:4px 10px 5px;
+    letter-spacing:1px;
+    cursor:pointer;
+    backdrop-filter:blur(4px);
+    transition:all .25s ease;
+  }
+  #nextFloat:hover{
+    background:rgba(0,255,0,0.15);
+    box-shadow:0 0 15px rgba(0,255,100,0.25);
+  }
+
+  /* Overlay (transparent by default) */
+  #overlayAdvance{
+    position:fixed;inset:0;
+    background:transparent;
+    cursor:pointer;
+    z-index:9998;
+    pointer-events:none; /* allow touch-through by default */
+  }
+  .armed #overlayAdvance{
+    pointer-events:auto; /* only active during “armed” window */
+  }
+</style>
+</head>
+<body>
+<div id="stageWrap">
+  <iframe id="frameA" class="slideFrame active"></iframe>
+  <iframe id="frameB" class="slideFrame"></iframe>
+</div>
+
+<!-- HUD -->
+<div id="hud"><div id="idx">1 / 1</div></div>
+<div id="nextFloat">⧉ FLOAT</div>
+<div id="overlayAdvance" aria-hidden="true"></div>
+
+<script>
+/* =========================================================
+  1) Slide URLs (same-origin)
+========================================================= */
+const SLIDES = [
+  "A/CUseeme_v1.7_dynamic_restyleBLACK.html",
+  "a_testCuseeme_modularTemplateRESTYLE.html",
+  "a_SingleSharedVideoSplitIntoPanels_live.html",
+  "double_tap_additivedissolve_LIVE.html",
+  "s_6cards_video_wpmedia_multiFilter_LIVEchatgpt2.html"
+];
+
+/* =========================================================
+  2) State
+========================================================= */
+let i = 0;
+let front = document.getElementById("frameA");
+let back  = document.getElementById("frameB");
+const idxEl = document.getElementById("idx");
+const overlay = document.getElementById("overlayAdvance");
+
+/* =========================================================
+  3) Load + crossfade between iframes
+========================================================= */
+function show(index){
+  const url = SLIDES[index];
+  console.log("🎞 Loading:", url);
+
+  back.src = url;
+  back.onload = ()=>{
+    back.classList.add("active");
+    front.classList.remove("active");
+    [front, back] = [back, front];
+    idxEl.textContent = `${index+1} / ${SLIDES.length}`;
+  };
+}
+
+/* =========================================================
+  4) Navigation + triple-tap gesture
+========================================================= */
+function next(){
+  i = (i+1) % SLIDES.length;
+  show(i);
+}
+function prev(){
+  i = (i-1+SLIDES.length) % SLIDES.length;
+  show(i);
+}
+document.getElementById("nextFloat").addEventListener("click", ()=>{
+  overlay.classList.add("armed");
+  setTimeout(()=>overlay.classList.remove("armed"), 4000); // 4s arm window
+  console.log("🟢 Overlay armed for 4s (triple-tap to advance)");
+});
+
+/* --- triple-tap logic --- */
+let tapCount = 0, tapTimer = null;
+function handleTapAdvance(){
+  tapCount++;
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(()=>tapCount=0, 450);
+  if (tapCount >= 3){
+    tapCount = 0;
+    next();
+  }
+}
+overlay.addEventListener("touchstart", handleTapAdvance);
+overlay.addEventListener("click", handleTapAdvance);
+
+/* keyboard fallback */
+window.addEventListener("keydown", e=>{
+  if(e.key==="ArrowRight"||e.key===" "){ next(); }
+  if(e.key==="ArrowLeft"){ prev(); }
+});
+
+/* =========================================================
+  5) Boot
+========================================================= */
+front.src = SLIDES[0];
+front.allow = back.allow = "camera; microphone; fullscreen";
+front.setAttribute("sandbox","allow-same-origin allow-scripts allow-camera allow-modals allow-forms");
+back.setAttribute("sandbox","allow-same-origin allow-scripts allow-camera allow-modals allow-forms");
+idxEl.textContent = `1 / ${SLIDES.length}`;
+</script>
+</body>
+</html>
