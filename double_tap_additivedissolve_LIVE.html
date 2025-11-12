@@ -147,7 +147,7 @@ async function nextScene(){
 }
 
 /* === Double-tap / Double-click Scene Advance === */
-let sceneAdvancing=false;
+/* ===let sceneAdvancing=false;
 let lastTapTime=0;
 
 function handleSceneAdvance(e){
@@ -164,7 +164,7 @@ function handleSceneAdvance(e){
 }
 
 canvas.addEventListener("touchstart", handleSceneAdvance, { passive:false });
-canvas.addEventListener("click", handleSceneAdvance);
+canvas.addEventListener("click", handleSceneAdvance); === */
 
 /* === Drag control (viewport constrained) === */
 let active=null;
@@ -216,12 +216,17 @@ function render(){
 }
 
 /* === Boot === */
+/* === Boot === */
 (async function(){
-  const vids=await loadVideos();
-  if(!vids.length){ console.warn("⚠️ No videos found"); return; }
-  initCards(vids);
+  const v = await loadVideo();   // singular
+  if (!v) {
+    console.warn("⚠️ No camera feed available");
+    return;
+  }
+  initCards([v]);  // pass as single-element array
   render();
 })();
+
 </script>
 </body>
 </html>
