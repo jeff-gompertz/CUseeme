@@ -3,83 +3,99 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe FLOAT Slideshow — Triple-Tap Advance</title>
+<title>CUSeeMe FLOAT Slideshow — Header Navigation</title>
 <style>
-  :root{
-    --bg:#0b0c0e;
-    --ink:#e6e7ea;
-    --muted:#6b6f77;
-    --accent:#00ff66;
-    --fade:0.6s;
-  }
-  html,body{
-    margin:0;height:100%;
-    background:var(--bg);color:var(--ink);
-    font:16px/1.45 "VT323",ui-monospace,Menlo,Consolas,monospace;
-    overflow:hidden;
-  }
+:root{
+  --bg:#0b0c0e;
+  --ink:#e6e7ea;
+  --muted:#6b6f77;
+  --accent:#00ff66;
+  --fade:0.6s;
+}
+html,body{
+  margin:0;height:100%;
+  background:var(--bg);color:var(--ink);
+  font:16px/1.45 "VT323",ui-monospace,Menlo,Consolas,monospace;
+  overflow:hidden;
+}
 
-  #stageWrap{position:fixed;inset:0;}
-  .slideFrame{
-    position:absolute;inset:0;width:100%;height:100%;
-    border:none;opacity:0;
-    transition:opacity var(--fade) ease;
-    pointer-events:none;
-  }
-  .slideFrame.active{opacity:1;pointer-events:auto;}
+/* === Slide crossfade frames === */
+#stageWrap{position:fixed;inset:0;}
+.slideFrame{
+  position:absolute;inset:0;width:100%;height:100%;
+  border:none;opacity:0;
+  transition:opacity var(--fade) ease;
+  pointer-events:none;
+}
+.slideFrame.active{opacity:1;pointer-events:auto;}
 
-  /* HUD index (bottom-left) */
-  #hud{
-    position:fixed;left:16px;bottom:14px;
-    display:flex;gap:12px;align-items:center;
-    z-index:10000;
-  }
-  #idx{font-size:12px;color:var(--muted)}
+/* === HEADER NAVIGATION BAR === */
+#navHeader {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 46px;
+  background: rgba(12,14,16,0.7);
+  backdrop-filter: blur(12px) saturate(1.2);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  z-index: 9999;
+  font-family: "VT323", monospace;
+  user-select: none;
+}
+.nav-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  color: var(--accent);
+  font-size: 22px;
+  width: 42px; height: 30px;
+  display: grid; place-items: center;
+  cursor: pointer;
+  transition: all .25s ease;
+}
+.nav-btn:hover {
+  background: rgba(0,255,100,0.1);
+  box-shadow: 0 0 12px rgba(0,255,100,0.25);
+}
+#floatLabel {
+  font-size: 15px;
+  color: var(--accent);
+  letter-spacing: 1px;
+  animation: floatPulse 2.8s ease-in-out infinite;
+}
+@keyframes floatPulse {
+  0%,100% { opacity: 0.8; text-shadow:none; }
+  50% { opacity: 1; text-shadow: 0 0 10px rgba(0,255,100,0.35); }
+}
 
-  /* FLOAT button (top-right) */
-  #nextFloat{
-    position:fixed;top:10px;right:14px;
-    z-index:10001;
-    background:rgba(0,255,0,0.08);
-    border:1px solid rgba(0,255,0,0.25);
-    border-radius:6px;
-    color:var(--accent);
-    font-family:"VT323",monospace;
-    font-size:14px;
-    padding:4px 10px 5px;
-    letter-spacing:1px;
-    cursor:pointer;
-    backdrop-filter:blur(4px);
-    transition:all .25s ease;
-  }
-  #nextFloat:hover{
-    background:rgba(0,255,0,0.15);
-    box-shadow:0 0 15px rgba(0,255,100,0.25);
-  }
-
-  /* Overlay (transparent by default) */
-  #overlayAdvance{
-    position:fixed;inset:0;
-    background:transparent;
-    cursor:pointer;
-    z-index:9998;
-    pointer-events:none; /* allow touch-through by default */
-  }
-  .armed #overlayAdvance{
-    pointer-events:auto; /* only active during “armed” window */
-  }
+/* === HUD index (bottom-left) === */
+#hud{
+  position:fixed;left:16px;bottom:14px;
+  display:flex;gap:12px;align-items:center;
+  z-index:10000;
+}
+#idx{font-size:12px;color:var(--muted)}
 </style>
 </head>
+
 <body>
 <div id="stageWrap">
   <iframe id="frameA" class="slideFrame active"></iframe>
   <iframe id="frameB" class="slideFrame"></iframe>
 </div>
 
-<!-- HUD -->
+<!-- HEADER NAV -->
+<div id="navHeader">
+  <div class="nav-btn" id="btnPrev">←</div>
+  <div id="floatLabel">⧉ FLOAT</div>
+  <div class="nav-btn" id="btnNext">→</div>
+</div>
+
+<!-- HUD index -->
 <div id="hud"><div id="idx">1 / 1</div></div>
-<div id="nextFloat">⧉ FLOAT</div>
-<div id="overlayAdvance" aria-hidden="true"></div>
 
 <script>
 /* =========================================================
@@ -100,7 +116,6 @@ let i = 0;
 let front = document.getElementById("frameA");
 let back  = document.getElementById("frameB");
 const idxEl = document.getElementById("idx");
-const overlay = document.getElementById("overlayAdvance");
 
 /* =========================================================
   3) Load + crossfade between iframes
@@ -108,8 +123,7 @@ const overlay = document.getElementById("overlayAdvance");
 function show(index){
   const url = SLIDES[index];
   console.log("🎞 Loading:", url);
-
-  back.src = url;
+  back.src = url + (url.includes("?") ? "&" : "?") + "v=" + Date.now(); // cache-bust
   back.onload = ()=>{
     back.classList.add("active");
     front.classList.remove("active");
@@ -119,73 +133,26 @@ function show(index){
 }
 
 /* =========================================================
-  4) Navigation + triple-tap gesture
+  4) Navigation (buttons + keyboard)
 ========================================================= */
-
-/* === EDGE-TAP NAVIGATION WITH SOFT GLOW === */
-const leftEdge = document.createElement('div');
-const rightEdge = document.createElement('div');
-[leftEdge, rightEdge].forEach(edge=>{
-  Object.assign(edge.style,{
-    position:'fixed',
-    top:'0',height:'100%',width:'10vw',
-    background:'transparent',
-    zIndex:'9999',cursor:'pointer',
-    touchAction:'manipulation',transition:'background .25s ease'
-  });
-  document.body.appendChild(edge);
-});
-leftEdge.style.left='0';
-rightEdge.style.right='0';
-
-/* Flash feedback */
-function flash(edge){
-  edge.style.background='rgba(66,227,181,0.18)';
-  setTimeout(()=>edge.style.background='transparent',180);
+let lastTap = 0;
+function debounceTap(){
+  const now = performance.now();
+  if(now - lastTap < 300) return false;
+  lastTap = now; return true;
 }
+function next(){ if(!debounceTap()) return; i=(i+1)%SLIDES.length; show(i); }
+function prev(){ if(!debounceTap()) return; i=(i-1+SLIDES.length)%SLIDES.length; show(i); }
 
-/* Edge navigation */
-function bindEdge(edge,dir){
-  ['click','touchstart'].forEach(evt=>{
-    edge.addEventListener(evt,e=>{
-      e.preventDefault();flash(edge);
-      if(dir==='next')next(); else prev();
-      hideHintsOnce();
-    },{passive:false});
-  });
-}
-bindEdge(leftEdge,'prev');
-bindEdge(rightEdge,'next');
+// --- Header buttons ---
+document.getElementById("btnNext").addEventListener("click", ()=> next());
+document.getElementById("btnPrev").addEventListener("click", ()=> prev());
 
-/* One-time hint fade-in/out */
-const hintWrap=document.createElement('div');
-hintWrap.id='edgeHints';
-Object.assign(hintWrap.style,{
-  position:'fixed',inset:'0',zIndex:'9998',
-  display:'flex',justifyContent:'space-between',alignItems:'center',
-  pointerEvents:'none',opacity:'0.85',transition:'opacity .6s ease'
+// --- Keyboard fallback ---
+window.addEventListener("keydown", e=>{
+  if(e.key==='ArrowRight'||e.key===' '){ next(); }
+  if(e.key==='ArrowLeft'){ prev(); }
 });
-hintWrap.innerHTML=`
-  <div style="width:10vw;height:100%;display:grid;place-items:center;
-    color:rgba(66,227,181,.6);font-size:13px;letter-spacing:.06em">‹ PREV</div>
-  <div style="width:10vw;height:100%;display:grid;place-items:center;
-    color:rgba(66,227,181,.6);font-size:13px;letter-spacing:.06em">NEXT ›</div>`;
-document.body.appendChild(hintWrap);
-
-function hideHintsOnce(){
-  if(!hintWrap) return;
-  hintWrap.style.opacity='0';
-  setTimeout(()=>hintWrap.remove(),600);
-}
-setTimeout(hideHintsOnce,4000);
-
-/* Keyboard fallback */
-window.addEventListener('keydown',e=>{
-  if(e.key==='ArrowRight'||e.key===' '){next();hideHintsOnce();}
-  if(e.key==='ArrowLeft'){prev();hideHintsOnce();}
-});
-
-
 
 /* =========================================================
   5) Boot
