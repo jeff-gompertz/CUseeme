@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CUSeeMe — Live Baseline</title>
+<style>
+html,body{
+  margin:0;padding:0;height:100%;
+  background:#000;font-family:monospace;color:#0f0;
+  overflow:hidden;
+}
+
+/* === Main live camera === */
+#camera{
+  position:fixed;inset:0;
+  object-fit:cover;
+  transform:scaleX(-1);
+  z-index:0;
+  filter:brightness(1.05) contrast(1.05);
+}
+
+/* === Floating mini camera === */
+#miniFeed{
+  position:absolute;
+  top:20px;right:20px;
+  width:200px;height:150px;
+  border-radius:8px;
+  overflow:hidden;
+  z-index:2;
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.15);
+  backdrop-filter:blur(2px);
+  cursor:grab;
+  transition:box-shadow .3s ease, transform .4s ease;
+}
+#miniFeed video{
+  width:100%;height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
+  opacity:0.9;
+}
+#miniFeed:hover{
+  box-shadow:0 0 20px rgba(150,220,255,0.3);
+  transform:scale(1.03);
+}
+
+/* === Prompt + Ticker === */
+#promptWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:3;pointer-events:none;}
+#promptBox{pointer-events:auto;background:rgba(255,255,255,0.15);border-radius:10px;padding:.6rem 1rem;font-size:1.4rem;display:flex;align-items:center;gap:.4rem;}
+#input{background:transparent;border:none;outline:none;color:#0f0;font-size:inherit;width:16ch;}
+#caret{width:.25ch;height:1.3em;background:#0f0;animation:blink 1s step-end infinite;}
+@keyframes blink{50%{opacity:0}}
+#ticker{position:fixed;left:10px;bottom:10px;width:40%;max-height:50%;display:flex;flex-direction:column-reverse;overflow:hidden;z-index:3;font-size:1rem;line-height:1.2rem;color:#0f0;opacity:.9;}
+.tline{opacity:.8;margin:0;animation:fadeIn 1s ease forwards;transition:opacity 45s linear;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:.8;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<video id="camera" autoplay muted playsinline></video>
+<div id="miniFeed"><video id="miniVideo" autoplay muted playsinline></video></div>
+
+<div id="promptWrap">
+  <div id="promptBox"><div id="caret"></div><input id="input" type="text" spellcheck="false" autocomplete="off" placeholder="type here..."></div>
+</div>
+<div id="ticker"></div>
+
+<script>
+/* === Live camera baseline === */
+(async()=>{
+  const cam=document.getElementById('camera');
+  const mini=document.getElementById('miniVideo');
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
+    cam.srcObject=stream;
+    mini.srcObject=stream;
+  }catch(e){
+    console.warn("⚠ Camera access denied/unavailable");
+    // leave native "Camera access denied" message untouched
+  }
+})();
+
+/* === Draggable mini feed === */
+(function(){
+  const el=document.getElementById('miniFeed');
+  let isDown=false,ox=0,oy=0;
+  el.addEventListener('mousedown',e=>{isDown=true;ox=e.clientX-el.offsetLeft;oy=e.clientY-el.offsetTop;el.style.cursor='grabbing';});
+  window.addEventListener('mouseup',()=>{isDown=false;el.style.cursor='grab';});
+  window.addEventListener('mousemove',e=>{if(!isDown)return;el.style.left=(e.clientX-ox)+'px';el.style.top=(e.clientY-oy)+'px';});
+})();
+
+/* === Ticker system === */
+const ticker=document.getElementById('ticker');
+function addTickerLine(txt){
+  const el=document.createElement('div');
+  el.className='tline';
+  el.textContent=txt;
+  ticker.prepend(el);
+  if(ticker.children.length>40)ticker.removeChild(ticker.lastChild);
+  setTimeout(()=>{el.style.opacity=0.15;},45000);
+}
+['CUSeeMe v1.8','Live baseline initialized','Camera feed active'].forEach((t,i)=>setTimeout(()=>addTickerLine(t),500*i));
+
+/* === Input handler === */
+const input=document.getElementById('input');
+input.addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;
+  const val=input.value.trim();
+  if(!val)return;
+  addTickerLine('> '+val);
+  input.value='';
+});
+</script>
+
+</body>
+</html>
