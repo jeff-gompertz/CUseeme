@@ -179,17 +179,23 @@ async function createLiveCamVideo(){
 
   
 /* === Boot === */
+
+<script>
+/* === Boot === */
 (async function(){
-  const vids = await loadVideos();
-  if(!vids.length){
-    console.warn("⚠️ No videos found for keywords:", FILTER_KEYWORDS);
+  const vids = await LiveSource.get();  // ← from live_camera_adapter.js
+  if (!vids.length) {
+    console.warn("⚠️ No live camera feed available");
     return;
   }
   initCards(vids);
   animate();
 })();
 </script>
+
+
   
+
 
 <!-- Invisible Click-to-Advance Overlay 
 <div id="nextPageOverlay"></div>
