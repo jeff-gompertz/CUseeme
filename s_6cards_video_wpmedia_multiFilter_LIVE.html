@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>6Cards — WP Media Multi-Keyword Filter</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+function resize(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* === Multiple keywords for filtering videos === */
+const FILTER_KEYWORDS = ["bus","mask","gen2"];  // ← add or remove terms here
+
+/* === Load video files from WordPress Media Library === */
+async function loadVideos(){
+  const MEDIA_API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=50";
+  try {
+    const r = await fetch(MEDIA_API);
+    const d = await r.json();
+    console.log("📦 Raw media items:", d.length);
+
+    // 🔍 Filter media by any keyword match in title, caption, description, or URL
+    const filtered = d.filter(m => {
+      const title   = (m.title?.rendered || "").toLowerCase();
+      const caption = (m.caption?.rendered || "").replace(/<[^>]*>/g, "").toLowerCase();
+      const desc    = (m.description?.rendered || "").replace(/<[^>]*>/g, "").toLowerCase();
+      const url     = (m.source_url || "").toLowerCase();
+
+      return (
+        (m.mime_type && m.mime_type.startsWith("video/")) &&
+        FILTER_KEYWORDS.some(kw =>
+          title.includes(kw) ||
+          caption.includes(kw) ||
+          desc.includes(kw) ||
+          url.includes(kw)
+        )
+      );
+    });
+
+    console.log(`🎯 Filtered videos matching any of [${FILTER_KEYWORDS.join(", ")}]:`, filtered.length);
+
+    const vids = [];
+    for (const m of filtered){
+      const v = document.createElement("video");
+      v.src = m.source_url;
+      v.loop = true;
+      v.muted = true;
+      v.playsInline = true;
+      v.preload = "auto";
+      v.style.display = "none";
+      document.body.appendChild(v);
+
+      await new Promise(res=>{
+        const ok = ()=>res();
+        v.oncanplay = ok;
+        v.onloadeddata = ok;
+        v.onerror = ok;
+        setTimeout(ok, 2000);
+      });
+
+      try {
+        await v.play();
+        console.log("▶️ Autoplay OK:", m.source_url);
+      } catch {
+        console.warn("⚠️ Autoplay blocked (will start on tap):", m.source_url);
+      }
+
+      vids.push(v);
+    }
+
+    console.log("🎞 Videos ready:", vids.map(v => v.src));
+    return vids;
+  } catch(err){
+    console.warn("Video load error:", err);
+    return [];
+  }
+}
+
+/* === iOS-safe click/tap start === */
+function startVideos(){
+  document.querySelectorAll("video").forEach(v=>{
+    v.play().catch(()=>{});
+  });
+  console.log("▶️ Videos playback triggered");
+}
+window.addEventListener("touchstart", startVideos, { once:true });
+window.addEventListener("click", startVideos, { once:true });
+
+/* === Cards setup === */
+const cards = [];
+const NUM_CARDS = 12;
+
+function initCards(vids){
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const w = 380, h = 320;
+    const horizontal = Math.random() > 0.5;
+    const vx = horizontal ? (Math.random()<0.5?-1.5:1.5) : 0;
+    const vy = !horizontal ? (Math.random()<0.5?-1.2:1.2) : 0;
+
+    cards.push({
+      x: Math.random() * (canvas.width - w),
+      y: Math.random() * (canvas.height - h),
+      vx, vy, w, h,
+      vid: vids.length ? vids[i % vids.length] : null
+    });
+  }
+}
+
+/* === Draw helper === */
+function drawVideoCover(vid, x, y, w, h){
+  const iw = vid.videoWidth || vid.width;
+  const ih = vid.videoHeight || vid.height;
+  if(!iw || !ih) return;
+  const r  = Math.max(w/iw, h/ih);
+  const nw = iw * r, nh = ih * r;
+  const ox = x + (w - nw)/2, oy = y + (h - nh)/2;
+  ctx.drawImage(vid, ox, oy, nw, nh);
+}
+
+/* === Animate === */
+function animate(){
+  ctx.fillStyle = "rgba(0,0,0,0.02)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (const card of cards){
+    if (card.vid && card.vid.readyState >= 2){
+      ctx.globalAlpha = 0.35;
+      drawVideoCover(card.vid, card.x, card.y, card.w, card.h);
+      ctx.globalAlpha = 1.0;
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.fillRect(card.x, card.y, card.w, card.h);
+    }
+
+    card.x += card.vx;
+    card.y += card.vy;
+    if (card.vx !== 0 && (card.x < 0 || card.x + card.w > canvas.width)) card.vx *= -1;
+    if (card.vy !== 0 && (card.y < 0 || card.y + card.h > canvas.height)) card.vy *= -1;
+  }
+
+  requestAnimationFrame(animate);
+}
+
+/* === Boot === */
+(async function(){
+  const vids = await loadVideos();
+  if(!vids.length){
+    console.warn("⚠️ No videos found for keywords:", FILTER_KEYWORDS);
+    return;
+  }
+  initCards(vids);
+  animate();
+})();
+</script>
+  
+
+<!-- Invisible Click-to-Advance Overlay 
+<div id="nextPageOverlay"></div>
+<script>
+
+const NEXT_PAGE_URL = "https://art.jeffgompertz.site/";
+const overlay = document.getElementById("nextPageOverlay");
+Object.assign(overlay.style, {
+  position: "fixed",
+  top: "0", left: "0",
+  width: "100vw", height: "100vh",
+  zIndex: "99999",
+  background: "transparent",
+  cursor: "pointer"
+});
+overlay.addEventListener("click", ()=> window.location.href = NEXT_PAGE_URL);
+overlay.addEventListener("touchstart", ()=> window.location.href = NEXT_PAGE_URL);
+</script> -->
+
+  
+</body>
+</html>
+  
+</body>
+</html>
