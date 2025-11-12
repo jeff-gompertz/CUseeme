@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>6Cards — Live Camera Only</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: black; }
+    canvas { display: block; }
+  </style>
+</head>
+
+<body>
+  <canvas id="c"></canvas>
+
+<script>
+/* === Canvas setup === */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+function resize(){
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+addEventListener("resize", resize);
+resize();
+
+/* === Cards setup === */
+let cards = [];
+const NUM_CARDS = 6;
+const CENTER_OVERLAP = 120;
+const STAGGER_X = 40;
+
+function initCards(video){
+  const W = canvas.width, H = canvas.height;
+  const w = W / 2, h = H;
+  cards = [];
+  for (let i = 0; i < NUM_CARDS; i++){
+    const side = i < NUM_CARDS / 2 ? "left" : "right";
+    const inward = (Math.random() - 0.5) * STAGGER_X;
+    const xBase = side === "left"
+      ? CENTER_OVERLAP + inward
+      : (W / 2) - CENTER_OVERLAP + inward;
+    cards.push({ x:xBase, y:0, w, h, video });
+  }
+}
+
+/* === Draw helper === */
+function drawVideo(vid, x, y, w, h){
+  if(!vid || vid.readyState < 2) return;
+  const iw = vid.videoWidth || vid.width, ih = vid.videoHeight || vid.height;
+  const r = Math.max(w/iw, h/ih);
+  const nw = iw * r, nh = ih * r;
+  const ox = x + (w - nw)/2, oy = y + (h - nh)/2;
+  ctx.drawImage(vid, ox, oy, nw, nh);
+}
+
+/* === Animation loop === */
+function animate(){
+  ctx.fillStyle = "rgba(0,0,0,0.05)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (const c of cards) drawVideo(c.video, c.x, c.y, c.w, c.h);
+  requestAnimationFrame(animate);
+}
+
+/* === Boot: Live Camera === */
+(async function(){
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ ideal:"environment" } },
+      audio:false
+    });
+    const vid = document.createElement("video");
+    vid.srcObject = stream;
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.autoplay = true;
+    vid.style.display = "none";
+    document.body.appendChild(vid);
+    await vid.play();
+    console.log("🎥 Live camera started");
+
+    initCards(vid);
+    animate();
+  } catch (err){
+    console.warn("⚠️ Camera access denied:", err);
+    ctx.fillStyle = "black";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = "white";
+    ctx.font = "18px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("Camera access required", canvas.width/2, canvas.height/2);
+  }
+})();
+</script>
+</body>
+</html>
