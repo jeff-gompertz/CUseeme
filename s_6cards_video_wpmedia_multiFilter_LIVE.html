@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>6Cards — WP Media Multi-Keyword Filter</title>
-<style>
-  body { margin: 0; overflow: hidden; background: black; }
-  canvas { display: block; }
-</style>
+  <meta charset="UTF-8">
+  <title>6Cards — WP Media Multi-Keyword Filter</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: black; }
+    canvas { display: block; }
+  </style>
 </head>
-<body>
-<canvas id="c"></canvas>
+
+<!-- 👇 Only this one body tag should remain -->
+<body data-livecam="true">
+  <canvas id="c"></canvas>
+  
 
 <script>
 const canvas = document.getElementById("c");
