@@ -3,48 +3,45 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe — Version B Core (Clean Final Build)</title>
+<title>CUSeeMe — Version A Core (Voice + Text + Ticker)</title>
 
 <style>
   :root{
-    --bg:#0b0c0e;
-    --ink:#f5f5f7;
-    --accent:#ff4433;
-    --accent2:#3ea6ff;
-    --note:#8b8f97;
+    --bg: #0b0c0e;
+    --ink: #f5f5f7;
+    --accent: #ff4433;
+    --accent2: #3ea6ff;
+    --note: #8b8f97;
   }
 
   html,body{
     margin:0;padding:0;height:100%;
     background:var(--bg);
     color:var(--ink);
-    font-family:"VT323", ui-monospace, Menlo, Consolas, monospace;
+    font-family:"VT323", ui-monospace, monospace;
+    -webkit-font-smoothing:antialiased;
     overflow:hidden;
   }
 
-  /* Prompt Bar */
+  /* Center prompt */
   #promptWrap{
     position:fixed;inset:0;
     display:grid;place-items:center;
-    pointer-events:none;z-index:10;
+    pointer-events:none;z-index:2;
   }
   #promptBox{
-    backdrop-filter:blur(22px) saturate(1.2);
+    pointer-events:auto;
+    display:flex;align-items:center;gap:.5rem;
+    padding:.6rem 1rem;
+    font-size:2rem;
     background:rgba(15,15,18,0.82);
     border-radius:14px;
     border:1px solid rgba(255,255,255,0.12);
-
-    box-shadow:0 18px 48px rgba(0,0,0,0.65),
-                0 0 0 1px rgba(255,255,255,0.08);
-
-    display:flex;align-items:center;gap:.55rem;
-    padding:.7rem 1.2rem;
-    font-size:2rem;
-    pointer-events:auto;
+    box-shadow:0 14px 38px rgba(0,0,0,0.75);
   }
-
   #caret{
-    width:.25ch;height:1.3em;background:var(--ink);
+    width:.25ch;height:1.3em;
+    background:var(--ink);
     animation:blink 1s step-end infinite;
   }
   @keyframes blink{50%{opacity:0}}
@@ -53,99 +50,89 @@
     border:0;outline:0;
     background:transparent;
     color:var(--ink);
-    font:inherit;width:18ch;
+    font:inherit;
+    width:18ch;
   }
-  #input::placeholder{color:rgba(255,255,255,0.35)}
+  #input::placeholder{
+    color:rgba(255,255,255,0.35);
+  }
 
+  /* Buttons */
   .pill-btn{
-    border:0;
-    cursor:pointer;
-    font-size:1.55rem;
-    padding:.32rem .62rem;
+    cursor:pointer;border:0;outline:0;
+    padding:.3rem .6rem;
+    font-size:1.5rem;
     border-radius:999px;
     background:rgba(255,255,255,0.05);
     color:var(--ink);
-    display:flex;align-items:center;justify-content:center;
-    transition:0.15s ease;
-  }
-  .pill-btn:hover{
-    background:rgba(255,255,255,0.12);
-    transform:translateY(-1px);
   }
   .pill-btn.on{
     background:rgba(255,68,51,0.25);
-    box-shadow:0 0 16px rgba(255,68,51,0.45);
+    box-shadow:0 0 12px rgba(255,68,51,0.3);
   }
 
   /* Ticker */
   #ticker{
-    position:fixed;
-    left:14px;bottom:14px;
+    position:fixed;left:12px;bottom:12px;
     width:min(42vw,560px);
     max-height:60vh;
     display:flex;flex-direction:column-reverse;
-    font-size:1.18rem;line-height:1.28rem;
-    overflow:hidden;
-    z-index:1;
+    overflow:hidden;z-index:1;
+    font-size:1.15rem;line-height:1.25rem;
   }
   .tline{
-    margin-bottom:4px;
-    opacity:.95;
-    white-space:pre-wrap;
-    animation:fadeIn .3s ease-out;
+    margin:0 0 3px 0;
+    opacity:.95;white-space:pre-wrap;
+    animation:fadeIn .3s ease-out forwards;
     transition:opacity 60s linear;
   }
-  .t-user{color:var(--accent2)}
-  .t-sys{color:var(--accent)}
-  .t-note{color:var(--note)}
-
+  .t-user{color:var(--accent2);}
+  .t-sys{color:var(--accent);}
+  .t-note{color:var(--note);}
   @keyframes fadeIn{
     from{opacity:0;transform:translateY(6px)}
     to{opacity:.95;transform:translateY(0)}
   }
 </style>
 </head>
-
 <body>
 
 <!-- Prompt -->
 <div id="promptWrap">
   <div id="promptBox">
-    <button id="btnMic" class="pill-btn" title="Start/stop mic">🎙</button>
+    <button id="btnMic"   class="pill-btn" title="mic on/off">🎙</button>
     <div id="caret"></div>
-    <input id="input" type="text" placeholder="type or speak…" autocomplete="off" spellcheck="false" />
-    <button id="btnVoice" class="pill-btn" title="Toggle spoken replies">🔊</button>
+    <input id="input" type="text" placeholder="type or speak…" autocomplete="off" />
+    <button id="btnVoice" class="pill-btn on" title="voice reply">🔊</button>
   </div>
 </div>
 
 <!-- Ticker -->
-<div id="ticker" aria-live="polite"></div>
+<div id="ticker"></div>
 
 <script>
-/* ========= Helpers ========= */
+/* ---------- Helpers ---------- */
 const $ = sel => document.querySelector(sel);
 const ticker = $('#ticker');
 
-function addLine(text, cls="t-sys"){
+function addLine(txt, cls="t-sys"){
   const el = document.createElement('div');
   el.className = "tline " + cls;
-  el.textContent = text;
+  el.textContent = txt;
   ticker.prepend(el);
-
-  while(ticker.children.length > 120)
+  if(ticker.children.length > 120)
     ticker.removeChild(ticker.lastChild);
-
   setTimeout(()=> el.style.opacity = 0.18, 60000);
 }
 
-/* ========= Speech Synthesis (patched clean) ========= */
+/* ---------- Voice synthesis (clean, no singing) ---------- */
 let voiceOn = true;
 let voicesReady = false;
 
 function waitForVoices(){
   return new Promise(res=>{
     if(voicesReady && speechSynthesis.getVoices().length) return res();
-    const id=setInterval(()=>{
+    const id = setInterval(()=>{
       if(speechSynthesis.getVoices().length){
         clearInterval(id);
         voicesReady = true;
@@ -155,17 +142,10 @@ function waitForVoices(){
   });
 }
 
-/* Completely safe voice selector */
 function pickSafeVoice(list){
-  if(!list?.length) return null;
-  const blacklist=/melody|opera|sing|vocal/i;
-  const safe=list.filter(v=>!blacklist.test(v.name));
-  const prefs=[/neutral/i,/news/i,/story/i,/narrator/i,/google us english/i,/samantha/i,/ava/i,/aria/i];
-  for(const p of prefs){
-    const f=safe.find(v=>p.test(v.name));
-    if(f) return f;
-  }
-  return safe[0]||list[0]||null;
+  const blacklist = /(melody|opera|sing|vocal)/i;
+  const safe = list.filter(v => !blacklist.test(v.name));
+  return safe[0] || list[0] || null;
 }
 
 async function speak(text){
@@ -173,98 +153,109 @@ async function speak(text){
   if(!("speechSynthesis" in window)) return;
 
   await waitForVoices();
-  const all=speechSynthesis.getVoices();
-  const u=new SpeechSynthesisUtterance(text);
-  u.lang="en-US"; u.rate=1.0; u.pitch=1.0; u.volume=0.9;
-  u.voice=pickSafeVoice(all);
+
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-US";
+  u.rate = 1.0;
+  u.pitch = 1.0;
+
+  u.voice = pickSafeVoice(speechSynthesis.getVoices());
   speechSynthesis.speak(u);
 }
 
-/* Required for iOS */
-function unlockSpeech(){
+/* ---------- iOS unlock ---------- */
+function unlockSpeechOnce(){
   try{
-    const u=new SpeechSynthesisUtterance(" ");
-    speechSynthesis.speak(u); speechSynthesis.cancel();
-  }catch{}
+    const u = new SpeechSynthesisUtterance(" ");
+    speechSynthesis.speak(u);
+    speechSynthesis.cancel();
+  }catch(e){}
+  window.removeEventListener("touchstart",unlockSpeechOnce);
+  window.removeEventListener("click",unlockSpeechOnce);
 }
-window.addEventListener("touchstart", unlockSpeech, {once:true});
-window.addEventListener("click", unlockSpeech, {once:true});
+window.addEventListener("touchstart",unlockSpeechOnce,{once:true});
+window.addEventListener("click",unlockSpeechOnce,{once:true});
 
-/* ========= Reply Logic (simple placeholder) ========= */
-function buildReply(text){
-  const t=text.toLowerCase();
-  if(t==="hello"||t==="hi"||t.startsWith("hey"))
+/* ---------- Basic reply logic ---------- */
+function buildReply(t){
+  const x = t.toLowerCase().trim();
+  if(x.startsWith("hi") || x==="hello")
     return "Hello. I'm listening.";
-  if(t.includes("you there"))
-    return "Yes, I'm here.";
-  return "You said: " + text;
+  return "You said: " + t;
 }
 
-/* ========= Text submit ========= */
-const input=$('#input');
-input.addEventListener('keydown',e=>{
-  if(e.key==="Enter"){
-    e.preventDefault();
-    const v=input.value.trim();
-    input.value="";
-    handleSubmit(v);
-  }
-});
-
+/* ---------- Submit (text or voice) ---------- */
 function handleSubmit(raw){
-  const text=(raw||"").trim();
-  if(!text) return;
-  addLine("> " + text, "t-user");
-  const reply=buildReply(text);
+  const t = (raw||"").trim();
+  if(!t) return;
+
+  addLine("> " + t, "t-user");
+
+  const reply = buildReply(t);
   addLine("< " + reply, "t-sys");
   speak(reply);
 }
 
-/* ========= Voice input ========= */
-const btnMic=$('#btnMic');
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+/* ---------- Text input ---------- */
+const input = $("#input");
+input.addEventListener("keydown", e=>{
+  if(e.key === "Enter"){
+    e.preventDefault();
+    const v = input.value.trim();
+    input.value = "";
+    handleSubmit(v);
+  }
+});
 
-let rec=null, listening=false, interim="";
+/* ---------- Voice input ---------- */
+const btnMic = $("#btnMic");
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+let rec = null;
+let listening = false;
+let interimText = "";
 
 if(!SR){
-  btnMic.disabled=true;
-  addLine("⚠ voice recognition unavailable","t-note");
-}else{
-  rec=new SR();
-  rec.lang="en-US";
-  rec.continuous=true;
-  rec.interimResults=true;
+  btnMic.disabled = true;
+  addLine("⚠ voice recognition unavailable", "t-note");
+}
+else {
+  rec = new SR();
+  rec.lang = "en-US";
+  rec.continuous = true;
+  rec.interimResults = true;
 
-  rec.onstart=()=>{
-    listening=true;
+  rec.onstart = ()=>{
+    listening = true;
     addLine("🎤 mic on — listening…","t-note");
-    btnMic.classList.add("on");
   };
-
-  rec.onend=()=>{
-    listening=false;
-    btnMic.classList.remove("on");
+  rec.onend = ()=>{
+    listening = false;
     addLine("⏹ mic off","t-note");
   };
+  rec.onerror = e=>{
+    addLine("mic error: "+e.error,"t-note");
+  };
 
-  rec.onerror=e=> addLine("mic error: "+e.error,"t-note");
+  rec.onresult = evt=>{
+    let finalChunk = "";
+    interimText = "";
 
-  rec.onresult=evt=>{
-    let final="";
-    interim="";
     for(let i=evt.resultIndex;i<evt.results.length;i++){
-      const t=evt.results[i][0].transcript;
-      if(evt.results[i].isFinal) final+=t+" ";
-      else interim+=t;
+      const txt = evt.results[i][0].transcript;
+      if(evt.results[i].isFinal) finalChunk += txt + " ";
+      else interimText += txt;
     }
-    if(interim) input.value=interim;
-    if(final.trim()){
-      input.value="";
-      handleSubmit(final.trim());
+
+    if(interimText) input.value = interimText;
+
+    if(finalChunk.trim()){
+      input.value = "";
+      handleSubmit(finalChunk.trim());
     }
   };
 
-  btnMic.addEventListener("click",()=>{
+  btnMic.addEventListener("click", ()=>{
     try{
       if(!listening) rec.start();
       else rec.stop();
@@ -274,16 +265,16 @@ if(!SR){
   });
 }
 
-/* ========= Voice toggle ========= */
-$('#btnVoice').addEventListener("click",()=>{
-  voiceOn=!voiceOn;
-  const b=$('#btnVoice');
-  b.classList.toggle("on",voiceOn);
-  b.textContent=voiceOn?"🔊":"🔇";
+/* ---------- Voice toggle ---------- */
+const btnVoice = $("#btnVoice");
+btnVoice.addEventListener("click",()=>{
+  voiceOn = !voiceOn;
+  btnVoice.classList.toggle("on", voiceOn);
+  btnVoice.textContent = voiceOn ? "🔊" : "🔇";
   addLine("voice replies "+(voiceOn?"enabled":"muted"),"t-note");
 });
 
-/* ========= Startup ========= */
+/* ---------- Startup ---------- */
 addLine("session ready — type or press 🎙 and speak","t-note");
 
 </script>
