@@ -1,432 +1,262 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe v2.1 — Semantic Feed (BBC Reactive)</title>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CUSeeMe v1.8 — Floating Feed</title>
 <style>
-  
-
-/* =========================================================
-Retro4.4 — Aqua Glass HUD + Minimal Ticker
-Refined for v2.1 Unlinked — proper spacing & font balance
-========================================================= */
-
-
-
-  
-/* :root {
-  --hud-glass: rgba(185, 225, 255, 0.45);
-  --hud-border-light: rgba(255, 255, 255, 0.65);
-  --hud-border-dark: rgba(0, 45, 90, 0.35);
-  --hud-shadow: 0 12px 45px rgba(0, 50, 90, 0.35);
-  --hud-text: #1b1d22;
-  --btn-bg: rgba(215, 235, 255, 0.35);
-  --btn-inset-light: rgba(255,255,255,0.8);
-  --btn-inset-dark: rgba(0,30,60,0.3);
-  --bg: #ffffff
-  --ticker: #ff3a2f;
-} */
-
-:root {
-  /* Background (environment) */
-  --bg-base: #ffffff;                  /* clean off-white wall */
-  --bg-haze: rgba(255, 255, 255, 0);/* optional ambient overlay */
-
-  /* HUD (interface glass) */
-  --hud-glass: rgba(185, 225, 255, 0.42);  /* aqua glass material */
-  --hud-border-light: rgba(255, 255, 255, 0.65);
-  --hud-border-dark: rgba(0, 45, 90, 0.35);
-  --hud-shadow: 0 12px 45px rgba(0, 50, 90, 0.35);
-  --hud-text: #1b1d22;
-
-  /* Buttons & accent tones */
-  --btn-bg: rgba(215, 235, 255, 0.35);
-  --btn-inset-light: rgba(255,255,255,0.8);
-  --btn-inset-dark: rgba(0,30,60,0.3);
-
-  /* Other */
-  --ticker: #ff3a2f;
-}  
-
-/* Disable all BBC hyperlink interactivity but keep visible for semantics */
-a {
-  pointer-events: none !important;
-  cursor: default !important;
-  text-decoration: none !important;
+html,body{
+  margin:0;padding:0;height:100%;
+  background:#FFFFFF;font-family:monospace;color:#0f0;
+  overflow:hidden;
 }
 
-/* Soft cyan visible feed text */
-body > a {
-  color: rgba(0, 0, 0, 0)
-
- !important;
-  font-weight: 300;
+/* === MAIN CAMERA FEED === */
+#camera{
+  position:fixed;inset:0;
+  object-fit:cover;
+  transform:scaleX(-1);
+  z-index:0;
+  filter:brightness(1.05) contrast(1.05);
 }
 
-/* ===== HUD (fixed, non-draggable) ===== */
-#hudShell {
-  position: fixed; top: 24px; right: 32px; z-index: 1000;
-  display: grid; gap: 10px; padding: 20px 18px 16px;
-  min-width: 320px; text-align: center; color: var(--hud-text);
-  background: var(--hud-glass);
-  border-radius: 18px; border: 1px solid var(--hud-border-light);
-  box-shadow:
-    inset 0 1px 3px var(--hud-border-light),
-    inset 0 -1px 3px var(--hud-border-dark),
-    var(--hud-shadow);
-  backdrop-filter: blur(20px) saturate(1.25);
-  -webkit-backdrop-filter: blur(20px) saturate(1.25);
+/* === FLOATING MINI FEED === */
+#miniFeed{
+  position:absolute;
+  top:20px;right:20px;
+  width:200px;height:150px;
+  border-radius:8px;
+  overflow:hidden;
+  z-index:2;
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.15);
+  backdrop-filter:blur(2px);
+  cursor:grab;
+  transition:box-shadow .3s ease, transform .4s ease;
 }
-#hudHeader {
-  font-size: 22px; color: rgba(20,30,45,0.85);
-  text-shadow: 0 1px 0 rgba(255,255,255,.6);
-  user-select: none;
+#miniFeed video{
+  width:100%;height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
+  opacity:0.9;
 }
-.hud-row { display: flex; gap: 10px; }
-.hud-btn {
-  flex: 1; font: inherit; font-size: 17px; cursor: pointer;
-  color: #132030; background: var(--btn-bg);
-  border: none; border-radius: 10px;
-  padding: 10px 12px;
-  box-shadow:
-    inset 1px 1px 2px var(--btn-inset-light),
-    inset -1px -2px 3px var(--btn-inset-dark),
-    0 3px 6px rgba(0,0,0,0.08);
-  transition: all .22s ease;
-}
-.hud-btn:hover { transform: translateY(-1px); }
-.hud-btn.on {
-  background: rgba(255,165,100,0.18);
-  color: #ff6a2f; font-weight: 600;
-  box-shadow: 0 0 0 2px rgba(255,165,100,.25) inset;
-}
-#input {
-  width: 100%; font: inherit; font-size: 18px; color: #111;
-  background: rgba(255,255,255,.6);
-  border: 1px solid rgba(0,30,60,.15);
-  border-radius: 10px;
-  padding: 10px 12px; outline: none;
+#miniFeed:hover{
+  box-shadow:0 0 20px rgba(150,220,255,0.3);
+  transform:scale(1.03);
 }
 
-/* ===== Ticker (bottom-left; fills upward visually) ===== */
-#ticker {
-  position: fixed; left: 16px; bottom: 14px; z-index: 900;
-  width: 45vw; max-width: 700px;
-  display: flex; flex-direction: column-reverse;
-  overflow: visible; height: auto;
-  color: var(--ticker);
-  font-size: 19px;
-  line-height: 1.5;   /* base breathing room */
-  pointer-events: none;
+/* === PROMPT LAYER === */
+#promptWrap{
+  position:fixed;inset:0;display:flex;
+  align-items:center;justify-content:center;
+  z-index:3;pointer-events:none;
+}
+#promptBox{
+  pointer-events:auto;
+  background:rgba(255,255,255,0.25);
+  border:1px solid rgba(0,0,0,0.2);
+  border-radius:10px;
+  padding:.6rem 1rem;
+  font-size:2rem;
+  display:flex;align-items:center;gap:.4rem;
+}
+#input{
+  background:transparent;
+  border:none;outline:none;
+  color:#111;
+  font-size:inherit;
+  width:14ch;
+}
+#caret{
+  width:.25ch;height:1.3em;background:#111;
+  animation:blink 1s step-end infinite;
+}
+@keyframes blink{50%{opacity:0}}
+
+/* === TICKER === */
+#ticker{
+  position:fixed;
+  left:10px;bottom:10px;
+  width:40%;
+  max-height:50%;
+  display:flex;flex-direction:column-reverse;
+  overflow:hidden;
+  z-index:3;
+  font-size:1rem;line-height:1.2rem;
+  color:#0f0;opacity:.9;
+}
+.tline{
+  opacity:.8;margin:0;
+  animation:fadeIn 1s ease forwards;
+  transition:opacity 45s linear;
+}
+@keyframes fadeIn{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:.8;transform:translateY(0)}
 }
 
-.tline {
-  opacity: .95;
-  margin: 2px 0;       /* 👈 adds subtle vertical rhythm */
-  animation: fadeIn .6s ease;
+/* === TOGGLE BUTTON (HUD LIGHT VERSION) === */
+#hudToggle{
+  position:fixed;top:10px;right:10px;z-index:4;
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:6px;
+  color:#0f0;
+  font-size:12px;
+  padding:6px 10px;
+  cursor:pointer;
+  backdrop-filter:blur(4px);
 }
-
-/* === COLOR AND SPACING CONTROL === */
-.user { color: #0d3b66; font-weight: 400; }
-.sys {
-  color: #ff3a2f;
-  font-weight: 700;
-  font-size: 22px;     /* 👈 slightly bigger */
-  line-height: 1.8;    /* 👈 much more breathing room */
-  letter-spacing: 0.3px;
-}
-.note { color: #666; font-weight: 300; }
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: none; }
-}
-
-/* ===== Hide raw Bloople output (anchors etc) ===== */
-body > a,
-body > b,
-body > h1,
-body > p {
-  display: none !important;
-}
-#rssSource, #rssSource * {
-  display: none !important;
+#hudToggle:hover{
+  background:rgba(255,255,255,0.15);
 }
 </style>
-
 </head>
 <body>
+<video id="camera" autoplay muted playsinline></video>
 
-<!-- HUD -->
-<div id="hudShell">
-  <div id="hudHeader">Semantic Feed — BBC Reactive</div>
-  <input id="input" placeholder="speak or type… then Enter" autocomplete="off" />
-  <div class="hud-row">
-    <button id="btnMic"  class="hud-btn" title="Start/Stop mic">🎙️ Mic</button>
-    <button id="btnMute" class="hud-btn" title="Toggle spoken replies">🔊 Voice On</button>
-    <button id="btnNext" class="hud-btn" title="Next HUD">➡ Mode Shift</button>
+<!-- Floating mini-feed -->
+<div id="miniFeed">
+  <video id="miniVideo" autoplay muted playsinline></video>
+</div>
+
+<!-- Simple toggle button -->
+<div id="hudToggle">⧉ FLOAT</div>
+
+<!-- Prompt input -->
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" spellcheck="false" autocomplete="off" placeholder="type here...">
   </div>
 </div>
 
-<!-- Ticker -->
+<!-- Ticker console -->
 <div id="ticker"></div>
 
-<!-- ===== BBC via Bloople (no CORS) ===== -->
-<div id="rssSource" style="display:none;"></div>
-<script src="//rss.bloople.net/?url=https%3A%2F%2Ffeeds.bbci.co.uk%2Fnews%2Fworld%2Frss.xml&showtitle=false&type=js"></script>
-
 <script>
-/* =========================================================
-v2.1 — Semantic Core + Reactive BBC Blender
-========================================================= */
-// ---------- Voice engine warm-up ----------
-speechSynthesis.cancel(); // clears stale speech queue on reload
-  
-// ---------- Ticker ----------
-const ticker = document.getElementById('ticker');
-function addLine(text, cls='sys'){
-  const el = document.createElement('div');
-  el.className = `tline ${cls}`;
-  el.textContent = text;
-  ticker.prepend(el);
-  // if(ticker.children.length > 80) ticker.removeChild(ticker.lastChild);
-}
-addLine('v2.1 online — semantic core + BBC reactive blending', 'note');
-addLine('Mic optional. Typing always works. Say: "time?", "repeat after me …", or anything.', 'note');
+/* === CAMERA INIT === */
+(async()=>{
+  const cam=document.getElementById('camera');
+  const mini=document.getElementById('miniVideo');
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    cam.srcObject=stream;
+    mini.srcObject=stream; // mirror the same feed
+  }catch(e){
+    alert('Camera access denied.');
+  }
+})();
 
-// ---------- Speech Synthesis (reply) ----------
-let speakEnabled = true;
-let voicesReady = false;
-function waitVoices(){
-  return new Promise(res=>{
-    const id = setInterval(()=>{
-      if (speechSynthesis.getVoices().length){ clearInterval(id); voicesReady=true; res(); }
-    }, 100);
+/* === DRAGGABLE MINI FEED === */
+(function(){
+  const el=document.getElementById('miniFeed');
+  let isDown=false,offsetX=0,offsetY=0;
+
+  el.addEventListener('mousedown',e=>{
+    isDown=true;
+    offsetX=e.clientX-el.offsetLeft;
+    offsetY=e.clientY-el.offsetTop;
+    el.style.cursor='grabbing';
+  });
+  window.addEventListener('mouseup',()=>{isDown=false;el.style.cursor='grab';});
+  window.addEventListener('mousemove',e=>{
+    if(!isDown)return;
+    el.style.left=(e.clientX-offsetX)+'px';
+    el.style.top=(e.clientY-offsetY)+'px';
+  });
+
+  // touch support
+  el.addEventListener('touchstart',e=>{
+    isDown=true;
+    const t=e.touches[0];
+    offsetX=t.clientX-el.offsetLeft;
+    offsetY=t.clientY-el.offsetTop;
+  });
+  window.addEventListener('touchmove',e=>{
+    if(!isDown)return;
+    const t=e.touches[0];
+    el.style.left=(t.clientX-offsetX)+'px';
+    el.style.top=(t.clientY-offsetY)+'px';
+  });
+  window.addEventListener('touchend',()=>{isDown=false;});
+})();
+
+/* === FLOAT TOGGLE BUTTON === */
+const mini=document.getElementById('miniFeed');
+document.getElementById('hudToggle').addEventListener('click',()=>{
+  mini.style.display=mini.style.display==='none'?'block':'none';
+});
+
+/* === TICKER SYSTEM === */
+const ticker=document.getElementById('ticker');
+function addTickerLine(text){
+  const el=document.createElement('div');
+  el.className='tline';
+  el.textContent=text;
+  ticker.prepend(el);
+  if(ticker.children.length>40)ticker.removeChild(ticker.lastChild);
+  setTimeout(()=>{el.style.opacity=0.15;},45000);
+}
+
+/* === SPEECH SYNTHESIS === */
+let voicesReady=false;
+function waitForVoices(){
+  return new Promise(resolve=>{
+    if(voicesReady && speechSynthesis.getVoices().length)return resolve();
+    const id=setInterval(()=>{
+      if(speechSynthesis.getVoices().length){
+        clearInterval(id);voicesReady=true;resolve();
+      }
+    },100);
   });
 }
 async function speak(text){
-  if(!speakEnabled || !('speechSynthesis' in window)) return;
-  if(!voicesReady) await waitVoices();
-  const u = new SpeechSynthesisUtterance(text);
-  // Prefer UK-ish voice to match your request
-  u.lang = 'en-GB';
-  u.rate = 1.02; u.pitch = 0.95; u.volume = 0.9;
-  const v = speechSynthesis.getVoices();
-  u.voice = v.find(x => /en-GB|UK|Kate|Samantha|Google UK English/i.test(x.name)) || v[0];
+  if(!('speechSynthesis' in window))return;
+  await waitForVoices();
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=1.05;u.pitch=0.9;u.volume=0.8;u.lang='en-US';
+  const v=speechSynthesis.getVoices();
+  u.voice=v.find(x=>/samantha/i.test(x.name))||v.find(x=>/google/i.test(x.name))||v[0];
   speechSynthesis.speak(u);
 }
-document.getElementById('btnMute').addEventListener('click', ()=>{
-  speakEnabled = !speakEnabled;
-  const b = document.getElementById('btnMute');
-  b.textContent = speakEnabled ? '🔊 Voice On' : '🔇 Voice Off';
-  b.classList.toggle('on', speakEnabled);
-  addLine(`Spoken replies ${speakEnabled?'enabled':'disabled'}`, 'note');
-});
-// iOS/WebKit needs a user action before speaking reliably
-window.addEventListener('touchstart', ()=> {
-  try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch(_) {}
-}, { once:true });
+window.addEventListener('touchstart',()=>{speechSynthesis.speak(new SpeechSynthesisUtterance(''));},{once:true});
 
-// ---------- BBC feed buffer (via Bloople injecting anchors) ----------
-let feedBuffer = [];   // array of {title, ts}
-function harvestHeadlines(){
-  // Bloople injects into <body>; select anchors and dedupe by text
-  const anchors = Array.from(document.body.querySelectorAll('a'));
-  const titles = anchors.map(a => (a.textContent || '').trim()).filter(Boolean);
-  const now = Date.now();
-  titles.forEach(t => {
-    if(!feedBuffer.some(x => x.title === t)){
-      feedBuffer.push({ title: t, ts: now });
-    }
-  });
-  // keep it tidy
-  if(feedBuffer.length > 80) feedBuffer = feedBuffer.slice(-80);
-}
-setTimeout(harvestHeadlines, 1500);
-setInterval(harvestHeadlines, 60000);
+/* === INPUT HANDLER === */
+const input=document.getElementById('input');
+input.addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;
+  const val=input.value.trim();
+  if(!val)return;
+  addTickerLine('> '+val);
+  input.value='';
 
-// Disable BBC anchor links (keep visible but inert)
-setTimeout(() => {
-  document.querySelectorAll('a').forEach(a => {
-    a.removeAttribute('href');
-  });
-}, 2500); // wait 2.5s to ensure feed anchors exist
-  
-// Force BBC headline color + visibility
-setTimeout(() => {
-  document.querySelectorAll('a').forEach(a => {
-    a.style.color = 'rgba( 0, 0, 0, 0)';
-    a.style.pointerEvents = 'none';
-    a.style.textDecoration = 'none';
-  });
-}, 3000);
-
-
-// ---------- Tiny keyword helper ----------
-function keywordsFrom(text){
-  return (text.toLowerCase()
-    .replace(/[^a-z0-9\s]/g,' ')
-    .split(/\s+/)
-    .filter(w => w.length > 3 && !'about with into from that this what your have just will been they them than then here there which where only also because while after before could would should doing being hello thank'.includes(w))
-  );
-}
-
-// ---------- Blend user text with BBC headlines ----------
-function blendWithFeed(userText){
-  if(feedBuffer.length === 0) return null;
-  const keys = keywordsFrom(userText);
-  let candidates = [];
-
-  if(keys.length){
-    // score headlines by keyword overlap
-    candidates = feedBuffer
-      .map(h => {
-        const score = keys.reduce((s,k)=> s + (h.title.toLowerCase().includes(k) ? 1 : 0), 0);
-        return { ...h, score };
-      })
-      .filter(x => x.score > 0)
-      .sort((a,b) => b.score - a.score);
-  }
-  // If no keyword hits, fall back to a few random recent ones
-  if(candidates.length === 0){
-    const pool = feedBuffer.slice(-20);
-    for(let i=0;i<3 && pool.length;i++){
-      const idx = Math.floor(Math.random()*pool.length);
-      candidates.push(pool.splice(idx,1)[0]);
-    }
-  }
-
-  const pick = (arr, n) => {
-    const out = [];
-    const copy = arr.slice();
-    while(n-- > 0 && copy.length){
-      out.push(copy.splice(Math.floor(Math.random()*copy.length),1)[0]);
-    }
-    return out;
-  };
-
-  const chosen = pick(candidates, 2).map(x => x.title);
-  const stems = [
-    'signal echoes:',
-    'semantic crossover:',
-    'field resonance:',
-    'adjacent headline:',
-    'network murmur:',
-    'latent alignment:'
+  const replies=[
+    `system echo: "${val}" acknowledged`,
+    `field response latency: ${(Math.random()*0.8+0.2).toFixed(2)} s`,
+    `"${val}" mirrored in floating feed`,
+    `drift vector stabilized`,
+    `resonance: ${Math.floor(Math.random()*100)}%`
   ];
-  const stem = stems[Math.floor(Math.random()*stems.length)];
-
-  if(chosen.length === 1){
-    return `${stem} ${chosen[0]}`;
-  }else if(chosen.length === 2){
-    // lightly “surreal” stitch
-    const [a,b] = chosen;
-    // trim punctuation for nicer join
-    const A = a.replace(/[–—-]\s.*$/,'').replace(/\.$/,'');
-    const B = b.replace(/^[A-Z].{0,10}:\s*/,'');
-    return `${stem} ${A} — ${B}.`;
-  }else{
-    return 'channel quiet.';
-  }
-}
-
-// ---------- Semantic router (no side effects beyond ticker + speak) ----------
-function semanticRouter(raw){
-  const text = (raw||'').trim();
-  if(!text) return;
-  addLine('> ' + text, 'user');
-
-  const lower = text.toLowerCase();
-  if (lower === 'hello' || lower.startsWith('hi')) {
-    const reply = "Hello. I'm listening.";
-    addLine(reply, 'sys'); speak(reply);
-  } else if (lower.includes('time')) {
-    const reply = 'Current time: ' + new Date().toLocaleTimeString();
-    addLine(reply, 'sys'); speak(reply);
-  } else if (lower.startsWith('repeat after me')) {
-    const say = text.replace(/^repeat after me/i, '').trim() || '…say what?';
-    addLine(say, 'sys'); speak(say);
-  } else {
-    // default echo
-    const echo = 'You said: ' + text;
-    addLine(echo, 'sys'); speak(echo);
-  }
-
-  // Then the reactive blend line
-  const blend = blendWithFeed(text);
-  if(blend){
-    setTimeout(()=>{
-      addLine(blend, 'sys');
-      speak(blend);
-    }, 500); // slight delay for cadence
-  }
-}
-
-// ---------- Input (text) ----------
-const input = document.getElementById('input');
-input.addEventListener('keydown', (e)=>{
-  if(e.key === 'Enter'){
-    e.preventDefault();
-    semanticRouter(input.value);
-    input.value = '';
-  }
+  const reply=replies[Math.floor(Math.random()*replies.length)];
+  setTimeout(()=>{
+    addTickerLine('< '+reply);
+    speak(reply);
+  },600);
 });
 
-// ---------- Voice input (if available) ----------
-const btnMic = document.getElementById('btnMic');
-let rec = null, listening = false;
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (!SR) {
-  btnMic.addEventListener('click', ()=>{
-    addLine('Mic recognition not available on this browser. Typing still works.', 'note');
-  });
-} else {
-  rec = new SR();
-  rec.lang = 'en-US';
-  rec.interimResults = true;
-  rec.continuous = true;
-
-  rec.onstart = () => { listening = true; btnMic.classList.add('on'); addLine('🎙️ Voice capture started', 'note'); };
-  rec.onend   = () => { listening = false; btnMic.classList.remove('on'); addLine('⏹️ Voice capture stopped', 'note'); };
-
-  let interim = '';
-  rec.onresult = (evt)=>{
-    let finalChunk = '';
-    for (let i = evt.resultIndex; i < evt.results.length; i++) {
-      const t = evt.results[i][0].transcript;
-      if (evt.results[i].isFinal) finalChunk += t;
-      else interim = t;
-    }
-    if (finalChunk) {
-      document.getElementById("input").value = finalChunk;
-      semanticRouter(finalChunk);
-      interim = '';
-    }
-  };
-  rec.onerror = (e)=>{ addLine('Voice error: ' + e.error, 'note'); };
-
-  btnMic.addEventListener('click', ()=>{
-    try{ if(!listening){ rec.start(); } else { rec.stop(); } }
-    catch(err){ addLine('Mic error: ' + (err.message||err), 'note'); }
-  });
-}
-
-// ---------- Mode Shift ----------
-const btnNext = document.getElementById('btnNext');
-btnNext.addEventListener('click', () => {
-  addLine('Mode shift → entering Scene 2: Video environment', 'note');
-  speak('Switching mode'); // optional voice cue
-  setTimeout(() => {
-    window.location.href = 'https://jeff-gompertz.github.io/CUseeme/A/video_scene2_.html';
-  }, 800); // 👈 slight delay for readability,
-});
-  
-
-// ---------- First pulse ----------
-setTimeout(()=> addLine('BBC headlines linked. Waiting for your input…', 'note'), 1200);
-
+/* === DIAGNOSTIC FEED === */
+const diagnostics=[
+  "calibrating optical link...",
+  "signal noise threshold: 0.72",
+  "field sync nominal",
+  "mirror node online",
+  "loopback handshake OK"
+];
+setInterval(()=>{
+  const msg=diagnostics[Math.floor(Math.random()*diagnostics.length)];
+  addTickerLine(msg);
+},6500);
 </script>
 </body>
 </html>
