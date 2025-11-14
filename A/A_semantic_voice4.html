@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe — Version A Core (Voice + Text + Ticker)</title>
+<title>CUSeeMe — Version 6 Core</title>
 
 <style>
   :root{
-    --bg: #0b0c0e;
+    --bg: #0b0c0e;      /* graphite */
     --ink: #f5f5f7;
-    --accent: #ff4433;
-    --accent2: #3ea6ff;
+    --accent: #ff4433;  /* orange */
+    --accent2: #3ea6ff; /* blue accent */
     --note: #8b8f97;
   }
 
@@ -18,8 +18,7 @@
     margin:0;padding:0;height:100%;
     background:var(--bg);
     color:var(--ink);
-    font-family:"VT323", ui-monospace, monospace;
-    -webkit-font-smoothing:antialiased;
+    font-family:"VT323", ui-monospace, Menlo, Consolas, monospace;
     overflow:hidden;
   }
 
@@ -27,18 +26,23 @@
   #promptWrap{
     position:fixed;inset:0;
     display:grid;place-items:center;
-    pointer-events:none;z-index:2;
+    pointer-events:none;
+    z-index:2;
   }
+
   #promptBox{
     pointer-events:auto;
-    display:flex;align-items:center;gap:.5rem;
-    padding:.6rem 1rem;
+    display:flex;align-items:center;gap:.6rem;
+    padding:.7rem 1.2rem;
     font-size:2rem;
     background:rgba(15,15,18,0.82);
     border-radius:14px;
     border:1px solid rgba(255,255,255,0.12);
-    box-shadow:0 14px 38px rgba(0,0,0,0.75);
+    box-shadow:
+      0 14px 38px rgba(0,0,0,0.75),
+      0 0 0 1px rgba(255,255,255,0.05);
   }
+
   #caret{
     width:.25ch;height:1.3em;
     background:var(--ink);
@@ -57,38 +61,54 @@
     color:rgba(255,255,255,0.35);
   }
 
-  /* Buttons */
+  /* pill buttons */
   .pill-btn{
-    cursor:pointer;border:0;outline:0;
-    padding:.3rem .6rem;
+    border:0;outline:0;
+    cursor:pointer;
+    font:inherit;
     font-size:1.5rem;
+    padding:.3rem .7rem;
     border-radius:999px;
     background:rgba(255,255,255,0.05);
     color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    transition:background .2s ease, box-shadow .2s ease, transform .2s ease;
+  }
+  .pill-btn:hover{
+    background:rgba(255,255,255,0.12);
+    transform:translateY(-1px);
+    box-shadow:0 4px 12px rgba(0,0,0,0.45);
   }
   .pill-btn.on{
-    background:rgba(255,68,51,0.25);
-    box-shadow:0 0 12px rgba(255,68,51,0.3);
+    background:rgba(62,166,255,0.22); /* blue glow */
+    box-shadow:0 0 14px rgba(62,166,255,0.45);
   }
 
-  /* Ticker */
+  /* Ticker bottom-left */
   #ticker{
-    position:fixed;left:12px;bottom:12px;
+    position:fixed;
+    left:12px;bottom:12px;
     width:min(42vw,560px);
-    max-height:60vh;
+    max-height:100vh;              /* FULL PAGE */
     display:flex;flex-direction:column-reverse;
-    overflow:hidden;z-index:1;
-    font-size:1.15rem;line-height:1.25rem;
+    overflow:hidden;
+    z-index:1;
+    font-size:1.15rem;
+    line-height:1.25rem;
   }
+
   .tline{
     margin:0 0 3px 0;
-    opacity:.95;white-space:pre-wrap;
-    animation:fadeIn .3s ease-out forwards;
+    opacity:.95;
+    white-space:pre-wrap;
+    animation:fadeIn .4s ease-out forwards;
     transition:opacity 60s linear;
   }
+
   .t-user{color:var(--accent2);}
   .t-sys{color:var(--accent);}
   .t-note{color:var(--note);}
+
   @keyframes fadeIn{
     from{opacity:0;transform:translateY(6px)}
     to{opacity:.95;transform:translateY(0)}
@@ -97,35 +117,41 @@
 </head>
 <body>
 
-<!-- Prompt -->
+<!-- Center prompt -->
 <div id="promptWrap">
   <div id="promptBox">
-    <button id="btnMic"   class="pill-btn" title="mic on/off">🎙</button>
+    <button id="btnMic" class="pill-btn" title="Start/stop mic">🎤</button>
     <div id="caret"></div>
-    <input id="input" type="text" placeholder="type or speak…" autocomplete="off" />
-    <button id="btnVoice" class="pill-btn on" title="voice reply">🔊</button>
+    <input id="input" type="text" placeholder="type or speak…" autocomplete="off" spellcheck="false" />
+    <button id="btnVoice" class="pill-btn" title="Toggle spoken replies">🔊</button>
   </div>
 </div>
 
 <!-- Ticker -->
-<div id="ticker"></div>
+<div id="ticker" aria-live="polite"></div>
 
 <script>
-/* ---------- Helpers ---------- */
+/* ========= Helpers ========= */
 const $ = sel => document.querySelector(sel);
 const ticker = $('#ticker');
 
-function addLine(txt, cls="t-sys"){
+function addLine(text, cls="t-sys"){
   const el = document.createElement('div');
-  el.className = "tline " + cls;
-  el.textContent = txt;
+  el.className = 'tline ' + cls;
+  el.textContent = text;
   ticker.prepend(el);
-  if(ticker.children.length > 120)
+
+  const MAX = 300;   // infinite feel, trims only when full
+  while(ticker.children.length > MAX)
     ticker.removeChild(ticker.lastChild);
-  setTimeout(()=> el.style.opacity = 0.18, 60000);
+
+  setTimeout(()=>{ el.style.opacity = 0.18; }, 60000);
 }
 
-/* ---------- Voice synthesis (clean, no singing) ---------- */
+
+/* ============================================================================
+   SPEECH SYNTHESIS — CLEAN, NON-SINGING, ENGLISH ONLY
+============================================================================ */
 let voiceOn = true;
 let voicesReady = false;
 
@@ -138,110 +164,122 @@ function waitForVoices(){
         voicesReady = true;
         res();
       }
-    },120);
+    }, 120);
   });
 }
 
-function pickSafeVoice(list){
+function pickSafeVoice(voices){
+  if(!voices.length) return null;
+
   const blacklist = /(melody|opera|sing|vocal)/i;
-  const safe = list.filter(v => !blacklist.test(v.name));
-  return safe[0] || list[0] || null;
+  const safe = voices.filter(v => !blacklist.test(v.name));
+
+  const preferred = [
+    /neutral/i,/news/i,/story/i,/narrator/i,
+    /google us english/i,/samantha/i,/ava/i,/aria/i
+  ];
+
+  for(const p of preferred){
+    const v = safe.find(v => p.test(v.name));
+    if(v) return v;
+  }
+
+  return safe[0] || voices[0];
 }
 
 async function speak(text){
   if(!voiceOn) return;
-  if(!("speechSynthesis" in window)) return;
+  if(!('speechSynthesis' in window)) return;
 
   await waitForVoices();
 
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = "en-US";
+  u.lang = 'en-US';
   u.rate = 1.0;
   u.pitch = 1.0;
+  u.volume = 0.9;
 
   u.voice = pickSafeVoice(speechSynthesis.getVoices());
   speechSynthesis.speak(u);
 }
 
-/* ---------- iOS unlock ---------- */
+/* Unlock for iOS */
 function unlockSpeechOnce(){
   try{
-    const u = new SpeechSynthesisUtterance(" ");
+    const u = new SpeechSynthesisUtterance(' ');
     speechSynthesis.speak(u);
     speechSynthesis.cancel();
   }catch(e){}
-  window.removeEventListener("touchstart",unlockSpeechOnce);
-  window.removeEventListener("click",unlockSpeechOnce);
+  window.removeEventListener('touchstart', unlockSpeechOnce);
+  window.removeEventListener('click', unlockSpeechOnce);
 }
-window.addEventListener("touchstart",unlockSpeechOnce,{once:true});
-window.addEventListener("click",unlockSpeechOnce,{once:true});
+window.addEventListener('touchstart', unlockSpeechOnce, {once:true});
+window.addEventListener('click', unlockSpeechOnce, {once:true});
 
-/* ---------- Basic reply logic ---------- */
-function buildReply(t){
-  const x = t.toLowerCase().trim();
-  if(x.startsWith("hi") || x==="hello")
+
+/* ============================================================================
+   BASIC REPLY ENGINE
+============================================================================ */
+function buildReply(text){
+  const t = text.toLowerCase().trim();
+  if(t === "hello" || t.startsWith("hi"))
     return "Hello. I'm listening.";
-  return "You said: " + t;
+
+  return "You said: " + text;
 }
 
-/* ---------- Submit (text or voice) ---------- */
+
+/* ============================================================================
+   INPUT HANDLERS — TEXT & VOICE
+============================================================================ */
 function handleSubmit(raw){
-  const t = (raw||"").trim();
-  if(!t) return;
+  const text = (raw || '').trim();
+  if(!text) return;
 
-  addLine("> " + t, "t-user");
+  addLine('> ' + text, 't-user');
 
-  const reply = buildReply(t);
-  addLine("< " + reply, "t-sys");
+  const reply = buildReply(text);
+  addLine('< ' + reply, 't-sys');
   speak(reply);
 }
 
-/* ---------- Text input ---------- */
-const input = $("#input");
-input.addEventListener("keydown", e=>{
-  if(e.key === "Enter"){
+/* text input */
+const input = $('#input');
+input.addEventListener('keydown', e=>{
+  if(e.key === 'Enter'){
     e.preventDefault();
-    const v = input.value.trim();
-    input.value = "";
-    handleSubmit(v);
+    const t = input.value.trim();
+    input.value = '';
+    handleSubmit(t);
   }
 });
 
-/* ---------- Voice input ---------- */
-const btnMic = $("#btnMic");
+/* voice input */
+const btnMic = $('#btnMic');
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 let rec = null;
 let listening = false;
-let interimText = "";
+let interimText = '';
 
 if(!SR){
   btnMic.disabled = true;
   addLine("⚠ voice recognition unavailable", "t-note");
-}
-else {
+} else {
   rec = new SR();
-  rec.lang = "en-US";
+  rec.lang = 'en-US';
   rec.continuous = true;
   rec.interimResults = true;
 
-  rec.onstart = ()=>{
-    listening = true;
-    addLine("🎤 mic on — listening…","t-note");
-  };
-  rec.onend = ()=>{
-    listening = false;
-    addLine("⏹ mic off","t-note");
-  };
-  rec.onerror = e=>{
-    addLine("mic error: "+e.error,"t-note");
-  };
+  rec.onstart = ()=>{ listening = true; addLine("🎤 mic on — listening…","t-note"); };
+  rec.onend   = ()=>{ listening = false; addLine("⏹ mic off","t-note"); };
+  rec.onerror = e=> addLine("mic error: " + e.error,"t-note");
 
   rec.onresult = evt=>{
     let finalChunk = "";
     interimText = "";
 
-    for(let i=evt.resultIndex;i<evt.results.length;i++){
+    for(let i = evt.resultIndex; i < evt.results.length; i++){
       const txt = evt.results[i][0].transcript;
       if(evt.results[i].isFinal) finalChunk += txt + " ";
       else interimText += txt;
@@ -250,32 +288,32 @@ else {
     if(interimText) input.value = interimText;
 
     if(finalChunk.trim()){
-      input.value = "";
+      input.value = '';
       handleSubmit(finalChunk.trim());
     }
   };
 
-  btnMic.addEventListener("click", ()=>{
+  btnMic.addEventListener('click', ()=>{
     try{
       if(!listening) rec.start();
       else rec.stop();
     }catch(err){
-      addLine("mic toggle error: "+err.message,"t-note");
+      addLine("mic toggle error: " + err.message, "t-note");
     }
   });
 }
 
-/* ---------- Voice toggle ---------- */
-const btnVoice = $("#btnVoice");
-btnVoice.addEventListener("click",()=>{
+/* toggle system voice */
+const btnVoice = $('#btnVoice');
+btnVoice.addEventListener('click', ()=>{
   voiceOn = !voiceOn;
   btnVoice.classList.toggle("on", voiceOn);
   btnVoice.textContent = voiceOn ? "🔊" : "🔇";
-  addLine("voice replies "+(voiceOn?"enabled":"muted"),"t-note");
+  addLine("voice replies " + (voiceOn ? "enabled" : "muted"), "t-note");
 });
 
-/* ---------- Startup ---------- */
-addLine("session ready — type or press 🎙 and speak","t-note");
+/* startup */
+addLine("session ready — type or press 🎤 and speak", "t-note");
 
 </script>
 </body>
