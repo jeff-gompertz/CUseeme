@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe — Version B / Mic-only mode</title>
+
+<style>
+  :root{
+    --bg: #050608;           /* graphite / almost black */
+    --ink: #f5f5f7;
+    --accent: #ff9a4a;       /* warm marker orange */
+    --user: #4da3ff;         /* cyan/blue for user */
+    --sys:  #ff9452;         /* orange for system */
+    --note:#b0b0b0;
+    --pill-bg: rgba(255,255,255,0.08);
+    --pill-border: rgba(255,255,255,0.22);
+  }
+
+  html,body{
+    margin:0;
+    height:100%;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"VT323", ui-monospace, Menlo, Consolas, monospace;
+  }
+
+  body{
+    display:flex;
+    flex-direction:column;
+  }
+
+  /* ====== HEADER (fixed, full-width, emojis only) ====== */
+  #navHeader{
+    position:fixed;
+    top:0; left:0; right:0;
+    height:40px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 18px;
+    z-index:20;
+
+    background:rgba(8,10,12,0.78);
+    border-bottom:1px solid rgba(255,255,255,0.08);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+  }
+
+  .navBtn{
+    border:none;
+    background:transparent;
+    color:var(--ink);
+    font-size:22px;
+    cursor:pointer;
+    padding:3px 6px;
+    transition:transform .18s ease, text-shadow .18s ease, opacity .18s ease;
+    opacity:0.9;
+  }
+  .navBtn:hover{
+    transform:translateY(-1px);
+    text-shadow:0 0 8px rgba(255,255,255,0.5);
+    opacity:1;
+  }
+
+  #navCenter{
+    font-size:16px;
+    letter-spacing:0.06em;
+    opacity:0.85;
+  }
+
+  /* ====== MAIN LAYOUT ====== */
+  #main{
+    position:relative;
+    flex:1;
+    padding-top:40px;   /* make room for header */
+  }
+
+  /* prompt pill */
+  #promptWrap{
+    position:absolute;
+    left:50%;
+    top:35%;
+    transform:translate(-50%,-50%);
+    width:min(90vw,640px);
+  }
+
+  #promptBox{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:14px 18px;
+    border-radius:999px;
+    background:var(--pill-bg);
+    border:1px solid var(--pill-border);
+    box-shadow:
+      0 18px 40px rgba(0,0,0,0.55),
+      0 0 0 1px rgba(255,255,255,0.03);
+  }
+
+  #promptCaret{
+    width:8px;
+    height:1.3em;
+    border-radius:3px;
+    background:rgba(255,255,255,0.75);
+    animation:blink 1s step-end infinite;
+  }
+
+  #promptInput{
+    flex:1;
+    border:none;
+    outline:none;
+    background:transparent;
+    font:inherit;
+    font-size:22px;
+    color:#ffffff;
+  }
+
+  #micGlyph{
+    font-size:20px;
+    opacity:0.85;
+    transition:transform .18s ease, opacity .18s ease;
+  }
+  .mic-on #micGlyph{
+    opacity:1;
+    transform:scale(1.1);
+    text-shadow:0 0 10px rgba(255,154,74,0.8);
+  }
+
+  @keyframes blink{
+    50%{opacity:0;}
+  }
+
+  /* ====== TICKER (bottom-left) ====== */
+  #ticker{
+    position:fixed;
+    left:14px;
+    bottom:10px;
+    max-width:90vw;
+    width:420px;
+    max-height:45vh;
+    overflow:auto;
+    padding:8px 6px 6px 2px;
+    font-size:17px;
+    line-height:1.24;
+  }
+  .tline{ margin:0 0 2px 0; white-space:pre-wrap; word-break:break-word;}
+  .t-user{ color:var(--user); }
+  .t-sys{  color:var(--sys); }
+  .t-note{ color:var(--note); }
+
+  /* nicer scroll on iOS */
+  #ticker{ -webkit-overflow-scrolling:touch; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="navHeader">
+  <button class="navBtn" id="btnPrev" aria-label="Previous slide">⬅️</button>
+  <div id="navCenter">mic-only mode</div>
+  <button class="navBtn" id="btnNext" aria-label="Next slide">➡️</button>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <!-- prompt -->
+  <div id="promptWrap">
+    <div id="promptBox">
+      <div id="promptCaret"></div>
+      <input id="promptInput" type="text"
+             autocomplete="off" spellcheck="false"
+             placeholder="say something…" />
+      <div id="micGlyph" aria-hidden="true">🎙️</div>
+    </div>
+  </div>
+</div>
+
+<!-- ticker -->
+<div id="ticker"></div>
+
+<script>
+/* =========================================================
+   1. Ticker helpers
+========================================================= */
+const ticker = document.getElementById('ticker');
+function addLine(text, type="sys"){
+  const p = document.createElement('p');
+  p.className = `tline t-${type}`;
+  p.textContent = text;
+  ticker.appendChild(p);
+  ticker.scrollTop = ticker.scrollHeight;
+}
+
+/* boot lines */
+addLine("Version B — Voice input active", "note");
+addLine("🎙️ mic: waiting for first phrase…", "note");
+
+/* =========================================================
+   2. Speech synthesis (bot voice)
+========================================================= */
+let speakEnabled = true;
+let voicesReady = false;
+
+function waitForVoices(){
+  return new Promise(resolve=>{
+    if(voicesReady && speechSynthesis.getVoices().length) return resolve();
+    const id = setInterval(()=>{
+      if(speechSynthesis.getVoices().length){
+        clearInterval(id);
+        voicesReady = true;
+        resolve();
+      }
+    },120);
+  });
+}
+
+async function speak(text){
+  if(!speakEnabled || !("speechSynthesis" in window)) return;
+  await waitForVoices();
+  speechSynthesis.cancel();              // avoid stutter pile-up
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-US";
+  u.rate = 1.02;
+  u.pitch = 0.98;
+  u.volume = 0.9;
+  const vs = speechSynthesis.getVoices();
+  u.voice =
+    vs.find(v=>/Samantha|Kate|Google US English/i.test(v.name)) ||
+    vs.find(v=>/English/i.test(v.lang)) ||
+    vs[0];
+  speechSynthesis.speak(u);
+}
+
+/* =========================================================
+   3. Semantic router (shared by mic + keyboard)
+========================================================= */
+function handlePhrase(raw){
+  const text = (raw || "").trim();
+  if(!text) return;
+
+  // user line
+  addLine("> " + text, "user");
+
+  const lower = text.toLowerCase();
+  let reply;
+
+  if(lower === "hello" || lower.startsWith("hi")){
+    reply = "Hello. I'm listening.";
+  }else if(lower.includes("how are you")){
+    reply = "I'm doing fine in mic-only mode.";
+  }else if(lower.includes("time")){
+    reply = "Current time: " + new Date().toLocaleTimeString();
+  }else{
+    reply = "You said: " + text;
+  }
+
+  addLine("< " + reply, "sys");
+  speak(reply);
+}
+
+/* =========================================================
+   4. Keyboard input (Return to send)
+========================================================= */
+const promptInput = document.getElementById("promptInput");
+
+promptInput.addEventListener("keydown", e=>{
+  if(e.key === "Enter"){
+    e.preventDefault();
+    const val = promptInput.value;
+    promptInput.value = "";
+    handlePhrase(val);
+  }
+});
+
+/* =========================================================
+   5. Voice input (Web Speech API)
+      -> auto-speaks on every recognized phrase
+========================================================= */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+let listening = false;
+
+if(!SR){
+  addLine("⚠️ speech recognition not available on this browser.", "note");
+} else {
+  rec = new SR();
+  rec.lang = "en-US";
+  rec.interimResults = true;
+  rec.continuous = true;
+
+  rec.onstart = () => {
+    listening = true;
+    document.body.classList.add("mic-on");
+    addLine("🎙️ mic: listening…", "note");
+  };
+  rec.onend = () => {
+    listening = false;
+    document.body.classList.remove("mic-on");
+    addLine("⏹ mic: stopped (tap 🎙 to restart)", "note");
+  };
+
+  let interim = "";
+  rec.onresult = (evt)=>{
+    let finalChunk = "";
+    for(let i = evt.resultIndex; i < evt.results.length; i++){
+      const t = evt.results[i][0].transcript;
+      if(evt.results[i].isFinal) finalChunk += t;
+      else interim = t;
+    }
+    if(finalChunk){
+      handlePhrase(finalChunk);
+      interim = "";
+    }
+  };
+
+  rec.onerror = (e)=>{
+    addLine("mic error: " + e.error, "note");
+  };
+}
+
+/* start/stop on mic glyph tap (first tap also satisfies permission gesture) */
+document.getElementById("promptBox").addEventListener("click", ()=>{
+  if(!rec) return;
+  try{
+    if(!listening){
+      rec.start();
+    }else{
+      rec.stop();
+    }
+  }catch(err){
+    addLine("mic error: " + (err.message || err), "note");
+  }
+});
+
+/* =========================================================
+   6. Header arrows (stubbed: for slideshow wiring later)
+========================================================= */
+document.getElementById("btnNext").addEventListener("click", ()=>{
+  console.log("NEXT slide (stub)");
+});
+document.getElementById("btnPrev").addEventListener("click", ()=>{
+  console.log("PREV slide (stub)");
+});
+</script>
+</body>
+</html>
