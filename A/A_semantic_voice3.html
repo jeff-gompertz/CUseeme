@@ -133,17 +133,24 @@
 /* ========= Helpers ========= */
 const $ = sel => document.querySelector(sel);
 const ticker = $('#ticker');
+
 function addLine(text, cls="t-sys"){
   const el = document.createElement('div');
   el.className = 'tline ' + cls;
   el.textContent = text;
   ticker.prepend(el);
+
   const MAX = 120;
-  while(ticker.children.length > MAX) ticker.removeChild(ticker.lastChild);
+  while(ticker.children.length > MAX)
+    ticker.removeChild(ticker.lastChild);
+
   setTimeout(()=>{ el.style.opacity = 0.18; }, 60000);
 }
 
-/* ========= Speech synthesis (system voice) ========= */
+
+/* ============================================================================
+   1) SPEECH SYNTHESIS — CLEAN, NON-SINGING, NO DUPLICATION
+============================================================================ */
 let voiceOn = true;
 let voicesReady = false;
 
@@ -160,35 +167,13 @@ function waitForVoices(){
   });
 }
 
-/* =======================================================================
-   SPEECH SYNTHESIS — CLEAN & NON-SINGING
-======================================================================= */
-
-let voicesReady = false;
-
-function waitForVoices(){
-  return new Promise(res=>{
-    if (voicesReady && speechSynthesis.getVoices().length) return res();
-    const id = setInterval(()=>{
-      if (speechSynthesis.getVoices().length){
-        clearInterval(id);
-        voicesReady = true;
-        res();
-      }
-    }, 120);
-  });
-}
-
-/* 100% clean voice picker — avoids ALL singing voices */
+/* SAFE voice picker — avoids all singing voices */
 function pickSafeVoice(voices){
-  if (!voices || !voices.length) return null;
+  if(!voices || !voices.length) return null;
 
   const blacklist = /(melody|opera|sing|vocal)/i;
-
-  // 1 — strictly avoid all singing / melody voices
   const safe = voices.filter(v => !blacklist.test(v.name));
 
-  // 2 — prefer neutral / news / standard voices
   const preferred = [
     /neutral/i,
     /news/i,
@@ -200,19 +185,17 @@ function pickSafeVoice(voices){
     /aria/i,
   ];
 
-  for (const p of preferred){
-    const found = safe.find(v => p.test(v.name));
-    if (found) return found;
+  for(const p of preferred){
+    const v = safe.find(v => p.test(v.name));
+    if(v) return v;
   }
 
-  // 3 — fallback to any safe voice
   return safe[0] || voices[0] || null;
 }
 
-/* Main speak() — ONLY ONE voice selector now */
 async function speak(text){
-  if (!voiceOn) return;
-  if (!('speechSynthesis' in window)) return;
+  if(!voiceOn) return;
+  if(!('speechSynthesis' in window)) return;
 
   await waitForVoices();
 
@@ -222,15 +205,16 @@ async function speak(text){
   u.pitch = 1.0;
   u.volume = 0.9;
 
-  const allVoices = speechSynthesis.getVoices();
-  u.voice = pickSafeVoice(allVoices);
+  const voices = speechSynthesis.getVoices();
+  u.voice = pickSafeVoice(voices);
 
   speechSynthesis.speak(u);
 }
 
-/* =======================================================================
-   iOS speech unlock
-======================================================================= */
+
+/* ============================================================================
+   2) iOS speech unlock (required)
+============================================================================ */
 function unlockSpeechOnce(){
   try{
     const u = new SpeechSynthesisUtterance(' ');
@@ -240,35 +224,46 @@ function unlockSpeechOnce(){
   window.removeEventListener('touchstart', unlockSpeechOnce);
   window.removeEventListener('click', unlockSpeechOnce);
 }
-
 window.addEventListener('touchstart', unlockSpeechOnce, {once:true});
 window.addEventListener('click', unlockSpeechOnce, {once:true});
 
 
-/* =======================================================================
-   HANDLE SUBMIT (text or voice)
-======================================================================= */
-function handleSubmit(raw){
-  const text = (raw || '').trim();
-  if (!text) return;
+/* ============================================================================
+   3) BUILD REPLY — simple placeholder function
+============================================================================ */
+function buildReply(text){
+  const t = text.toLowerCase().trim();
+  if(!t) return '';
 
-  addLine('> ' + text, 't-user');
+  if(t === 'hello' || t.startsWith('hi'))
+    return "Hello. I'm listening.";
 
-  const reply = buildReply(text);
-  if (reply){
-    addLine('< ' + reply, 't-sys');
-    speak(reply);
-  }
+  return "You said: " + text;
 }
 
 
-/* =======================================================================
-   TEXT INPUT
-======================================================================= */
+/* ============================================================================
+   4) HANDLE SUBMIT (text or voice)
+============================================================================ */
+function handleSubmit(raw){
+  const text = (raw || '').trim();
+  if(!text) return;
+
+  addLine('> ' + text, 't-user');
+  const reply = buildReply(text);
+
+  addLine('< ' + reply, 't-sys');
+  speak(reply);
+}
+
+
+/* ============================================================================
+   5) TEXT INPUT
+============================================================================ */
 const input = $('#input');
 
 input.addEventListener('keydown', e=>{
-  if (e.key === 'Enter'){
+  if(e.key === 'Enter'){
     e.preventDefault();
     const val = input.value.trim();
     input.value = '';
@@ -277,9 +272,9 @@ input.addEventListener('keydown', e=>{
 });
 
 
-/* =======================================================================
-   VOICE INPUT (Web Speech → text → submit)
-======================================================================= */
+/* ============================================================================
+   6) VOICE INPUT (Web Speech)
+============================================================================ */
 const btnMic = $('#btnMic');
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -287,73 +282,15 @@ let rec = null;
 let listening = false;
 let interimText = '';
 
-if (!SR){
+if(!SR){
   btnMic.disabled = true;
   addLine('⚠ voice recognition unavailable', 't-note');
+
 } else {
   rec = new SR();
   rec.lang = 'en-US';
   rec.continuous = true;
-  rec.interimResults = true;
 
-  rec.onstart = ()=>{
-    listening = true;
-    addLine('🎤 mic on — listening…', 't-note');
-  };
 
-  rec.onend = ()=>{
-    listening = false;
-    addLine('⏹ mic off', 't-note');
-  };
-
-  rec.onerror = e=>{
-    addLine('mic error: ' + e.error, 't-note');
-  };
-
-  rec.onresult = evt=>{
-    let finalChunk = '';
-    interimText = '';
-
-    for (let i = evt.resultIndex; i < evt.results.length; i++){
-      const txt = evt.results[i][0].transcript;
-      if (evt.results[i].isFinal){
-        finalChunk += txt + ' ';
-      } else {
-        interimText += txt;
-      }
-    }
-
-    if (interimText){
-      input.value = interimText;
-    }
-
-    if (finalChunk.trim()){
-      input.value = '';
-      handleSubmit(finalChunk.trim());
-    }
-  };
-
-  btnMic.addEventListener('click', ()=>{
-    try{
-      if (!listening) rec.start();
-      else rec.stop();
-    }catch(err){
-      addLine('mic toggle error: ' + err.message, 't-note');
-    }
-  });
-}
-
-/* ========= Voice toggle button ========= */
-const btnVoice = $('#btnVoice');
-btnVoice.addEventListener('click', ()=>{
-  voiceOn = !voiceOn;
-  btnVoice.classList.toggle('on', voiceOn);
-  btnVoice.textContent = voiceOn ? '🔊' : '🔇';
-  addLine('voice replies ' + (voiceOn ? 'enabled' : 'muted'), 't-note');
-});
-
-/* ========= Startup lines ========= */
-addLine('session ready — type or press 🎙 and speak', 't-note');
-</script>
 </body>
 </html>
