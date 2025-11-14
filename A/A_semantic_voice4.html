@@ -295,6 +295,7 @@ if(!SR){
 
   btnMic.addEventListener('click', ()=>{
     try{
+      btnMic.classList.toggle('on', !listening);
       if(!listening) rec.start();
       else rec.stop();
     }catch(err){
