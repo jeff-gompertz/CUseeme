@@ -3,180 +3,228 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe — Version B Core</title>
+<title>CUSeeMe — Version B Clean</title>
 
 <style>
-  :root{
-    --bg:#0b0c0e;
-    --ink:#f5f5f7;
-    --accent:#ff4433;
-    --accent2:#3ea6ff;
-    --note:#8b8f97;
-  }
+:root{
+  --bg:#0b0c0e;
+  --ink:#f5f5f7;
+  --accent:#ff4433;    /* system red */
+  --accent2:#3ea6ff;   /* user blue */
+  --note:#8b8f97;
 
-  html,body{
-    margin:0;padding:0;height:100%;
-    background:var(--bg);color:var(--ink);
-    font-family:"VT323",ui-monospace,monospace;
-    overflow:hidden;-webkit-font-smoothing:antialiased;
-  }
+  --glow: rgba(62,166,255,0.45);   /* BLUE glow */
+  --glow-bg: rgba(62,166,255,0.18);
+}
 
-  /* Center prompt */
-  #promptWrap{
-    position:fixed;inset:0;display:grid;
-    place-items:center;pointer-events:none;z-index:2;
-  }
-  #promptBox{
-    pointer-events:auto;
-    display:flex;align-items:center;gap:.5rem;
-    padding:.6rem 1rem;font-size:2rem;
-    background:rgba(15,15,18,0.82);
-    border-radius:14px;
-    border:1px solid rgba(255,255,255,0.12);
-    box-shadow:0 14px 38px rgba(0,0,0,0.75);
-  }
-  #caret{
-    width:.25ch;height:1.3em;background:var(--ink);
-    animation:blink 1s step-end infinite;
-  }
-  @keyframes blink{50%{opacity:0}}
+html,body{
+  margin:0;padding:0;height:100%;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"VT323", ui-monospace, Menlo, Consolas, monospace;
+  overflow:hidden;
+}
 
-  #input{
-    border:0;outline:0;background:transparent;
-    color:var(--ink);font:inherit;width:18ch;
-  }
-  #input::placeholder{color:rgba(255,255,255,0.32)}
+/* ---------------- PROMPT ---------------- */
+#promptWrap{
+  position:fixed; inset:0;
+  display:grid; place-items:center;
+  pointer-events:none;
+  z-index:10;
+}
 
-  /* Buttons */
-  .pill-btn{
-    cursor:pointer;border:0;outline:0;
-    padding:.32rem .6rem;font-size:1.5rem;
-    border-radius:999px;color:var(--ink);
-    background:rgba(255,255,255,0.05);
-  }
-  
-  .pill-btn.on{
-    background:rgba(62,166,255,0.18);
-    box-shadow:0 0 16px rgba(62,166,255,0.45);
-  
-  }
+#promptBox{
+  pointer-events:auto;
+  display:flex; align-items:center; gap:.55rem;
+  padding:.7rem 1.1rem;
+  font-size:2rem;
+  background:rgba(15,15,18,0.78);
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,0.10);
+  box-shadow:
+    0 14px 40px rgba(0,0,0,0.75),
+    0 0 0px 1px rgba(255,255,255,0.04);
+}
 
-  /* Ticker */
-  #ticker{
-    position:fixed;left:12px;bottom:12px;
-    width:min(42vw,560px);max-height:60vh;
-    display:flex;flex-direction:column-reverse;
-    overflow:hidden;z-index:1;
-    font-size:1.15rem;line-height:1.25rem;
-  }
-  .tline{
-    margin:0 0 3px 0;opacity:.95;
-    white-space:pre-wrap;
-    animation:fadeIn .3s ease-out forwards;
-    transition:opacity 60s linear;
-  }
-  .t-user{color:var(--accent2)}
-  .t-sys{color:var(--accent)}
-  .t-note{color:var(--note)}
-  @keyframes fadeIn{
-    from{opacity:0;transform:translateY(6px)}
-    to{opacity:.95;transform:translateY(0)}
-  }
+#caret{
+  width:.28ch; height:1.3em;
+  background:var(--ink);
+  animation:blink 1s step-end infinite;
+}
+@keyframes blink{50%{opacity:0}}
+
+#input{
+  border:0; outline:0; background:transparent;
+  color:var(--ink); font:inherit; width:17ch;
+}
+#input::placeholder{ color:rgba(255,255,255,0.35); }
+
+/* ---------------- BUTTONS ---------------- */
+.pill-btn{
+  border:0; outline:0;
+  font:inherit;
+  font-size:1.45rem;
+  padding:.32rem .65rem;
+  border-radius:999px;
+  background:rgba(255,255,255,0.07);
+  color:var(--ink);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  transition:background .15s, box-shadow .2s, transform .15s;
+}
+.pill-btn:hover{
+  background:rgba(255,255,255,0.16);
+}
+.pill-btn.on{
+  background:var(--glow-bg);
+  box-shadow:0 0 16px var(--glow);
+}
+
+/* ---------------- TICKER ---------------- */
+#ticker{
+  position:fixed; left:14px; bottom:14px;
+  width:min(46vw,580px);
+  max-height:60vh;
+  display:flex; flex-direction:column-reverse;
+  overflow:hidden;
+  font-size:1.14rem; line-height:1.24rem;
+}
+
+.tline{ margin:0 0 3px 0; opacity:.96;
+  animation:fadeIn .4s ease-out forwards;
+  transition:opacity 60s linear;
+}
+.t-user{ color:var(--accent2); }
+.t-sys{ color:var(--accent); }
+.t-note{ color:var(--note); }
+
+@keyframes fadeIn{
+  from{ opacity:0; transform:translateY(6px);}
+  to  { opacity:.96; transform:translateY(0);}
+}
 </style>
 </head>
 <body>
 
 <div id="promptWrap">
   <div id="promptBox">
-    <button id="btnMic" class="pill-btn">🎙</button>
+    <button id="btnMic" class="pill-btn" title="Mic">🎙</button>
     <div id="caret"></div>
-    <input id="input" type="text" placeholder="type or speak…" autocomplete="off" />
-    <button id="btnVoice" class="pill-btn on">🔊</button>
+    <input id="input" placeholder="type or speak…" spellcheck="false" autocomplete="off">
+    <button id="btnVoice" class="pill-btn" title="Voice replies">🔊</button>
   </div>
 </div>
 
 <div id="ticker"></div>
 
 <script>
-/* --- Helpers --- */
-const $ = sel => document.querySelector(sel);
+/* ---------- Helpers ---------- */
+const $ = s => document.querySelector(s);
 const ticker = $('#ticker');
 
-function addLine(txt, cls="t-sys"){
-  const div=document.createElement('div');
-  div.className="tline "+cls;
-  div.textContent=txt;
-  ticker.prepend(div);
-  if(ticker.children.length>120) ticker.removeChild(ticker.lastChild);
-  setTimeout(()=>div.style.opacity=0.18,60000);
+function addLine(text, cls="t-sys"){
+  const el=document.createElement('div');
+  el.className='tline '+cls;
+  el.textContent=text;
+  ticker.prepend(el);
+  while(ticker.children.length>120) ticker.removeChild(ticker.lastChild);
+  setTimeout(()=>el.style.opacity=0.18,60000);
 }
 
-/* --- Speech Synthesis (clean, non-singing) --- */
+/* ---------- Speech synthesis ---------- */
 let voiceOn=true;
 let voicesReady=false;
 
+/* Wait for voices to load */
 function waitForVoices(){
   return new Promise(res=>{
     if(voicesReady && speechSynthesis.getVoices().length) return res();
     const id=setInterval(()=>{
       if(speechSynthesis.getVoices().length){
-        clearInterval(id);voicesReady=true;res();
+        clearInterval(id);
+        voicesReady=true;
+        res();
       }
     },120);
   });
 }
 
+/* English-only safe voice */
 function pickSafeVoice(list){
-  const blacklist=/(melody|opera|sing|vocal)/i;
+  if(!list.length) return null;
+
+  const blacklist=/(melody|opera|sing|vocal|song)/i;
   const safe=list.filter(v=>!blacklist.test(v.name));
-  return safe[0] || list[0] || null;
+
+  const preferred=[
+    /samantha/i,
+    /google us english/i,
+    /neutral/i,
+    /news/i,
+    /story/i,
+    /narrator/i,
+    /ava/i,
+    /aria/i
+  ];
+
+  for(const p of preferred){
+    const v=safe.find(v=>p.test(v.name));
+    if(v) return v;
+  }
+  return safe[0]||list[0]||null;
 }
 
 async function speak(text){
   if(!voiceOn) return;
-  if(!("speechSynthesis" in window)) return;
+  if(!window.speechSynthesis) return;
 
   await waitForVoices();
+
   const u=new SpeechSynthesisUtterance(text);
-  u.lang="en-US";u.rate=1.0;u.pitch=1.0;u.volume=0.95;
-  u.voice=pickSafeVoice(speechSynthesis.getVoices());
+  u.lang="en-US";            /* ← forces ENGLISH */
+  u.rate=1.0;
+  u.pitch=1.0;
+  u.volume=0.9;
+
+  const voices=speechSynthesis.getVoices();
+  u.voice=pickSafeVoice(voices);
+
   speechSynthesis.speak(u);
 }
 
-/* --- iOS unlock --- */
-function unlock(){
+/* ---------- iOS unlock ---------- */
+function unlockOnce(){
   try{
     const u=new SpeechSynthesisUtterance(" ");
-    speechSynthesis.speak(u);speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+    speechSynthesis.cancel();
   }catch(e){}
-  window.removeEventListener("touchstart",unlock);
-  window.removeEventListener("click",unlock);
+  window.removeEventListener("touchstart",unlockOnce);
+  window.removeEventListener("click",unlockOnce);
 }
-window.addEventListener("touchstart",unlock,{once:true});
-window.addEventListener("click",unlock,{once:true});
+window.addEventListener("touchstart",unlockOnce,{once:true});
+window.addEventListener("click",unlockOnce,{once:true});
 
-/* --- Reply logic --- */
+/* ---------- Build reply ---------- */
 function buildReply(t){
-  const x=t.toLowerCase().trim();
-  if(x==="hello"||x.startsWith("hi"))
-    return "Hello. I'm listening.";
+  const s=t.toLowerCase().trim();
+  if(s==="hello"||s.startsWith("hi")) return "Hello. I'm listening.";
   return "You said: "+t;
 }
 
-/* --- Submit (text or voice) --- */
+/* ---------- Submit ---------- */
 function handleSubmit(raw){
   const t=(raw||"").trim();
   if(!t) return;
-
   addLine("> "+t,"t-user");
   const reply=buildReply(t);
   addLine("< "+reply,"t-sys");
   speak(reply);
 }
 
-/* --- Text input --- */
-const input=$("#input");
-input.addEventListener("keydown",e=>{
+/* ---------- Text input ---------- */
+const input=$('#input');
+input.addEventListener('keydown',e=>{
   if(e.key==="Enter"){
     e.preventDefault();
     const v=input.value.trim();
@@ -185,33 +233,48 @@ input.addEventListener("keydown",e=>{
   }
 });
 
-/* --- Voice input --- */
-const btnMic=$("#btnMic");
-const SR=window.SpeechRecognition || window.webkitSpeechRecognition;
+/* ---------- Voice input ---------- */
+const btnMic=$('#btnMic');
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 
-let rec=null,listening=false,interim="";
+let rec=null;
+let listening=false;
+let interim="";
 
 if(!SR){
-  btnMic.disabled=true;
   addLine("⚠ voice recognition unavailable","t-note");
+  btnMic.disabled=true;
+
 }else{
   rec=new SR();
   rec.lang="en-US";
   rec.continuous=true;
   rec.interimResults=true;
 
-  rec.onstart=()=>{listening=true;addLine("🎤 mic on — listening…","t-note");};
-  rec.onend  =()=>{listening=false;addLine("⏹ mic off","t-note");};
-  rec.onerror=e=>addLine("mic error: "+e.error,"t-note");
+  rec.onstart=()=>{
+    listening=true;
+    btnMic.classList.add("on");
+    addLine("🎤 mic on — listening…","t-note");
+  };
+
+  rec.onend=()=>{
+    listening=false;
+    btnMic.classList.remove("on");
+    addLine("⏹ mic off","t-note");
+  };
+
+  rec.onerror=e=>{
+    addLine("mic error: "+e.error,"t-note");
+  };
 
   rec.onresult=evt=>{
     let final="";
     interim="";
 
     for(let i=evt.resultIndex;i<evt.results.length;i++){
-      const t=evt.results[i][0].transcript;
-      if(evt.results[i].isFinal) final+=t+" ";
-      else interim+=t;
+      const txt=evt.results[i][0].transcript;
+      if(evt.results[i].isFinal) final+=txt+" ";
+      else interim+=txt;
     }
 
     if(interim) input.value=interim;
@@ -231,16 +294,16 @@ if(!SR){
   });
 }
 
-/* --- Voice toggle --- */
-const btnVoice=$("#btnVoice");
-btnVoice.addEventListener("click",()=>{
+/* ---------- Voice toggle ---------- */
+const btnVoice=$('#btnVoice');
+btnVoice.addEventListener('click',()=>{
   voiceOn=!voiceOn;
   btnVoice.classList.toggle("on",voiceOn);
   btnVoice.textContent=voiceOn?"🔊":"🔇";
   addLine("voice replies "+(voiceOn?"enabled":"muted"),"t-note");
 });
 
-/* --- Startup --- */
+/* ---------- Startup ---------- */
 addLine("session ready — type or press 🎙 and speak","t-note");
 </script>
 </body>
