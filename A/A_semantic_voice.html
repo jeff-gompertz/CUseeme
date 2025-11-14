@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Version C — Mic + Talkback</title>
+
+<style>
+  body{
+    margin:0;
+    background:#0b0c0e; /* graphite-black */
+    color:white;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    overflow:hidden;
+  }
+
+  /* Centered prompt box */
+  #promptWrap{
+    position:fixed; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    z-index:10;
+  }
+  #promptBox{
+    background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.18);
+    border-radius:14px;
+    padding:14px 22px;
+    font-size:24px;
+    color:white;
+    backdrop-filter:blur(10px);
+    display:flex; align-items:center; gap:12px;
+  }
+  #input{
+    border:none;
+    outline:none;
+    background:transparent;
+    color:white;
+    font-size:24px;
+    width:18ch;
+  }
+
+  /* Ticker (bottom-left) */
+  #ticker{
+    position:fixed;
+    left:16px; bottom:16px;
+    width:50vw;
+    max-width:360px;
+    max-height:40vh;
+    overflow:hidden;
+    display:flex; flex-direction:column-reverse;
+    font-size:14px;
+    line-height:1.45;
+    color:#ffb080;
+  }
+  .tline{
+    opacity:0.8;
+    animation:fadeIn .6s ease;
+  }
+  @keyframes fadeIn{
+    from{opacity:0; transform:translateY(6px);}
+    to{opacity:0.8; transform:none;}
+  }
+
+  /* Header arrows */
+  #navHeader{
+    position:fixed;
+    top:0; left:0; right:0;
+    height:56px;
+    backdrop-filter:blur(8px);
+    background:rgba(255,255,255,0.06);
+    border-bottom:1px solid rgba(255,255,255,0.1);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 18px;
+    z-index:20;
+  }
+  .navBtn{
+    background:transparent;
+    border:none;
+    font-size:26px;
+    color:white;
+    cursor:pointer;
+    padding:6px 10px;
+  }
+  .navBtn:hover{
+    color:#ffd98e;
+  }
+</style>
+</head>
+
+<body>
+
+<!-- Header -->
+<div id="navHeader">
+  <button class="navBtn" id="btnPrev">⬅️</button>
+  <div style="font-size:15px; opacity:.8;">mic-only mode</div>
+  <button class="navBtn" id="btnNext">➡️</button>
+</div>
+
+<!-- Prompt -->
+<div id="promptWrap">
+  <div id="promptBox">
+    <div style="opacity:.4;font-size:26px;">▌</div>
+    <input id="input" placeholder="Say something…" />
+  </div>
+</div>
+
+<!-- Ticker -->
+<div id="ticker"></div>
+
+<script>
+/* =========================================================
+   TICKER
+========================================================= */
+const ticker = document.getElementById("ticker");
+function addTicker(t){
+  const div = document.createElement("div");
+  div.className="tline";
+  div.textContent = t;
+  ticker.prepend(div);
+  if(ticker.children.length > 50)
+    ticker.removeChild(ticker.lastChild);
+}
+
+/* =========================================================
+   AUDIO UNLOCK (iOS Safari speechSynthesis fix)
+========================================================= */
+function unlockAudio(){
+  const a = new Audio();
+  // super tiny silent mp3
+  a.src = "data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAA...";
+  a.volume = 0.01;
+  a.play().catch(()=>{});
+}
+window.addEventListener("touchstart", unlockAudio, {once:true});
+window.addEventListener("mousedown", unlockAudio, {once:true});
+
+/* =========================================================
+   SPEECH SYNTHESIS
+========================================================= */
+function speak(txt){
+  const u = new SpeechSynthesisUtterance(txt);
+  u.lang = "en-US";
+  u.rate = 1.06;
+  u.pitch = 0.85;
+  u.volume = 1.0;
+  speechSynthesis.speak(u);
+}
+
+/* =========================================================
+   SPEECH RECOGNITION
+========================================================= */
+let recognition = null;
+
+function initSpeech(){
+  if(!("webkitSpeechRecognition" in window)){
+    addTicker("⚠️ SpeechRecognition not supported");
+    return;
+  }
+  recognition = new webkitSpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  recognition.onresult = (ev)=>{
+    let finalText = "";
+    for(let i=0;i<ev.results.length;i++){
+      const r = ev.results[i];
+      if(r.isFinal) finalText = r[0].transcript;
+    }
+    if(finalText){
+      input.value = finalText;
+      addTicker("> " + finalText);
+      speakReply(finalText);
+    }
+  };
+
+  recognition.onerror = (e)=> addTicker("⚠️ mic: " + e.error);
+}
+
+/* Bot reply generator */
+function speakReply(text){
+  const replies = [
+    "Okay — " + text,
+    "Understood.",
+    "Copy that.",
+    "I heard you say " + text,
+    "Noted."
+  ];
+  const reply = replies[Math.floor(Math.random()*replies.length)];
+  addTicker("< " + reply);
+  speak(reply);
+}
+
+/* =========================================================
+   START LISTENING
+========================================================= */
+function startMic(){
+  if(!recognition) return;
+  recognition.start();
+  addTicker("🎙️ Listening…");
+}
+
+/* =========================================================
+   HANDLE RETURN KEY
+========================================================= */
+const input = document.getElementById("input");
+input.addEventListener("keydown",(e)=>{
+  if(e.key === "Enter"){
+    const t = input.value.trim();
+    if(!t)return;
+    addTicker("> " + t);
+    speakReply(t);
+    input.value="";
+  }
+});
+
+/* =========================================================
+   HEADER BUTTONS
+========================================================= */
+document.getElementById("btnPrev").addEventListener("click",()=>{
+  addTicker("< prev — (slideshow not wired here)");
+});
+document.getElementById("btnNext").addEventListener("click",()=>{
+  addTicker("< next — (slideshow not wired here)");
+});
+
+/* =========================================================
+   BOOT
+========================================================= */
+initSpeech();
+startMic();
+addTicker("Version C — mic + talkback READY");
+</script>
+
+</body>
+</html>
