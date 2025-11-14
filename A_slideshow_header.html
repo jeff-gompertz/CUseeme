@@ -3,101 +3,220 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CUSeeMe — FLOAT Header Clean</title>
+<title>CUSeeMe FLOAT — Slideshow with Clean Header</title>
 
 <style>
 :root{
-  --bg:#0b0c0e;
-  --ink:#f5f5f7;
-  --accent:#3ea6ff;   /* subtle aqua/blue */
+  --bg:#050608;        /* deep graphite */
+  --ink:#f5f5f7;       /* soft white   */
+  --muted:#7b7f88;
+  --accent:#42e3b5;    /* soft aqua    */
+  --fade:0.45s;        /* crossfade duration */
 }
 
+/* ===== GLOBAL ===== */
 html,body{
   margin:0;
   height:100%;
   background:var(--bg);
   color:var(--ink);
-  font-family:"VT323", ui-monospace, monospace;
+  font:16px/1.45 "VT323", ui-monospace, Menlo, Consolas, monospace;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
 }
 
-/* =========================================================
-   CLEAN FROSTED FLOAT HEADER
-   ========================================================= */
+/* ===== SLIDE FRAMES FOR CROSSFADE ===== */
+#stageWrap{
+  position:fixed;
+  inset:0;
+}
+
+.slideFrame{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  border:none;
+  opacity:0;
+  transition:opacity var(--fade) ease;
+  pointer-events:none;
+}
+
+.slideFrame.active{
+  opacity:1;
+  pointer-events:auto;
+}
+
+/* ===== CLEAN FLOAT HEADER (pure emoji buttons) ===== */
 #navHeader{
   position:fixed;
   top:0; left:0; right:0;
-  height:56px;
+  height:52px;
   padding:0 18px;
 
   display:flex;
   align-items:center;
   justify-content:space-between;
 
-  background:rgba(12,14,16,0.65);
-  backdrop-filter:blur(16px) saturate(180%);
-  -webkit-backdrop-filter:blur(16px) saturate(180%);
+  background:rgba(5,7,9,0.82);
+  backdrop-filter:blur(16px) saturate(170%);
+  -webkit-backdrop-filter:blur(16px) saturate(170%);
+  border-bottom:1px solid rgba(255,255,255,0.10);
 
-  border-bottom:1px solid rgba(255,255,255,0.12);
-  z-index:99999;
+  z-index:9999;
 }
 
-/* =========================================================
-   PURE EMOJI BUTTONS — clean, no glow, no box, no border
-   ========================================================= */
+/* emoji buttons: no pill background, just clean glyphs */
 .navBtn{
-  font-size:32px;       /* Bigger, crisp icons */
-  background:none;
+  font-size:28px;
   border:none;
+  background:none;
   color:var(--ink);
-  padding:4px 10px;
+  padding:0;
   cursor:pointer;
   user-select:none;
-  line-height:1;
-  transition:opacity .2s ease;
+  transition:transform .16s ease, opacity .16s ease;
 }
 
-.navBtn:hover{
-  opacity:0.65;
+.navBtn:active{
+  transform:scale(0.88) translateY(1px);
+  opacity:0.7;
 }
 
-#floatLabel{
-  font-size:17px;
-  opacity:0.85;
-  letter-spacing:1px;
-}
-
-/* Fake content block so you can scroll + see header float */
-#demoContent{
-  margin-top:90px;
-  padding:20px;
-  font-size:22px;
-  line-height:1.6;
+/* center FLOAT label */
+#floatTitle{
+  font-size:15px;
+  letter-spacing:0.22em;
+  text-transform:uppercase;
   color:var(--ink);
+  opacity:0.9;
+}
+
+/* ===== HUD INDEX (bottom-left) ===== */
+#hud{
+  position:fixed;
+  left:16px;
+  bottom:14px;
+  display:flex;
+  gap:10px;
+  align-items:center;
+  z-index:10000;
+}
+
+#idx{
+  font-size:13px;
+  color:var(--muted);
 }
 </style>
 </head>
 
 <body>
 
-<!-- =========================================================
-     FLOAT HEADER
-     ========================================================= -->
+<!-- === FLOAT HEADER (clean emojis) === -->
 <div id="navHeader">
-  <button id="btnPrev" class="navBtn">⬅️</button>
-  <div id="floatLabel">⧉ FLOAT</div>
-  <button id="btnNext" class="navBtn">➡️</button>
+  <button id="btnPrev" class="navBtn" title="Previous">⬅️</button>
+  <div id="floatTitle">⧉ FLOAT</div>
+  <button id="btnNext" class="navBtn" title="Next">➡️</button>
 </div>
 
-<!-- =========================================================
-     DEMO CONTENT BELOW — replace with slides, iframes, etc.
-     ========================================================= -->
-<div id="demoContent">
-  <p>This is a clean FLOAT header test page.</p>
-  <p>Use this as a template for your standalone header integration.</p>
-  <p>The header above is isolated, frosted, and has pure emoji buttons.</p>
-  <p>Replace this content block with your slideshow, CUSeeMe modules, or anything you want.</p>
-  <p>Scroll to confirm the header floats correctly.</p>
+<!-- FLOAT SLIDESHOW STAGE -->
+<div id="stageWrap">
+  <iframe id="frameA" class="slideFrame active"></iframe>
+  <iframe id="frameB" class="slideFrame"></iframe>
 </div>
 
+<!-- === HUD index (bottom-left) === -->
+<div id="hud">
+  <div id="idx">1 / 1</div>
+</div>
+
+<script>
+/* =========================================================
+   1) Slide URLs (CUSeeMe modules)
+   - Edit this list to change your deck
+========================================================= */
+const SLIDES = [
+  "A/CUseeme_v1.7_dynamic_restyleBLACK.html",
+  "a_testCuseeme_modularTemplateRESTYLE.html",
+  "a_SingleSharedVideoSplitIntoPanels_live.html",
+  "double_tap_additivedissolve_LIVE.html",
+  "s_6cards_video_wpmedia_multiFilter_LIVEchatgpt2.html"
+];
+
+/* =========================================================
+   2) State
+========================================================= */
+let i = 0; // current slide index
+
+let front = document.getElementById("frameA");
+let back  = document.getElementById("frameB");
+
+const idxEl   = document.getElementById("idx");
+const btnPrev = document.getElementById("btnPrev");
+const btnNext = document.getElementById("btnNext");
+
+/* =========================================================
+   3) Load + crossfade between iframes
+========================================================= */
+function show(index){
+  const url = SLIDES[index];
+  // cache-bust so Safari reloads properly
+  const src = url + (url.includes("?") ? "&" : "?") + "v=" + Date.now();
+
+  back.src = src;
+
+  back.onload = () => {
+    back.classList.add("active");
+    front.classList.remove("active");
+    // swap references
+    [front, back] = [back, front];
+
+    idxEl.textContent = `${index + 1} / ${SLIDES.length}`;
+  };
+}
+
+/* =========================================================
+   4) Navigation (buttons + keyboard)
+========================================================= */
+let lastTap = 0;
+function debounceTap(){
+  const now = performance.now();
+  if (now - lastTap < 300) return false;
+  lastTap = now;
+  return true;
+}
+
+function next(){
+  if (!debounceTap()) return;
+  i = (i + 1) % SLIDES.length;
+  show(i);
+}
+
+function prev(){
+  if (!debounceTap()) return;
+  i = (i - 1 + SLIDES.length) % SLIDES.length;
+  show(i);
+}
+
+// header buttons
+btnNext.addEventListener("click", next);
+btnPrev.addEventListener("click", prev);
+
+// keyboard fallback
+window.addEventListener("keydown", e=>{
+  if (e.key === "ArrowRight" || e.key === " ") next();
+  if (e.key === "ArrowLeft") prev();
+});
+
+/* =========================================================
+   5) Boot
+========================================================= */
+front.src = SLIDES[0];
+front.allow = back.allow = "camera; microphone; fullscreen";
+front.setAttribute("sandbox","allow-same-origin allow-scripts allow-camera allow-modals allow-forms");
+back.setAttribute("sandbox","allow-same-origin allow-scripts allow-camera allow-modals allow-forms");
+
+idxEl.textContent = `1 / ${SLIDES.length}`;
+</script>
 </body>
 </html>
