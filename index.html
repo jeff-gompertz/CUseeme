@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>CUSeeMe v1.8 — Floating Feed</title>
+<title>CUSeeMe v1.8 — Floating Feed (Live Black)</title>
 <style>
 html,body{
   margin:0;padding:0;height:100%;
-  background:#FFFFFF;font-family:monospace;color:#0f0;
+  background:#000;
+  font-family:"VT323", monospace;
+  color:#0f0;
   overflow:hidden;
 }
 
@@ -17,20 +19,20 @@ html,body{
   object-fit:cover;
   transform:scaleX(-1);
   z-index:0;
-  filter:brightness(1.05) contrast(1.05);
+  filter:brightness(1.05) contrast(1.1);
 }
 
 /* === FLOATING MINI FEED === */
 #miniFeed{
   position:absolute;
-  top:20px;right:20px;
-  width:200px;height:150px;
-  border-radius:8px;
+  top:24px;right:24px;
+  width:240px;height:180px;
+  border-radius:10px;
   overflow:hidden;
   z-index:2;
-  background:rgba(255,255,255,0.05);
+  background:rgba(255,255,255,0.04);
   border:1px solid rgba(255,255,255,0.15);
-  backdrop-filter:blur(2px);
+  backdrop-filter:blur(4px);
   cursor:grab;
   transition:box-shadow .3s ease, transform .4s ease;
 }
@@ -41,8 +43,8 @@ html,body{
   opacity:0.9;
 }
 #miniFeed:hover{
-  box-shadow:0 0 20px rgba(150,220,255,0.3);
-  transform:scale(1.03);
+  box-shadow:0 0 20px rgba(0,255,120,0.25);
+  transform:scale(1.04);
 }
 
 /* === PROMPT LAYER === */
@@ -53,22 +55,23 @@ html,body{
 }
 #promptBox{
   pointer-events:auto;
-  background:rgba(255,255,255,0.25);
-  border:1px solid rgba(0,0,0,0.2);
+  background:rgba(0,255,100,0.1);
+  border:1px solid rgba(0,255,100,0.25);
   border-radius:10px;
   padding:.6rem 1rem;
-  font-size:2rem;
+  font-size:1.8rem;
   display:flex;align-items:center;gap:.4rem;
+  color:#0f0;
 }
 #input{
   background:transparent;
   border:none;outline:none;
-  color:#111;
+  color:#0f0;
   font-size:inherit;
   width:14ch;
 }
 #caret{
-  width:.25ch;height:1.3em;background:#111;
+  width:.25ch;height:1.3em;background:#0f0;
   animation:blink 1s step-end infinite;
 }
 @keyframes blink{50%{opacity:0}}
@@ -76,9 +79,9 @@ html,body{
 /* === TICKER === */
 #ticker{
   position:fixed;
-  left:10px;bottom:10px;
+  left:14px;bottom:14px;
   width:40%;
-  max-height:50%;
+  max-height:55%;
   display:flex;flex-direction:column-reverse;
   overflow:hidden;
   z-index:3;
@@ -95,35 +98,30 @@ html,body{
   to{opacity:.8;transform:translateY(0)}
 }
 
-/* === TOGGLE BUTTON (HUD LIGHT VERSION) === */
+/* === TOGGLE BUTTON === */
 #hudToggle{
-  position:fixed;top:10px;right:10px;z-index:4;
-  background:rgba(255,255,255,0.08);
-  border:1px solid rgba(255,255,255,0.15);
+  position:fixed;top:12px;right:12px;z-index:4;
+  background:rgba(0,255,80,0.1);
+  border:1px solid rgba(0,255,120,0.2);
   border-radius:6px;
   color:#0f0;
   font-size:12px;
   padding:6px 10px;
   cursor:pointer;
-  backdrop-filter:blur(4px);
+  backdrop-filter:blur(3px);
 }
-#hudToggle:hover{
-  background:rgba(255,255,255,0.15);
-}
+#hudToggle:hover{background:rgba(0,255,120,0.25);}
 </style>
 </head>
 <body>
 <video id="camera" autoplay muted playsinline></video>
 
-<!-- Floating mini-feed -->
 <div id="miniFeed">
   <video id="miniVideo" autoplay muted playsinline></video>
 </div>
 
-<!-- Simple toggle button -->
 <div id="hudToggle">⧉ FLOAT</div>
 
-<!-- Prompt input -->
 <div id="promptWrap">
   <div id="promptBox">
     <div id="caret"></div>
@@ -131,7 +129,6 @@ html,body{
   </div>
 </div>
 
-<!-- Ticker console -->
 <div id="ticker"></div>
 
 <script>
@@ -140,55 +137,56 @@ html,body{
   const cam=document.getElementById('camera');
   const mini=document.getElementById('miniVideo');
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
     cam.srcObject=stream;
-    mini.srcObject=stream; // mirror the same feed
+    mini.srcObject=stream;
   }catch(e){
-    alert('Camera access denied.');
+    const msg="⚠ camera access denied/unavailable";
+    document.body.style.background="#111";
+    console.warn(msg);
+    const t=document.createElement("div");
+    t.textContent=msg;
+    t.style.position="fixed";t.style.top="50%";t.style.left="50%";
+    t.style.transform="translate(-50%,-50%)";
+    t.style.color="#0f0";
+    document.body.appendChild(t);
   }
 })();
 
 /* === DRAGGABLE MINI FEED === */
-(function(){
+(()=>{
   const el=document.getElementById('miniFeed');
-  let isDown=false,offsetX=0,offsetY=0;
-
-  el.addEventListener('mousedown',e=>{
-    isDown=true;
-    offsetX=e.clientX-el.offsetLeft;
-    offsetY=e.clientY-el.offsetTop;
+  let down=false,ox=0,oy=0;
+  const start=e=>{
+    down=true;
+    ox=(e.touches?e.touches[0].clientX:e.clientX)-el.offsetLeft;
+    oy=(e.touches?e.touches[0].clientY:e.clientY)-el.offsetTop;
     el.style.cursor='grabbing';
-  });
-  window.addEventListener('mouseup',()=>{isDown=false;el.style.cursor='grab';});
-  window.addEventListener('mousemove',e=>{
-    if(!isDown)return;
-    el.style.left=(e.clientX-offsetX)+'px';
-    el.style.top=(e.clientY-offsetY)+'px';
-  });
-
-  // touch support
-  el.addEventListener('touchstart',e=>{
-    isDown=true;
-    const t=e.touches[0];
-    offsetX=t.clientX-el.offsetLeft;
-    offsetY=t.clientY-el.offsetTop;
-  });
-  window.addEventListener('touchmove',e=>{
-    if(!isDown)return;
-    const t=e.touches[0];
-    el.style.left=(t.clientX-offsetX)+'px';
-    el.style.top=(t.clientY-offsetY)+'px';
-  });
-  window.addEventListener('touchend',()=>{isDown=false;});
+  };
+  const move=e=>{
+    if(!down)return;
+    const cx=(e.touches?e.touches[0].clientX:e.clientX);
+    const cy=(e.touches?e.touches[0].clientY:e.clientY);
+    el.style.left=(cx-ox)+'px';
+    el.style.top=(cy-oy)+'px';
+    e.preventDefault?.();
+  };
+  const stop=()=>{down=false;el.style.cursor='grab';};
+  el.addEventListener('mousedown',start);
+  el.addEventListener('touchstart',start,{passive:false});
+  window.addEventListener('mousemove',move);
+  window.addEventListener('touchmove',move,{passive:false});
+  window.addEventListener('mouseup',stop);
+  window.addEventListener('touchend',stop);
 })();
 
-/* === FLOAT TOGGLE BUTTON === */
+/* === TOGGLE MINI FEED === */
 const mini=document.getElementById('miniFeed');
 document.getElementById('hudToggle').addEventListener('click',()=>{
   mini.style.display=mini.style.display==='none'?'block':'none';
 });
 
-/* === TICKER SYSTEM === */
+/* === TICKER === */
 const ticker=document.getElementById('ticker');
 function addTickerLine(text){
   const el=document.createElement('div');
@@ -205,14 +203,12 @@ function waitForVoices(){
   return new Promise(resolve=>{
     if(voicesReady && speechSynthesis.getVoices().length)return resolve();
     const id=setInterval(()=>{
-      if(speechSynthesis.getVoices().length){
-        clearInterval(id);voicesReady=true;resolve();
-      }
+      if(speechSynthesis.getVoices().length){clearInterval(id);voicesReady=true;resolve();}
     },100);
   });
 }
 async function speak(text){
-  if(!('speechSynthesis' in window))return;
+  if(!('speechSynthesis'in window))return;
   await waitForVoices();
   const u=new SpeechSynthesisUtterance(text);
   u.rate=1.05;u.pitch=0.9;u.volume=0.8;u.lang='en-US';
@@ -230,10 +226,9 @@ input.addEventListener('keydown',e=>{
   if(!val)return;
   addTickerLine('> '+val);
   input.value='';
-
   const replies=[
     `system echo: "${val}" acknowledged`,
-    `field response latency: ${(Math.random()*0.8+0.2).toFixed(2)} s`,
+    `latency: ${(Math.random()*0.8+0.2).toFixed(2)} s`,
     `"${val}" mirrored in floating feed`,
     `drift vector stabilized`,
     `resonance: ${Math.floor(Math.random()*100)}%`
