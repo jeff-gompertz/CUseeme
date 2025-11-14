@@ -343,27 +343,6 @@ if (!SR){
   });
 }
 
-
-/* =======================================================================
-   VOICE TOGGLE (mute/unmute)
-======================================================================= */
-const btnVoice = $('#btnVoice');
-
-btnVoice.addEventListener('click', ()=>{
-  voiceOn = !voiceOn;
-  btnVoice.classList.toggle('on', voiceOn);
-  btnVoice.textContent = voiceOn ? '🔊' : '🔇';
-  addLine('voice replies ' + (voiceOn ? 'enabled' : 'muted'), 't-note');
-});
-
-
-/* =======================================================================
-   STARTUP
-======================================================================= */
-addLine('session ready — type or press 🎤 and speak', 't-note');
-
-  
-
 /* ========= Voice toggle button ========= */
 const btnVoice = $('#btnVoice');
 btnVoice.addEventListener('click', ()=>{
