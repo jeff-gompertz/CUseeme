@@ -290,6 +290,31 @@ if(!SR){
       addLine('⚠ mic toggle error: ' + (err.message||err), 't-note');
     }
   });
+  /* ===== FORCE NON-SINGING VOICE SELECTION (iOS fix) ===== */
+function chooseSafeVoice() {
+  const voices = speechSynthesis.getVoices();
+
+  // Reject singing/neural/expressive voices
+  const blacklist = /sing|chorus|opera|neural|expressive|melodic|chant/i;
+
+  // Preferred stable voices
+  const preferred = [
+    /samantha/i,
+    /ava/i,
+    /daniel/i,
+    /google us english/i,
+    /microsoft aria/i
+  ];
+
+  for (const p of preferred) {
+    const v = voices.find(v => p.test(v.name) && !blacklist.test(v.name));
+    if (v) return v;
+  }
+
+  // Fallback to any non-singing voice
+  const safe = voices.find(v => !blacklist.test(v.name));
+  return safe || voices[0] || null;
+}
 }
 
 /* ========= Voice toggle button ========= */
