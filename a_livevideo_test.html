@@ -1,81 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mode A — Optical-Flow Node Field</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mode A — Optical Flow Node Field (Corrected)</title>
 <style>
-  html,body{
-    margin:0; padding:0; height:100%; overflow:hidden;
-    background:black;
-    font-family:monospace;
-    color:#0f0;
-  }
-  #cam {
-    position:fixed; inset:0;
-    width:100%; height:100%;
-    object-fit:cover;
-    transform:scaleX(-1);
-    z-index:0;
-  }
-  canvas {
-    position:fixed; inset:0;
-    z-index:2; pointer-events:none;
-  }
-  #debug {
-    position:fixed; top:10px; left:10px;
-    z-index:3; padding:6px 10px;
-    font-size:14px; color:#0f0;
-    background:rgba(0,0,0,0.35);
-    border:1px solid rgba(0,255,0,0.4);
-    border-radius:4px;
-    cursor:pointer;
-  }
+html,body{
+  margin:0; padding:0;
+  height:100vh; width:100vw;
+  overflow:hidden;
+  background:#000;
+}
+
+/* Live camera filling screen */
+#cam {
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
+  z-index:0;
+}
+
+/* Node canvas */
+#flow {
+  position:fixed;
+  inset:0;
+  z-index:2;
+  pointer-events:none;
+}
+
+/* Debug label */
+#debugLabel{
+  position:fixed;
+  top:10px; left:10px;
+  z-index:100;
+  padding:4px 8px;
+  font-family:monospace;
+  font-size:12px;
+  border-radius:3px;
+  background:rgba(0,200,50,0.12);
+  color:#0f0;
+  display:none;
+}
 </style>
 </head>
 <body>
 
 <video id="cam" autoplay muted playsinline></video>
 <canvas id="flow"></canvas>
-<div id="debug">DEBUG: ON</div>
+<div id="debugLabel">DEBUG: ON</div>
 
 <script>
-/* =======================================================
-   Live Camera Init
-======================================================= */
-const cam = document.getElementById('cam');
-navigator.mediaDevices.getUserMedia({
-  video:{facingMode:{ideal:"environment"}},
-  audio:false
-}).then(stream=>{
-  cam.srcObject = stream;
-}).catch(e=>{
-  alert("Camera access denied");
+/* =========================================================
+  MODE A — Optical Flow (Corrected)
+========================================================= */
+
+const cam = document.getElementById("cam");
+const flowCanvas = document.getElementById("flow");
+const fctx = flowCanvas.getContext("2d");
+
+// Offscreen buffer for optical flow sampling
+const off = document.createElement("canvas");
+const offctx = off.getContext("2d");
+
+// Node grid settings
+const SPACING = 22;     // grid density
+const SENSITIVITY = 18; // motion sensitivity
+const FORCE = 0.15;     // response strength
+
+let nodes = [];
+let debug = true;
+
+// Toggle debug with "D"
+document.addEventListener("keydown", e=>{
+  if(e.key.toLowerCase()==="d"){
+    debug = !debug;
+    document.getElementById("debugLabel").style.display = debug?"block":"none";
+  }
 });
 
-/* =======================================================
-   Canvas + Optical-Flow Node Field
-   (mechanical, grid-based, no randomness)
-======================================================= */
-const canvas = document.getElementById('flow');
-const ctx = canvas.getContext('2d');
-let W=0, H=0;
-
 function resize(){
-  W = canvas.width  = window.innerWidth;
-  H = canvas.height = window.innerHeight;
+  flowCanvas.width = window.innerWidth;
+  flowCanvas.height = window.innerHeight;
 }
-window.addEventListener('resize', resize);
+window.addEventListener("resize", resize);
 resize();
 
-/* ---- Grid definition ---- */
-const spacing = 26;              // node grid spacing
-let nodes = [];
-
-function initNodes(){
+// Build node grid (screen-space positions)
+function makeNodes(){
   nodes = [];
-  for(let y=0;y<H;y+=spacing){
-    for(let x=0;x<W;x+=spacing){
+  for(let y=SPACING/2; y<flowCanvas.height; y+=SPACING){
+    for(let x=SPACING/2; x<flowCanvas.width; x+=SPACING){
       nodes.push({
         x, y,
         vx:0, vy:0
@@ -83,86 +100,109 @@ function initNodes(){
     }
   }
 }
-initNodes();
 
-/* ---- Optical-flow sampling ---- */
-const tmp = document.createElement('canvas');
-const tctx = tmp.getContext('2d');
+/* =========================================================
+  CAMERA INIT
+========================================================= */
+async function initCam(){
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video:{facingMode:{ideal:"environment"}},
+    audio:false
+  });
+  cam.srcObject = stream;
 
-function sampleMotion(){
-  tmp.width = W/4;
-  tmp.height = H/4;
-  tctx.drawImage(cam,0,0,tmp.width,tmp.height);
-
-  const img = tctx.getImageData(0,0,tmp.width,tmp.height).data;
-
-  // simple luminance-based gradient sampling (mechanical)
-  for(let n of nodes){
-    const sx = Math.floor((n.x/W)*tmp.width);
-    const sy = Math.floor((n.y/H)*tmp.height);
-    const i = (sy*tmp.width + sx)*4;
-
-    const r = img[i], g = img[i+1], b = img[i+2];
-    const lum = (r + g + b)/3;
-
-    // mechanical: drive velocity only from luminance difference
-    const target = lum / 255;     // 0..1
-    const dv = (target - 0.5)*0.9;
-
-    // purely horizontal for now — mechanical, not organic
-    n.vx = dv * 14;
-  }
+  return new Promise(res=>{
+    cam.onloadedmetadata=()=>res();
+  });
 }
 
-/* =======================================================
-   Draw Node Field
-======================================================= */
-let debugOn = true;
+/* =========================================================
+  MOTION SAMPLING
+========================================================= */
+function computeFlow(){
 
-function drawNodes(){
-  ctx.clearRect(0,0,W,H);
+  // Match offscreen buffer to real video resolution
+  off.width = cam.videoWidth;
+  off.height = cam.videoHeight;
 
-  ctx.fillStyle = debugOn ? "rgba(0,255,0,0.65)" : "rgba(0,255,0,0.28)";
-  ctx.strokeStyle = "rgba(0,255,0,0.35)";
-  ctx.lineWidth = 1;
+  // Draw current frame into offscreen canvas
+  offctx.drawImage(cam,0,0,off.width,off.height);
 
-  for(let n of nodes){
-    const xx = n.x + n.vx;
+  const img = offctx.getImageData(0,0,off.width,off.height).data;
 
-    // draw node
-    ctx.beginPath();
-    ctx.arc(xx, n.y, 2.3, 0, Math.PI*2);
-    ctx.fill();
+  // Optical flow per node
+  nodes.forEach(n=>{
+    // Map node.x/y (screen) -> video resolution (offscreen)
+    const sx = Math.floor((n.x / flowCanvas.width)  * off.width);
+    const sy = Math.floor((n.y / flowCanvas.height) * off.height);
 
-    // draw vector line (debug only)
-    if(debugOn){
-      ctx.beginPath();
-      ctx.moveTo(n.x, n.y);
-      ctx.lineTo(xx, n.y);
-      ctx.stroke();
+    const i = (sy*off.width + sx)*4;
+
+    // Simple luminance for now (can be replaced by Sobel)
+    const lum = (img[i] + img[i+1] + img[i+2]) / 3;
+
+    // Store previous lum if missing
+    if(n.prevLum === undefined){
+      n.prevLum = lum;
+      return;
     }
+
+    // Motion = difference between frames at this pixel
+    const diff = lum - n.prevLum;
+    n.prevLum = lum;
+
+    const a = diff / SENSITIVITY; // impulse force
+
+    // Apply some directional scattering
+    const angle = ((sx*13 + sy*7) % 360) * (Math.PI/180);
+
+    n.vx += Math.cos(angle) * a * FORCE;
+    n.vy += Math.sin(angle) * a * FORCE;
+
+    // Damping
+    n.vx *= 0.94;
+    n.vy *= 0.94;
+
+    // Integrate
+    n.x += n.vx;
+    n.y += n.vy;
+  });
+}
+
+/* =========================================================
+  DRAW FLOW NODES
+========================================================= */
+function draw(){
+  fctx.clearRect(0,0,flowCanvas.width,flowCanvas.height);
+
+  if(debug){
+    fctx.fillStyle="rgba(0,255,0,0.8)";
+    nodes.forEach(n=>{
+      fctx.beginPath();
+      fctx.arc(n.x,n.y,2,0,Math.PI*2);
+      fctx.fill();
+    });
   }
 }
 
-/* =======================================================
-   Loop
-======================================================= */
+/* =========================================================
+  MAIN LOOP
+========================================================= */
 function loop(){
-  sampleMotion();
-  drawNodes();
+  computeFlow();
+  draw();
   requestAnimationFrame(loop);
 }
-loop();
 
-/* =======================================================
-   Toggle Debug
-======================================================= */
-document.getElementById('debug').onclick = ()=>{
-  debugOn = !debugOn;
-  document.getElementById('debug').textContent = 
-    "DEBUG: " + (debugOn ? "ON" : "OFF");
-};
+/* =========================================================
+  BOOT
+========================================================= */
+(async function(){
+  await initCam();
+  makeNodes();
+  document.getElementById("debugLabel").style.display = "block";
+  loop();
+})();
 </script>
-
 </body>
 </html>
