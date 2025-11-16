@@ -1,1 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CUSeeMe v2.1 — Semantic Feed (BBC Reactive) — Dark Framed</title>
 
+  <style>
+    :root{
+      --bg:#000000;
+      --hud-glass: rgba(18,18,18,0.72);
+      --hud-border: rgba(255,255,255,0.04);
+      --accent: #0fff6b;
+      --accent-2: #ff3a2f;
+      --muted: rgba(255,255,255,0.12);
+      --txt: #dfffe6;
+      --glass-blur: 6px;
+    }
+
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+    /* Framed content so this file can be loaded into a shell's #pageContent or an iframe */
+    #pageFrame{
+      box-sizing:border-box;
+      width:100%;
+      height:100%;
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      align-items:stretch;
+      justify-content:flex-start;
+      overflow:hidden;
+      background:transparent;
+    }
+
+    /* CONTENT CARD — centered max width so it frames nicely inside the shell */
+    .contentCard{
+      background: rgba(0,0,0,0.28);
+      border: 1px solid var(--hud-border);
+      border-radius: 12px;
+      padding:14px;
+      max-width:980px;
+      width:100%;
+      margin: 0 auto;
+      box-shadow: 0 10px 34px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+      backdrop-filter: blur(var(--glass-blur));
+    }
+
+    .titleRow{ display:flex;align-items:center;justify-content:space-between;gap:12px; }
+    .titleRow h1{ margin:0;font-size:18px;color:var(--txt);font-weight:600;letter-spacing:0.6px; }
+    .subtitle{ font-size:12px;color:var(--muted); margin-top:6px; }
+
+    /* HUD controls (compact) — floating inside content card top-right when needed */
+    #hudControls{ display:flex; gap:8px; margin-left:auto; }
+    .btn {
+      appearance:none;border:none;padding:8px 10px;border-radius:9px;background:rgba(255,255,255,0.03); color:var(--txt); cursor:pointer;
+      font-weight:600;font-size:13px;border:1px solid rgba(255,255,255,0.03);
+      transition:transform .12s ease, box-shadow .12s ease;
+    }
+    .btn:active{ transform:translateY(1px); }
+    .btn.on{ box-shadow: inset 0 0 0 2px rgba(255,255,255,0.02); color:var(--accent-2); }
+
+    /* Input */
+    #input{ width:100%; box-sizing:border-box; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); color:var(--txt); font-size:15px; outline:none; margin-top:12px; }
+
+    /* TICKER bottom-left — high contrast neon (fits your HUD look) */
+    #ticker{
+      position:fixed; left:14px; bottom:14px; z-index:1200;
+      width:38vw; max-width:640px;
+      display:flex; flex-direction:column-reverse; gap:6px;
+      pointer-events:none; font-family:monospace; font-size:16px; line-height:1.2;
+    }
+    .tline{
+      background:rgba(0,0,0,0.6); border-left:4px solid var(--accent); color:var(--txt);
+      padding:8px 10px; border-radius:6px; opacity:0.98; box-shadow: 0 6px 28px rgba(0,0,0,0.6);
+    }
+    .user{ color:#9ff; font-weight:600; }
+    .sys{ color:var(--accent-2); font-weight:700; }
+
+    /* small feed status in the content card footer */
+    #feedStatus{ font-size:12px; color:var(--muted); margin-top:10px; }
+
+    /* responsive adjustments */
+    @media (max-width:720px){
+      #ticker{ width:74vw; left:10px; font-size:14px; }
+      .contentCard{ padding:12px; border-radius:10px; }
+    }
+
+    /* make controls non-selectable and touch-friendly */
+    .btn, #input { user-select:none; -webkit-user-select:none; touch-action:manipulation; -webkit-tap-highlight-color: transparent; }
+  </style>
+</head>
+<body>
+  <!-- pageFrame is the top-level container we expect the shell to keep (or it can be loaded into iframe) -->
+  <main id="pageFrame" role="main" aria-live="polite">
+    <section class="contentCard" id="mainCard" role="region" aria-label="Semantic BBC feed">
+      <div class="titleRow">
+        <div>
+          <h1>CUSeeMe — Semantic Feed (BBC Reactive)</h1>
+          <div class="subtitle">Reactive headlines blended with user prompts — dark framed edition</div>
+        </div>
+
+        <div id="hudControls" aria-hidden="false">
+          <button id="btnMic" class="btn" title="Start/Stop mic">🎙️</button>
+          <button id="btnMute" class="btn on" title="Toggle spoken replies">🔊</button>
+          <button id="btnBlend" class="btn on" title="Toggle feed blending">🔗</button>
+        </div>
+      </div>
+
+      <input id="input" placeholder="speak or type… then Enter" aria-label="User input" autocomplete="off" />
+
+      <div id="feedStatus">feed: initializing…</div>
+    </section>
+  </main>
+
+  <div id="ticker" aria-live="polite" role="status"></div>
+
+<script>
+/* Dark-framed semantic BBC page
+   - designed to be loaded inside your shell's #pageContent or inside an iframe.
+   - uses a public CORS proxy for quick client-side RSS fetching (swap to serverless later).
+*/
+
+// ----------------- ticker helpers -----------------
+const ticker = document.getElementById('ticker');
+function addLine(text, cls='sys'){
+  const el = document.createElement('div');
+  el.className = 'tline ' + (cls || 'sys');
+  el.textContent = text;
+  ticker.prepend(el);
+  if(ticker.children.length > 80) ticker.removeChild(ticker.lastChild);
+}
+
+// ----------------- speech synthesis -----------------
+let speakEnabled = true;
+let voicesReady = false;
+function waitVoices(){ return new Promise(res=>{
+  const id = setInterval(()=>{ if(speechSynthesis.getVoices().length){ clearInterval(id); voicesReady=true; res(); } }, 80);
+  setTimeout(()=>{ if(!voicesReady){ clearInterval(id); voicesReady=true; res(); } }, 3500);
+});}
+async function speak(text){
+  if(!speakEnabled || !('speechSynthesis' in window)) return;
+  if(!voicesReady) await waitVoices();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-GB'; u.rate = 1.02; u.pitch = 0.96; u.volume = 0.95;
+  const vs = speechSynthesis.getVoices() || [];
+  u.voice = vs.find(v => /en-GB|Google UK|Kate|Samantha/i.test(v.name)) || vs[0] || null;
+  try{ speechSynthesis.speak(u); }catch(e){}
+}
+
+// ----------------- feed buffer & fetch -----------------
+const FEED_URL = 'https://feeds.bbci.co.uk/news/world/rss.xml';
+let feedBuffer = [];
+const MAX_FEED = 120;
+const feedStatusEl = document.getElementById('feedStatus');
+
+async function fetchRSS(){
+  const proxy = 'https://api.allorigins.win/raw?url=';
+  try{
+    feedStatusEl.textContent = 'feed: fetching…';
+    const r = await fetch(proxy + encodeURIComponent(FEED_URL), {cache:'no-store'});
+    if(!r.ok) throw new Error('fetch ' + r.status);
+    const xml = await r.text();
+    parseRSS(xml);
+    feedStatusEl.textContent = 'feed: updated — ' + feedBuffer.length + ' headlines';
+    addLine('feed updated — ' + feedBuffer.length + ' headlines', 'sys');
+  }catch(err){
+    feedStatusEl.textContent = 'feed: fetch failed';
+    addLine('feed fetch failed: ' + (err && err.message ? err.message : String(err)), 'sys');
+    console.warn('RSS fetch failed', err);
+  }
+}
+
+function parseRSS(xml){
+  try{
+    const p = new DOMParser();
+    const doc = p.parseFromString(xml, 'application/xml');
+    const items = Array.from(doc.querySelectorAll('item')).map(it=>{
+      return {
+        title: (it.querySelector('title') && it.querySelector('title').textContent || '').trim(),
+        link: (it.querySelector('link') && it.querySelector('link').textContent || ''),
+        pubDate: (it.querySelector('pubDate') && it.querySelector('pubDate').textContent || ''),
+        ts: Date.now()
+      };
+    }).filter(i=>i.title);
+    for(const it of items){
+      if(!feedBuffer.some(f => f.title === it.title)) feedBuffer.push(it);
+    }
+    if(feedBuffer.length > MAX_FEED) feedBuffer = feedBuffer.slice(-MAX_FEED);
+  }catch(e){ console.warn('parseRSS failed', e); }
+}
+
+// initial fetch and schedule
+fetchRSS();
+setInterval(fetchRSS, 60_000);
+
+// ----------------- blending & keywords -----------------
+function keywordsFrom(text){
+  return (text||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/)
+    .filter(w => w.length > 3 && !['about','with','into','from','that','this','what','have','just','will','been','they','them'].includes(w));
+}
+
+function blendWithFeed(userText){
+  if(!feedBuffer.length) return null;
+  const keys = keywordsFrom(userText);
+  let candidates = [];
+  if(keys.length){
+    candidates = feedBuffer.map(h=>{
+      const score = keys.reduce((s,k)=> s + (h.title.toLowerCase().includes(k) ? 1 : 0), 0);
+      return {...h, score};
+    }).filter(x=>x.score>0).sort((a,b)=> b.score - a.score);
+  }
+  if(candidates.length === 0){
+    const pool = feedBuffer.slice(-20);
+    while(candidates.length < 2 && pool.length) candidates.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
+  }
+  const pick = (arr,n)=>{ const out=[]; const copy=arr.slice(); while(n-->0 && copy.length) out.push(copy.splice(Math.floor(Math.random()*copy.length),1)[0]); return out; };
+  const chosen = pick(candidates,2).map(x=>x.title);
+  const stems = ['signal echoes:', 'semantic crossover:', 'adjacent headline:', 'network murmur:', 'latent alignment:'];
+  const stem = stems[Math.floor(Math.random()*stems.length)];
+  if(chosen.length === 1) return `${stem} ${chosen[0]}`;
+  if(chosen.length === 2){
+    const A = chosen[0].replace(/[–—-]\s.*$/,'').replace(/\.$/,'');
+    const B = chosen[1].replace(/^[A-Z].{0,10}:\s*/,'');
+    return `${stem} ${A} — ${B}.`;
+  }
+  return null;
+}
+
+// ----------------- semantic router -----------------
+let blendEnabled = true;
+function semanticRouter(raw){
+  const text = (raw||'').trim();
+  if(!text) return;
+  addLine('> ' + text, 'user');
+
+  const lower = text.toLowerCase();
+  if(lower.startsWith('hello') || lower === 'hi'){
+    const reply = "Hello. I'm listening.";
+    addLine(reply,'sys'); speak(reply);
+  } else if(lower.includes('time')){
+    const reply = 'Current time: ' + new Date().toLocaleTimeString();
+    addLine(reply,'sys'); speak(reply);
+  } else if(lower.startsWith('repeat after me')){
+    const say = text.replace(/^repeat after me/i,'').trim() || '…say what?';
+    addLine(say,'sys'); speak(say);
+  } else {
+    const echo = 'You said: ' + text;
+    addLine(echo,'sys'); speak(echo);
+  }
+
+  if(blendEnabled){
+    const blend = blendWithFeed(text);
+    if(blend){ setTimeout(()=>{ addLine(blend,'sys'); speak(blend); }, 480); }
+  }
+}
+
+// ----------------- input wiring -----------------
+const input = document.getElementById('input');
+input.addEventListener('keydown', e => {
+  if(e.key === 'Enter'){ e.preventDefault(); semanticRouter(input.value); input.value=''; }
+});
+
+// ----------------- speech recognition wiring -----------------
+const btnMic = document.getElementById('btnMic');
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, listening = false;
+if(!SR){
+  btnMic.addEventListener('click', ()=> addLine('Mic recognition not available on this browser. Typing still works.','sys'));
+} else {
+  rec = new SR();
+  rec.lang = 'en-GB';
+  rec.interimResults = false;
+  rec.continuous = true;
+  rec.onstart = ()=>{ listening = true; btnMic.classList.add('on'); addLine('🎙️ Voice capture started','sys'); };
+  rec.onend = ()=>{ listening = false; btnMic.classList.remove('on'); addLine('⏹️ Voice capture stopped','sys'); };
+  rec.onresult = evt => {
+    let final = '';
+    for(let i = evt.resultIndex; i < evt.results.length; i++){
+      if(evt.results[i].isFinal) final += evt.results[i][0].transcript;
+    }
+    if(final) semanticRouter(final.trim());
+  };
+  rec.onerror = e => addLine('Voice error: ' + (e && e.error? e.error : e),'sys');
+  btnMic.addEventListener('click', ()=> { try{ if(!listening) rec.start(); else rec.stop(); }catch(err){ addLine('Mic error: '+(err && err.message?err.message:String(err)),'sys'); } });
+}
+
+// ----------------- mute & blend toggles -----------------
+const btnMute = document.getElementById('btnMute');
+btnMute.addEventListener('click', ()=>{
+  speakEnabled = !speakEnabled;
+  btnMute.classList.toggle('on', speakEnabled);
+  btnMute.textContent = speakEnabled ? '🔊' : '🔇';
+  addLine('Spoken replies ' + (speakEnabled ? 'enabled' : 'disabled'), 'sys');
+});
+
+const btnBlend = document.getElementById('btnBlend');
+btnBlend.addEventListener('click', ()=>{
+  blendEnabled = !blendEnabled;
+  btnBlend.classList.toggle('on', blendEnabled);
+  btnBlend.textContent = blendEnabled ? '🔗' : '⛔';
+  addLine('Feed blending ' + (blendEnabled ? 'enabled' : 'disabled'), 'sys');
+});
+
+// ----------------- initial pulses -----------------
+window.addEventListener('touchstart', ()=> { try{ speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch(_){} }, { once:true });
+setTimeout(()=> addLine('v2.1 dark framed — semantic core + BBC reactive', 'sys'), 240);
+setTimeout(()=> addLine('Ready — speak or type to blend headlines', 'sys'), 1200);
+
+</script>
+</body>
+</html>
