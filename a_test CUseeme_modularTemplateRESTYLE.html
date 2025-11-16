@@ -13,7 +13,6 @@ html,body{
   overflow:hidden;
 }
 
-
 /* === MAIN CAMERA FEED === */
 #camera{
   position:fixed;inset:0;
@@ -512,7 +511,12 @@ setInterval(function(){
 // instantiate for this repo
 var repoNavInstance = createRepoNav({ owner: 'jeff-gompertz', repo: 'CUseeme', branch: 'main', containerId: 'repoNav', listId: 'repoList', metaId: 'repoMeta' });
 
-/* === Hold-to-open behavior for NAV button === */
+/* === Hold-to-open behavior for NAV button ===
+   - Requires pressing and holding for holdThreshold milliseconds to trigger.
+   - Visual feedback: progress bar grows and button glows neon red/pink while holding.
+   - Cancels if the finger/mouse moves beyond a small threshold or on touchcancel.
+   - No preventDefault on initial touch, so normal gestures (swipe/drag) are not interfered with.
+*/
 (function attachHoldToOpen(){
   var btn = document.getElementById('hudToggle_nav');
   var progress = btn.querySelector('.holdProgress');
