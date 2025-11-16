@@ -98,7 +98,7 @@ html,body{
   to{opacity:.8;transform:translateY(0)}
 }
 
-/* === TOGGLE BUTTON === */
+/* === TOGGLE BUTTONS === */
 #hudToggle{
   position:fixed;top:12px;right:12px;z-index:4;
   background:rgba(0,255,80,0.1);
@@ -110,10 +110,10 @@ html,body{
   cursor:pointer;
   backdrop-filter:blur(3px);
 }
-#hudToggle:hover{background:rgba(0,255,120,0.25);}
+#hudToggle:hover{background:rgba(0,255,120,0.25);} 
 
 #hudToggle_nav{
-  position:fixed;top:350px;right:12px;z-index:4;
+  position:fixed;top:48px;right:12px;z-index:4;
   background:rgba(0,255,80,0.1);
   border:1px solid rgba(0,255,120,0.2);
   border-radius:6px;
@@ -123,7 +123,58 @@ html,body{
   cursor:pointer;
   backdrop-filter:blur(3px);
 }
-#hudToggle:hover{background:rgba(0,255,120,0.25);
+#hudToggle_nav:hover{background:rgba(0,255,120,0.25);} 
+
+/* === REPO NAV SIDEBAR === */
+.repo-nav{
+  position:fixed;
+  top:0;right:0;
+  height:100%;
+  width:360px;
+  max-width:90%;
+  background:linear-gradient(180deg, rgba(0,0,0,0.9), rgba(0,0,0,0.85));
+  border-left:1px solid rgba(0,255,120,0.08);
+  z-index:5;
+  padding:12px;
+  box-sizing:border-box;
+  color:#b8ffb8;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  transform:translateX(110%);
+  transition:transform .35s cubic-bezier(.2,.9,.2,1),opacity .25s;
+  opacity:0;
+  pointer-events:none;
+  font-size:14px;
+  overflow:auto;
+}
+.repo-nav.open{
+  transform:translateX(0);
+  opacity:1;
+  pointer-events:auto;
+}
+.repo-nav header{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  border-bottom:1px dashed rgba(0,255,120,0.06);
+  padding-bottom:8px;margin-bottom:6px;
+}
+.repo-nav .controls button{
+  background:transparent;border:1px solid rgba(0,255,120,0.06);color:#0f0;padding:6px;border-radius:6px;cursor:pointer;
+}
+.repo-nav .list{display:block;}
+.repo-nav a{
+  display:block;padding:6px 8px;border-radius:6px;color:#9ffea0;text-decoration:none;
+  font-size:13px;margin:4px 0;
+}
+.repo-nav a:hover{background:rgba(0,255,120,0.04);text-decoration:underline;}
+.repo-nav .dir{font-weight:700;color:#c8ffd0}
+.repo-nav .meta{font-size:11px;color:#7fffb0;opacity:.8;margin-bottom:8px}
+
+/* small screens adjust */
+@media (max-width:640px){
+  .repo-nav{width:92%}
+  #miniFeed{width:180px;height:140px}
+}
 </style>
 </head>
 <body>
@@ -136,6 +187,24 @@ html,body{
 <div id="hudToggle">⧉ FLOAT</div>
 
 <div id="hudToggle_nav">⧉ NAV</div>
+
+<!-- Repository navigation / file browser -->
+<aside id="repoNav" class="repo-nav" aria-hidden="true">
+  <header>
+    <div>
+      <div style="font-family:inherit;font-weight:700">Repository navigation</div>
+      <div class="meta" id="repoMeta">loading...</div>
+    </div>
+    <div class="controls">
+      <button id="repoRefresh" title="Refresh">⟳</button>
+      <button id="repoClose" title="Close">✕</button>
+    </div>
+  </header>
+  <nav id="repoList" class="list" role="navigation" aria-label="Repository files"></nav>
+  <div style="margin-top:auto;font-size:12px;color:#7fffb0;opacity:.7;padding-top:10px">
+    Tip: click file to open on GitHub (opens in new tab). You can instantiate the nav with createRepoNav(owner, repo, branch).
+  </div>
+</aside>
 
 <div id="promptWrap">
   <div id="promptBox">
@@ -267,6 +336,187 @@ setInterval(()=>{
   const msg=diagnostics[Math.floor(Math.random()*diagnostics.length)];
   addTickerLine(msg);
 },6500);
+
+/* === Repository navigation component ===
+   Usage:
+     // programmatic instance (recommended)
+     const nav = createRepoNav({
+       owner: 'jeff-gompertz',
+       repo: 'CUseeme',
+       branch: 'main',          // optional, defaults to 'main'
+       containerId: 'repoNav',  // optional, defaults to 'repoNav'
+       listId: 'repoList'       // optional, defaults to 'repoList'
+     });
+     nav.open();
+
+   The component attempts to fetch repo contents via the GitHub API and render a simple
+   file browser. Clicking files opens the file on github.com in a new tab.
+*/
+(function globalRepoNavFactory(){
+  class RepoNav {
+    constructor({owner, repo, branch='main', containerId='repoNav', listId='repoList', metaId='repoMeta'}){
+      this.owner = owner;
+      this.repo = repo;
+      this.branch = branch;
+      this.container = document.getElementById(containerId);
+      this.list = document.getElementById(listId);
+      this.meta = document.getElementById(metaId);
+      if(!this.container || !this.list) throw new Error('RepoNav container/list not found');
+      this.apiBase = `https://api.github.com/repos/${owner}/${repo}/contents`;
+      this.blobBase = `https://github.com/${owner}/${repo}/blob/${branch}`;
+      this.initUI();
+      this._open = false;
+    }
+
+    initUI(){
+      // attach buttons inside container if present
+      const refreshBtn = document.getElementById('repoRefresh');
+      const closeBtn = document.getElementById('repoClose');
+      if(refreshBtn) refreshBtn.addEventListener('click',()=>this.refresh());
+      if(closeBtn) closeBtn.addEventListener('click',()=>this.close());
+      // double-click outside to close (for convenience)
+      document.addEventListener('keydown', (e)=>{
+        if(e.key==='Escape' && this._open) this.close();
+      });
+      // set metadata
+      this.meta.textContent = `${this.owner}/${this.repo} · branch: ${this.branch}`;
+    }
+
+    async refresh(){
+      this.list.innerHTML = `<div style="opacity:.6">loading…</div>`;
+      try{
+        await this.renderPath('');
+      }catch(err){
+        this.list.innerHTML = `<div style="color:#ffb8b8">failed to load repository: ${err.message}</div>`;
+      }
+    }
+
+    async fetchContents(path=''){\n      const url = `${this.apiBase}/${encodeURI(path)}?ref=${encodeURIComponent(this.branch)}`;
+      const resp = await fetch(url);
+      if(!resp.ok) {
+        // provide helpful error message
+        const txt = await resp.text().catch(()=>resp.statusText);
+        throw new Error(`GitHub API ${resp.status} — ${txt}`);
+      }
+      return resp.json();
+    }
+
+    async renderPath(path=''){
+      // fetch contents for given path ('' = root)
+      try{
+        const items = await this.fetchContents(path || '');
+        // API returns an object for a single file; we want array for dirs
+        const list = Array.isArray(items) ? items : [items];
+        // sort directories first
+        list.sort((a,b)=>{
+          if(a.type===b.type) return a.name.localeCompare(b.name);
+          return a.type === 'dir' ? -1 : 1;
+        });
+        this.list.innerHTML = '';
+        // show "up" control if not root
+        if(path){
+          const up = document.createElement('a');
+          up.href='#';
+          up.className='dir';
+          up.textContent='.. (up)';
+          up.addEventListener('click', (e)=>{
+            e.preventDefault();
+            const parent = path.split('/').slice(0,-1).join('/');
+            this.renderPath(parent);
+          });
+          this.list.appendChild(up);
+        }
+        for(const it of list){
+          const el = document.createElement('a');
+          el.textContent = it.name + (it.type==='dir' ? '/' : '');
+          if(it.type === 'dir'){
+            el.className = 'dir';
+            el.href = '#';
+            el.addEventListener('click', (e)=>{
+              e.preventDefault();
+              this.renderPath(it.path);
+            });
+          } else {
+            // file — open GitHub blob URL
+            el.target = '_blank';
+            el.rel = 'noopener noreferrer';
+            el.href = `${this.blobBase}/${it.path}`;
+          }
+          this.list.appendChild(el);
+        }
+      }catch(err){
+        // if API fails (rate-limit etc), provide a graceful fallback with a few safe links
+        console.warn('RepoNav fetch failed:', err);
+        this.list.innerHTML = '';
+        const fallbackIntro = document.createElement('div');
+        fallbackIntro.style.opacity = '.8';
+        fallbackIntro.textContent = 'Could not load via API — fallback links:';
+        this.list.appendChild(fallbackIntro);
+        const fallbackPaths = [
+          {label:'Repository on GitHub', href:`https://github.com/${this.owner}/${this.repo}`},
+          {label:'README', href:`https://github.com/${this.owner}/${this.repo}/blob/${this.branch}/README.md`},
+          {label:'This file', href:`https://github.com/${this.owner}/${this.repo}/blob/${this.branch}/a_testCuseeme_modularTemplateRESTYLE.html`}
+        ];
+        for(const f of fallbackPaths){
+          const a = document.createElement('a');
+          a.href=f.href; a.target='_blank'; a.rel='noopener noreferrer';
+          a.textContent = f.label;
+          this.list.appendChild(a);
+        }
+      }
+    }
+
+    async open(){
+      if(!this._open){
+        this.container.classList.add('open');
+        this.container.setAttribute('aria-hidden','false');
+        this._open=true;
+        await this.refresh();
+      }
+    }
+    close(){
+      if(this._open){
+        this.container.classList.remove('open');
+        this.container.setAttribute('aria-hidden','true');
+        this._open=false;
+      }
+    }
+    toggle(){
+      return this._open ? this.close() : this.open();
+    }
+  }
+
+  // global factory function for instantiation
+  window.createRepoNav = function createRepoNav({owner, repo, branch='main', containerId='repoNav', listId='repoList', metaId='repoMeta'}){
+    if(!owner || !repo) throw new Error('owner and repo required to create repo nav');
+    const nav = new RepoNav({owner, repo, branch, containerId, listId, metaId});
+    return nav;
+  };
+})(); // end factory
+
+// instantiate for this repo (you can customize owner/repo/branch below)
+const repoNavInstance = createRepoNav({
+  owner: 'jeff-gompertz',
+  repo: 'CUseeme',
+  branch: 'main',      // change if default branch is different (e.g., 'master')
+  containerId: 'repoNav',
+  listId: 'repoList',
+  metaId: 'repoMeta'
+});
+
+// wire toggle button
+document.getElementById('hudToggle_nav').addEventListener('click', ()=>{
+  repoNavInstance.toggle();
+});
+
+// close button already wired inside component but also close when clicking outside nav
+document.addEventListener('click', (e)=>{
+  const nav = document.getElementById('repoNav');
+  const toggle = document.getElementById('hudToggle_nav');
+  if(!nav.contains(e.target) && !toggle.contains(e.target)){
+    repoNavInstance.close();
+  }
+});
 </script>
 </body>
 </html>
