@@ -401,4 +401,564 @@ input.addEventListener('keydown',function(e){
   addTickerLine('> '+val);
   input.value='';
   var replies=[
-    'system echo: "
+    'system echo: "',
+    'latency: '+(Math.random()*0.8+0.2).toFixed(2)+' s',
+    '":"',val+'" acknowledged',
+    'drift vector stabilized',
+    'resonance: '+Math.floor(Math.random()*100)+'%'
+  ];
+  var reply=replies[Math.floor(Math.random()*replies.length)];
+  setTimeout(function(){
+    addTickerLine('< '+reply);
+    speak(reply);
+  },600);
+});
+
+/* === DIAGNOSTIC FEED === */
+var diagnostics=[
+  "calibrating optical link...",
+  "signal noise threshold: 0.72",
+  "field sync nominal",
+  "mirror node online",
+  "loopback handshake OK"
+];
+setInterval(function(){
+  var msg=diagnostics[Math.floor(Math.random()*diagnostics.length)];
+  addTickerLine(msg);
+},6500);
+
+/* === Repository navigation component with SPA + iframe modes === */
+(function globalRepoNavFactory(){
+  function RepoNav(opts){
+    this.owner = opts.owner;
+    this.repo = opts.repo;
+    this.branch = opts.branch || 'main';
+    this.container = document.getElementById(opts.containerId || 'repoNav');
+    this.list = document.getElementById(opts.listId);
+    this.meta = document.getElementById('repoMeta');
+    if(!this.container || !this.list) throw new Error('RepoNav container/list not found');
+    this.apiBase = 'https://api.github.com/repos/'+this.owner+'/'+this.repo+'/contents';
+    this.blobBase = 'https://github.com/'+this.owner+'/'+this.repo+'/blob/'+this.branch;
+    this.pagesBase = 'https://'+this.owner+'.github.io/'+this.repo+'/' ;
+    this._open = false;
+    this.mode = localStorage.getItem('repoNavMode') || 'spa'; // 'spa' or 'iframe'
+    this.initUI();
+  }
+  RepoNav.prototype.initUI = function(){
+    var self=this;
+    var refreshBtn = document.getElementById('repoRefresh');
+    var closeBtn = document.getElementById('repoClose');
+    var modeSpa = document.getElementById('modeSpa');
+    var modeIframe = document.getElementById('modeIframe');
+    if(refreshBtn) refreshBtn.addEventListener('click',function(){ self.refresh(); });
+    if(closeBtn) closeBtn.addEventListener('click',function(){ self.close(); });
+    if(modeSpa && modeIframe){
+      function setMode(m){
+        self.mode = m;
+        localStorage.setItem('repoNavMode', m);
+        modeSpa.setAttribute('aria-pressed', m==='spa');
+        modeIframe.setAttribute('aria-pressed', m==='iframe');
+        addTickerLine('nav mode → '+m);
+        // show/hide page containers appropriately
+        if(m==='spa'){
+          document.getElementById('pageContent').style.display='block';
+          document.getElementById('liveFrame').style.display='none';
+        } else {
+          document.getElementById('pageContent').style.display='none';
+          document.getElementById('liveFrame').style.display='block';
+        }
+      }
+      modeSpa.addEventListener('click', function(){ setMode('spa'); });
+      modeIframe.addEventListener('click', function(){ setMode('iframe'); });
+      // initialize display
+      setMode(this.mode);
+    }
+
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape' && self._open) self.close(); });
+    if(this.meta) this.meta.textContent = this.owner+'/'+this.repo+' · branch: '+this.branch;
+
+    // handle popstate for SPA navigation
+    window.addEventListener('popstate', function(ev){
+      if(ev.state && ev.state.url){
+        // try to load the URL via SPA navigate
+        self._navigateTo(ev.state.url, true).catch(function(){ /* fallback */ window.location.href = ev.state.url; });
+      }
+    });
+  };
+
+  RepoNav.prototype.refresh = async function(){
+    if(this.list) this.list.innerHTML = '<div style="opacity:.6">loading…</div>';
+    if(this.statusEl) setRepoStatus('loading');
+    try{
+      await this.renderPath('');
+      if(this.statusEl) setRepoStatus('loaded');
+    }catch(err){
+      if(this.list) this.list.innerHTML = '<div style="color:#ffb8b8">failed to load repository: '+(err.message||'unknown')+'</div>';
+      if(this.statusEl) setRepoStatus('error — '+(err.message||'unknown'));
+    }
+  };
+
+  RepoNav.prototype.fetchContents = async function(path){
+    var url = this.apiBase+'/'+encodeURI(path)+'?ref='+encodeURIComponent(this.branch);
+    var resp = await fetch(url);
+    if(!resp.ok){
+      var txt = await resp.text().catch(function(){ return resp.statusText; });
+      throw new Error('GitHub API '+resp.status+' — '+txt);
+    }
+    return resp.json();
+  };
+
+  // SPA navigate: fetch url and replace #pageContent, update history if pushState is true
+  RepoNav.prototype._navigateTo = async function(url, replace){
+    var self=this;
+    try{
+      const res = await fetch(url, {cache: 'no-store'});
+      if(!res.ok) throw new Error(res.status+' '+res.statusText);
+      const text = await res.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'text/html');
+      const newContent = doc.getElementById('pageContent') || doc.body;
+      const target = document.getElementById('pageContent');
+      if(!target) { window.location.href = url; return; }
+      target.innerHTML = newContent.innerHTML;
+      if(doc.title) document.title = doc.title;
+      if(replace){ history.replaceState({url:url}, '', (new URL(url)).pathname); }
+      else { history.pushState({url:url}, '', (new URL(url)).pathname); }
+      addTickerLine('→ SPA loaded: ' + url);
+      setRepoStatus('spa loaded');
+      // optional: run any inline scripts in newContent (not implemented here)
+    }catch(err){
+      console.warn('SPA navigate failed', err);
+      throw err;
+    }
+  };
+
+  RepoNav.prototype.renderPath = async function(path){
+    try{
+      var items = await this.fetchContents(path || '');
+      var list = Array.isArray(items) ? items : [items];
+      list.sort(function(a,b){
+        if(a.type===b.type) return a.name.localeCompare(b.name);
+        return a.type === 'dir' ? -1 : 1;
+      });
+      this.list.innerHTML = '';
+      if(path){
+        var up = document.createElement('a');
+        up.href='#';
+        up.className='dir';
+        up.textContent='.. (up)';
+        up.addEventListener('click', (function(self){ return function(e){ if(e.preventDefault) e.preventDefault(); var parent = path.split('/').slice(0,-1).join('/'); self.renderPath(parent); }; })(this));
+        this.list.appendChild(up);
+      }
+      for(var i=0;i<list.length;i++){ 
+        var it=list[i];
+        var el=document.createElement('a');
+        el.textContent = it.name + (it.type==='dir' ? '/' : '');
+
+        if(it.type === 'dir'){ 
+          el.className = 'dir';
+          el.href = '#';
+          (function(self, itEl){
+            itEl.addEventListener('click', function(e){ if(e.preventDefault) e.preventDefault(); self.renderPath(it.path); });
+          })(this, el);
+        } else { 
+          // build candidate URLs
+          var pagesUrl = this.pagesBase + (it.path.replace(/^\/+,''));
+          var blobUrl = this.blobBase + '/' + it.path;
+          var rawUrl = 'https://raw.githubusercontent.com/'+this.owner+'/'+this.repo+'/'+this.branch+'/'+it.path;
+
+          // default behavior: load live Pages URL for HTML files, otherwise open blob in same tab
+          el.href = pagesUrl;
+          el.addEventListener('click', (function(self, href, name){
+            return function(e){
+              // if user wants to open in new tab via modifier, allow it
+              if(e.metaKey || e.ctrlKey || e.shiftKey) return;
+              if(e.preventDefault) e.preventDefault();
+              // choose mode
+              if(self.mode === 'spa'){
+                // SPA only sensible for HTML — if not HTML, navigate full
+                if(/\.html?$/i.test(name)){
+                  self._navigateTo(href).catch(function(){ window.location.href = href; });
+                } else {
+                  window.location.href = blobUrl;
+                }
+              } else {
+                // iframe mode: set iframe.src to pages URL for HTML, otherwise go to blob
+                if(/\.html?$/i.test(name)){
+                  document.getElementById('liveFrame').src = href;
+                  // update history state so back button works (optional)
+                  history.pushState({url:href}, '', (new URL(href)).pathname);
+                  addTickerLine('→ IFRAME loaded: '+href);
+                } else {
+                  window.location.href = blobUrl;
+                }
+              }
+            };
+          })(this, pagesUrl, it.name));
+        }
+        this.list.appendChild(el);
+      }
+    }catch(err){
+      console.warn('RepoNav fetch failed:', err);
+      this.list.innerHTML = '';
+      var fallbackIntro = document.createElement('div');
+      fallbackIntro.style.opacity = '.8';
+      fallbackIntro.textContent = 'Could not load via API — fallback links:';
+      this.list.appendChild(fallbackIntro);
+      var fallbackPaths = [
+        {label:'Repository on GitHub', href:'https://github.com/'+this.owner+'/'+this.repo},
+        {label:'README', href:'https://github.com/'+this.owner+'/'+this.repo+'/blob/'+this.branch+'/README.md'},
+        {label:'This file', href:'https://github.com/'+this.owner+'/'+this.repo+'/blob/'+this.branch+'/a_copilot_backup_navigation.html'}
+      ];
+      for(var j=0;j<fallbackPaths.length;j++){ 
+        var f=fallbackPaths[j];
+        var a=document.createElement('a');
+        a.href=f.href; a.target='_blank'; a.rel='noopener noreferrer';
+        a.textContent = f.label;
+        this.list.appendChild(a);
+      }
+      if(this.statusEl) setRepoStatus('fallback — see list');
+    }
+  };
+
+  RepoNav.prototype.open = async function(){
+    if(!this._open){
+      this.container.classList.add('open');
+      this.container.setAttribute('aria-hidden','false');
+      this._open=true;
+      await this.refresh();
+    }
+  };
+  RepoNav.prototype.close = function(){
+    if(this._open){
+      this.container.classList.remove('open');
+      this.container.setAttribute('aria-hidden','true');
+      this._open=false;
+    }
+  };
+  RepoNav.prototype.toggle = function(){
+    return this._open ? this.close() : this.open();
+  };
+
+  window.createRepoNav = function(opts){
+    if(!opts || !opts.owner || !opts.repo) throw new Error('owner and repo required to create repo nav');
+    return new RepoNav(opts);
+  };
+})(); // end factory
+
+// instantiate for this repo
+var repoNavInstance = createRepoNav({ owner: 'jeff-gompertz', repo: 'CUseeme', branch: 'main', containerId: 'repoNav', listId: 'repoList', metaId: 'repoMeta' });
+
+/* === Hold-to-open behavior for NAV button === */
+(function attachHoldToOpen(){
+  var btn = document.getElementById('hudToggle_nav');
+  var progress = btn.querySelector('.holdProgress');
+  var holdThreshold = 1400; // milliseconds required to open (doubled per request)
+  var holdTimer = null;
+  var triggered = false;
+  var startX = 0, startY = 0;
+  var moved = false;
+  var maxMove = 12; // px allowed before cancelling
+
+  function startHold(clientX, clientY){
+    triggered = false;
+    moved = false;
+    startX = clientX;
+    startY = clientY;
+    btn.classList.add('holding');
+    if(progress){
+      progress.style.transition = 'width '+holdThreshold+'ms linear';
+      progress.style.width = '1%';
+      // small delay to ensure transition runs
+      setTimeout(function(){ progress.style.width = '100%'; }, 10);
+    }
+    holdTimer = setTimeout(function(){
+      triggered = true;
+      if(btn.getAttribute('aria-pressed') === 'false') btn.setAttribute('aria-pressed','true');
+      repoNavInstance.open();
+      setRepoStatus('opened');
+      // clear visual shortly after
+      clearHoldVisual();
+    }, holdThreshold);
+    setRepoStatus('holding');
+  }
+
+  function clearHoldVisual(){
+    btn.classList.remove('holding');
+    if(progress){
+      progress.style.transition = 'width 160ms linear';
+      progress.style.width = '0%';
+    }
+    if(holdTimer){ clearTimeout(holdTimer); holdTimer = null; }
+    setTimeout(function(){ if(btn.getAttribute('aria-pressed') === 'true') btn.setAttribute('aria-pressed','false'); }, 350);
+  }
+
+  function cancelHold(){
+    if(holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    triggered = false;
+    clearHoldVisual();
+    setRepoStatus('cancelled');
+  }
+
+  // touch handlers
+  btn.addEventListener('touchstart', function(e){
+    if(!e.touches || !e.touches[0]) return;
+    var t = e.touches[0];
+    startHold(t.clientX, t.clientY);
+  }, {passive:true});
+
+  btn.addEventListener('touchmove', function(e){
+    if(!e.touches || !e.touches[0]) return;
+    var t = e.touches[0];
+    var dx = Math.abs(t.clientX - startX);
+    var dy = Math.abs(t.clientY - startY);
+    if(dx > maxMove || dy > maxMove){
+      moved = true;
+      cancelHold();
+    }
+  }, {passive:true});
+
+  btn.addEventListener('touchend', function(e){
+    if(triggered){
+      // already opened
+      clearHoldVisual();
+    } else {
+      cancelHold();
+    }
+  });
+
+  btn.addEventListener('touchcancel', function(e){
+    cancelHold();
+  });
+
+  // mouse handlers (desktop)
+  btn.addEventListener('mousedown', function(e){
+    // left click only
+    if(e.button !== 0) return;
+    startHold(e.clientX, e.clientY);
+    function onMove(ev){
+      var dx = Math.abs(ev.clientX - startX);
+      var dy = Math.abs(ev.clientY - startY);
+      if(dx > maxMove || dy > maxMove){ moved = true; cancelHold(); document.removeEventListener('mousemove', onMove); }
+    }
+    function onUp(ev){
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      if(triggered){
+        clearHoldVisual();
+      } else {
+        cancelHold();
+      }
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // accessibility: also support keyboard long-press via keydown (Space/Enter held)
+  var keyHoldTimer = null;
+  btn.addEventListener('keydown', function(e){
+    if(e.key===' ' || e.key==='Enter'){
+      if(keyHoldTimer) return;
+      startHold(0,0);
+      keyHoldTimer = setTimeout(function(){
+        // timer expired (triggered)
+        keyHoldTimer = null;
+      }, holdThreshold);
+      if(e.key===' ') { if(e.preventDefault) e.preventDefault(); }
+    }
+  });
+  btn.addEventListener('keyup', function(e){
+    if(e.key===' ' || e.key==='Enter'){
+      if(keyHoldTimer){ clearTimeout(keyHoldTimer); keyHoldTimer=null; cancelHold(); }
+      else {
+        // if timer already fired, visually clear
+        clearHoldVisual();
+      }
+    }
+  });
+
+  // avoid immediate close right after opening
+  var lastOpenedAt = 0;
+  (function(){
+    var origOpen = repoNavInstance.open.bind(repoNavInstance);
+    repoNavInstance.open = async function(){
+      lastOpenedAt = Date.now();
+      return origOpen();
+    };
+  })();
+
+  document.addEventListener('click', function(e){
+    var nav = document.getElementById('repoNav');
+    var toggle = document.getElementById('hudToggle_nav');
+    if(!nav.contains(e.target) && !toggle.contains(e.target)){ 
+      if(Date.now() - lastOpenedAt < 350) return;
+      repoNavInstance.close();
+    }
+  });
+
+})(); // end hold-to-open
+
+/* === In-page dictation (Web Speech API) === */
+(function enableInPageDictation(){
+  const inputEl = document.getElementById('input');
+  const btn = document.getElementById('dictateBtn');
+  const box = document.getElementById('promptBox');
+  if(!inputEl || !box) return;
+
+  // helper to safe-focus the input (needed for iOS keyboard dictation fallback)
+  function focusInput(){
+    try { inputEl.focus({ preventScroll:true }); } catch(e){ inputEl.focus(); }
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  let recognition = null;
+  let listening = false;
+
+  function setListeningState(on){
+    listening = !!on;
+    if(btn){
+      if(listening){
+        btn.classList.add('listening');
+        btn.textContent = '⏺️';
+      } else {
+        btn.classList.remove('listening');
+        btn.textContent = '🎤';
+      }
+    }
+  }
+
+  if(btn){
+    btn.addEventListener('click', async function(){
+      if(SpeechRecognition){
+        if(!recognition){
+          recognition = new SpeechRecognition();
+          recognition.lang = 'en-US';
+          recognition.interimResults = false;
+          recognition.maxAlternatives = 1;
+          recognition.continuous = false;
+          recognition.onstart = function(){
+            setListeningState(true);
+            addTickerLine('→ dictation: listening… (browser will prompt for microphone permission)');
+          };
+          recognition.onresult = function(ev){
+            const transcript = Array.from(ev.results).map(r => r[0].transcript).join(' ');
+            inputEl.value = (inputEl.value ? inputEl.value + ' ' : '') + transcript;
+            addTickerLine('< dictation: '+transcript);
+          };
+          recognition.onerror = function(err){
+            console.warn('SpeechRecognition error', err);
+            addTickerLine('⚠ dictation error: '+(err.error||err.message||'unknown'));
+            alert('Speech recognition error: ' + (err.error || err.message || 'unknown'));
+          };
+          recognition.onend = function(){
+            setListeningState(false);
+          };
+        }
+
+        try{
+          if(listening){
+            recognition.stop();
+            setListeningState(false);
+          } else {
+            recognition.start();
+          }
+        }catch(err){
+          console.warn('Recognition start/stop failed', err);
+          setListeningState(false);
+        }
+      } else {
+        // Fallback for iOS Safari (no Web Speech API): focus input and instruct user to use keyboard dictation
+        focusInput();
+        addTickerLine('→ Focused input for iOS keyboard dictation. Tap the keyboard microphone to start.');
+        setTimeout(()=>{ try{ inputEl.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){} }, 120);
+      }
+    });
+  }
+
+  // Ensure the input is focusable for native keyboard dictation
+  try{
+    inputEl.removeAttribute && inputEl.removeAttribute('readonly');
+  }catch(e){}
+  inputEl.disabled = false;
+  inputEl.setAttribute('autocapitalize','sentences');
+  inputEl.setAttribute('autocorrect','on');
+  inputEl.setAttribute('inputmode','text');
+})();
+</script>
+
+<!-- NAV debug overlay -->
+<div id="navDebugPanel" style="position:fixed;left:12px;top:12px;z-index:9999;background:rgba(0,0,0,0.8);color:#fff;padding:8px;border-radius:8px;font-family:monospace;font-size:12px;min-width:220px;max-width:42%;box-shadow:0 6px 24px rgba(0,0,0,0.6);">
+  <div style="font-weight:700;margin-bottom:6px">NAV debug</div>
+  <div id="navDebug_state">loading…</div>
+  <div id="navDebug_progress" style="margin-top:6px">progress: —</div>
+  <div id="navDebug_events" style="margin-top:8px;max-height:120px;overflow:auto;background:rgba(255,255,255,0.03);padding:6px;border-radius:6px"></div>
+  <button id="navDebug_clear" style="margin-top:8px;padding:6px;border-radius:6px;background:#111;color:#fff;border:1px solid rgba(255,255,255,0.06);cursor:pointer">Clear</button>
+</div>
+
+<script>
+(function attachNavDebugger(){
+  const panel = document.getElementById('navDebugPanel');
+  if(!panel) return;
+  const stateEl = document.getElementById('navDebug_state');
+  const progEl  = document.getElementById('navDebug_progress');
+  const eventsEl = document.getElementById('navDebug_events');
+  const clearBtn = document.getElementById('navDebug_clear');
+
+  const btn = document.getElementById('hudToggle_nav');
+  if(!btn){
+    stateEl.textContent = 'hudToggle_nav element NOT FOUND';
+    return;
+  }
+
+  // helper to append short event lines
+  function pushEvent(txt){
+    const t = document.createElement('div');
+    t.textContent = new Date().toLocaleTimeString() + ' — ' + txt;
+    eventsEl.prepend(t);
+    // keep only recent 30 lines
+    while(eventsEl.children.length > 30) eventsEl.removeChild(eventsEl.lastChild);
+  }
+
+  clearBtn.addEventListener('click', function(){ eventsEl.innerHTML=''; });
+
+  // observe attribute/class changes on the nav button
+  const obs = new MutationObserver(function(muts){
+    muts.forEach(function(m){
+      pushEvent('mutation: ' + (m.attributeName || 'node'));
+    });
+  });
+  obs.observe(btn, { attributes: true, attributeFilter: ['class','aria-pressed','style'] });
+
+  // show current state repeatedly
+  setInterval(function(){
+    const classes = btn.className || '(none)';
+    const aria = btn.getAttribute('aria-pressed');
+    const progress = (btn.querySelector && btn.querySelector('.holdProgress')) ? btn.querySelector('.holdProgress').style.width || '(0%)' : '(no progress)';
+    stateEl.innerHTML = '<div>class: <b style="color:#ffe">'+classes+'</b></div>' +
+                        '<div>aria-pressed: <b style="color:#ffe">'+aria+'</b></div>' +
+                        '<div>computed color: <b style="color:#ffe">'+(getComputedStyle(btn).color) + '</b></div>';
+    progEl.textContent = 'progress: ' + progress;
+  }, 250);
+
+  // instrument user interactions on the button
+  ['touchstart','touchmove','touchend','touchcancel','mousedown','mousemove','mouseup','click'].forEach(function(ev){
+    btn.addEventListener(ev, function(e){
+      const p = (e.touches && e.touches[0]) ? `${Math.round(e.touches[0].clientX)},${Math.round(e.touches[0].clientY)}` :
+                (e.clientX !== undefined ? `${Math.round(e.clientX)},${Math.round(e.clientY)}` : '');
+      pushEvent('ev:'+ev + (p ? ' @'+p : ''));
+    }, {passive:true});
+  });
+
+  // also track global touchmove to detect if movement cancels hold
+  let lastMove = null;
+  window.addEventListener('touchmove', function(e){ lastMove = e.touches&&e.touches[0] ? {x:e.touches[0].clientX,y:e.touches[0].clientY} : null; }, {passive:true});
+
+  // small visual hint on tap: flash the button's outline
+  btn.addEventListener('click', function(){ btn.style.transition='box-shadow .18s ease'; btn.style.boxShadow='0 0 28px rgba(0,255,120,0.18)'; setTimeout(()=>btn.style.boxShadow='',220); });
+
+  pushEvent('debug attached — watching events and attributes');
+})();
+</script>
+
+</body>
+</html>
