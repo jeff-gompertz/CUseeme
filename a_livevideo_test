@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mode A — Optical-Flow Node Field</title>
+<style>
+  html,body{
+    margin:0; padding:0; height:100%; overflow:hidden;
+    background:black;
+    font-family:monospace;
+    color:#0f0;
+  }
+  #cam {
+    position:fixed; inset:0;
+    width:100%; height:100%;
+    object-fit:cover;
+    transform:scaleX(-1);
+    z-index:0;
+  }
+  canvas {
+    position:fixed; inset:0;
+    z-index:2; pointer-events:none;
+  }
+  #debug {
+    position:fixed; top:10px; left:10px;
+    z-index:3; padding:6px 10px;
+    font-size:14px; color:#0f0;
+    background:rgba(0,0,0,0.35);
+    border:1px solid rgba(0,255,0,0.4);
+    border-radius:4px;
+    cursor:pointer;
+  }
+</style>
+</head>
+<body>
+
+<video id="cam" autoplay muted playsinline></video>
+<canvas id="flow"></canvas>
+<div id="debug">DEBUG: ON</div>
+
+<script>
+/* =======================================================
+   Live Camera Init
+======================================================= */
+const cam = document.getElementById('cam');
+navigator.mediaDevices.getUserMedia({
+  video:{facingMode:{ideal:"environment"}},
+  audio:false
+}).then(stream=>{
+  cam.srcObject = stream;
+}).catch(e=>{
+  alert("Camera access denied");
+});
+
+/* =======================================================
+   Canvas + Optical-Flow Node Field
+   (mechanical, grid-based, no randomness)
+======================================================= */
+const canvas = document.getElementById('flow');
+const ctx = canvas.getContext('2d');
+let W=0, H=0;
+
+function resize(){
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ---- Grid definition ---- */
+const spacing = 26;              // node grid spacing
+let nodes = [];
+
+function initNodes(){
+  nodes = [];
+  for(let y=0;y<H;y+=spacing){
+    for(let x=0;x<W;x+=spacing){
+      nodes.push({
+        x, y,
+        vx:0, vy:0
+      });
+    }
+  }
+}
+initNodes();
+
+/* ---- Optical-flow sampling ---- */
+const tmp = document.createElement('canvas');
+const tctx = tmp.getContext('2d');
+
+function sampleMotion(){
+  tmp.width = W/4;
+  tmp.height = H/4;
+  tctx.drawImage(cam,0,0,tmp.width,tmp.height);
+
+  const img = tctx.getImageData(0,0,tmp.width,tmp.height).data;
+
+  // simple luminance-based gradient sampling (mechanical)
+  for(let n of nodes){
+    const sx = Math.floor((n.x/W)*tmp.width);
+    const sy = Math.floor((n.y/H)*tmp.height);
+    const i = (sy*tmp.width + sx)*4;
+
+    const r = img[i], g = img[i+1], b = img[i+2];
+    const lum = (r + g + b)/3;
+
+    // mechanical: drive velocity only from luminance difference
+    const target = lum / 255;     // 0..1
+    const dv = (target - 0.5)*0.9;
+
+    // purely horizontal for now — mechanical, not organic
+    n.vx = dv * 14;
+  }
+}
+
+/* =======================================================
+   Draw Node Field
+======================================================= */
+let debugOn = true;
+
+function drawNodes(){
+  ctx.clearRect(0,0,W,H);
+
+  ctx.fillStyle = debugOn ? "rgba(0,255,0,0.65)" : "rgba(0,255,0,0.28)";
+  ctx.strokeStyle = "rgba(0,255,0,0.35)";
+  ctx.lineWidth = 1;
+
+  for(let n of nodes){
+    const xx = n.x + n.vx;
+
+    // draw node
+    ctx.beginPath();
+    ctx.arc(xx, n.y, 2.3, 0, Math.PI*2);
+    ctx.fill();
+
+    // draw vector line (debug only)
+    if(debugOn){
+      ctx.beginPath();
+      ctx.moveTo(n.x, n.y);
+      ctx.lineTo(xx, n.y);
+      ctx.stroke();
+    }
+  }
+}
+
+/* =======================================================
+   Loop
+======================================================= */
+function loop(){
+  sampleMotion();
+  drawNodes();
+  requestAnimationFrame(loop);
+}
+loop();
+
+/* =======================================================
+   Toggle Debug
+======================================================= */
+document.getElementById('debug').onclick = ()=>{
+  debugOn = !debugOn;
+  document.getElementById('debug').textContent = 
+    "DEBUG: " + (debugOn ? "ON" : "OFF");
+};
+</script>
+
+</body>
+</html>
