@@ -76,6 +76,25 @@ html,body{
 }
 @keyframes blink{50%{opacity:0}}
 
+/* Dictation button styles */
+#dictateBtn{
+  background:transparent;
+  border:1px solid rgba(0,255,120,0.12);
+  color:#0f0;
+  font-size:1.25rem;
+  padding:6px 8px;
+  border-radius:8px;
+  cursor:pointer;
+  margin-left:6px;
+  line-height:1;
+}
+#dictateBtn.listening{
+  color:#ff0;
+  border-color:rgba(255,12,110,0.9);
+  box-shadow:0 0 18px rgba(255,12,110,0.35), inset 0 0 8px rgba(255,60,160,0.12);
+  transform:scale(1.05);
+}
+
 /* === TICKER === */
 #ticker{
   position:fixed;
@@ -250,6 +269,7 @@ html,body{
   <div id="promptBox">
     <div id="caret"></div>
     <input id="input" type="text" spellcheck="false" autocomplete="off" placeholder="type here...">
+    <button id="dictateBtn" type="button" aria-label="Start dictation" title="Start dictation">🎤</button>
   </div>
 </div>
 
@@ -444,17 +464,17 @@ setInterval(function(){
         up.addEventListener('click', (function(self){ return function(e){ if(e.preventDefault) e.preventDefault(); var parent = path.split('/').slice(0,-1).join('/'); self.renderPath(parent); }; })(this));
         this.list.appendChild(up);
       }
-      for(var i=0;i<list.length;i++){
+      for(var i=0;i<list.length;i++){ 
         var it=list[i];
         var el=document.createElement('a');
         el.textContent = it.name + (it.type==='dir' ? '/' : '');
-        if(it.type === 'dir'){
+        if(it.type === 'dir'){ 
           el.className = 'dir';
           el.href = '#';
           (function(self, itEl){
             itEl.addEventListener('click', function(e){ if(e.preventDefault) e.preventDefault(); self.renderPath(it.path); });
           })(this, el);
-        } else {
+        } else { 
           el.target = '_blank';
           el.rel = 'noopener noreferrer';
           el.href = this.blobBase + '/' + it.path;
@@ -471,9 +491,9 @@ setInterval(function(){
       var fallbackPaths = [
         {label:'Repository on GitHub', href:'https://github.com/'+this.owner+'/'+this.repo},
         {label:'README', href:'https://github.com/'+this.owner+'/'+this.repo+'/blob/'+this.branch+'/README.md'},
-        {label:'This file', href:'https://github.com/'+this.owner+'/'+this.repo+'/blob/'+this.branch+'/a_testCuseeme_modularTemplateRESTYLE.html'}
+        {label:'This file', href:'https://github.com/'+this.owner+'/'+this.repo+'/blob/'+this.branch+'/a_copilot_backup_navigation.html'}
       ];
-      for(var j=0;j<fallbackPaths.length;j++){
+      for(var j=0;j<fallbackPaths.length;j++){ 
         var f=fallbackPaths[j];
         var a=document.createElement('a');
         a.href=f.href; a.target='_blank'; a.rel='noopener noreferrer';
@@ -511,12 +531,7 @@ setInterval(function(){
 // instantiate for this repo
 var repoNavInstance = createRepoNav({ owner: 'jeff-gompertz', repo: 'CUseeme', branch: 'main', containerId: 'repoNav', listId: 'repoList', metaId: 'repoMeta' });
 
-/* === Hold-to-open behavior for NAV button ===
-   - Requires pressing and holding for holdThreshold milliseconds to trigger.
-   - Visual feedback: progress bar grows and button glows neon red/pink while holding.
-   - Cancels if the finger/mouse moves beyond a small threshold or on touchcancel.
-   - No preventDefault on initial touch, so normal gestures (swipe/drag) are not interfered with.
-*/
+/* === Hold-to-open behavior for NAV button === */
 (function attachHoldToOpen(){
   var btn = document.getElementById('hudToggle_nav');
   var progress = btn.querySelector('.holdProgress');
@@ -657,13 +672,100 @@ var repoNavInstance = createRepoNav({ owner: 'jeff-gompertz', repo: 'CUseeme', b
   document.addEventListener('click', function(e){
     var nav = document.getElementById('repoNav');
     var toggle = document.getElementById('hudToggle_nav');
-    if(!nav.contains(e.target) && !toggle.contains(e.target)){
+    if(!nav.contains(e.target) && !toggle.contains(e.target)){ 
       if(Date.now() - lastOpenedAt < 350) return;
       repoNavInstance.close();
     }
   });
 
 })(); // end hold-to-open
+
+/* === In-page dictation (Web Speech API) === */
+(function enableInPageDictation(){
+  const inputEl = document.getElementById('input');
+  const btn = document.getElementById('dictateBtn');
+  const box = document.getElementById('promptBox');
+  if(!inputEl || !box) return;
+
+  // helper to safe-focus the input (needed for iOS keyboard dictation fallback)
+  function focusInput(){
+    try { inputEl.focus({ preventScroll:true }); } catch(e){ inputEl.focus(); }
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  let recognition = null;
+  let listening = false;
+
+  function setListeningState(on){
+    listening = !!on;
+    if(btn){
+      if(listening){
+        btn.classList.add('listening');
+        btn.textContent = '⏺️';
+      } else {
+        btn.classList.remove('listening');
+        btn.textContent = '🎤';
+      }
+    }
+  }
+
+  if(btn){
+    btn.addEventListener('click', async function(){
+      if(SpeechRecognition){
+        if(!recognition){
+          recognition = new SpeechRecognition();
+          recognition.lang = 'en-US';
+          recognition.interimResults = false;
+          recognition.maxAlternatives = 1;
+          recognition.continuous = false;
+          recognition.onstart = function(){
+            setListeningState(true);
+            addTickerLine('→ dictation: listening… (browser will prompt for microphone permission)');
+          };
+          recognition.onresult = function(ev){
+            const transcript = Array.from(ev.results).map(r => r[0].transcript).join(' ');
+            inputEl.value = (inputEl.value ? inputEl.value + ' ' : '') + transcript;
+            addTickerLine('< dictation: '+transcript);
+          };
+          recognition.onerror = function(err){
+            console.warn('SpeechRecognition error', err);
+            addTickerLine('⚠ dictation error: '+(err.error||err.message||'unknown'));
+            alert('Speech recognition error: ' + (err.error || err.message || 'unknown'));
+          };
+          recognition.onend = function(){
+            setListeningState(false);
+          };
+        }
+
+        try{
+          if(listening){
+            recognition.stop();
+            setListeningState(false);
+          } else {
+            recognition.start();
+          }
+        }catch(err){
+          console.warn('Recognition start/stop failed', err);
+          setListeningState(false);
+        }
+      } else {
+        // Fallback for iOS Safari (no Web Speech API): focus input and instruct user to use keyboard dictation
+        focusInput();
+        addTickerLine('→ Focused input for iOS keyboard dictation. Tap the keyboard microphone to start.');
+        setTimeout(()=>{ try{ inputEl.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){} }, 120);
+      }
+    });
+  }
+
+  // Ensure the input is focusable for native keyboard dictation
+  try{
+    inputEl.removeAttribute && inputEl.removeAttribute('readonly');
+  }catch(e){}
+  inputEl.disabled = false;
+  inputEl.setAttribute('autocapitalize','sentences');
+  inputEl.setAttribute('autocorrect','on');
+  inputEl.setAttribute('inputmode','text');
+})();
 </script>
 </body>
 </html>
