@@ -47,7 +47,8 @@ html,body{
   transform:scale(1.04);
 }
 
-/* === PROMPT LAYER === */
+/* === PROMPT LAYER ===
+*/
 #promptWrap{
   position:fixed;inset:0;display:flex;
   align-items:center;justify-content:center;
@@ -66,9 +67,12 @@ html,body{
 #input{
   background:transparent;
   border:none;outline:none;
-  color:#0f0;
+  color:#ffffff;
   font-size:inherit;
   width:14ch;
+}
+#input::placeholder{
+  color: rgba(255,255,255,0.6);
 }
 #caret{
   width:.25ch;height:1.3em;background:#0f0;
@@ -409,8 +413,8 @@ setInterval(function(){
     this.repo = opts.repo;
     this.branch = opts.branch || 'main';
     this.container = document.getElementById(opts.containerId || 'repoNav');
-    this.list = document.getElementById(opts.listId || 'repoList');
-    this.meta = document.getElementById(opts.metaId || 'repoMeta');
+    this.list = document.getElementById(opts.listId);
+    this.meta = document.getElementById(opts.metaId);
     this.statusEl = document.getElementById('repoStatus');
     if(!this.container || !this.list) throw new Error('RepoNav container/list not found');
     this.apiBase = 'https://api.github.com/repos/'+this.owner+'/'+this.repo+'/contents';
