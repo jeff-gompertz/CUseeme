@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Touch‑Designer Style — Live Video Mesh & Text Reinterpretation</title>
+<meta name="color-scheme" content="dark">
+<style>
+  :root{
+    --bg:#000;
+    --ui-bg: rgba(255,255,255,0.03);
+    --txt:#dfffe6;
+    --accent:#00ffe1;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Roboto,Arial;}
+  canvas{display:block;width:100vw;height:100vh;}
+  #ui{position:fixed; right:14px; top:12px; z-index:2000; display:flex; flex-direction:column; gap:8px; pointer-events:auto;}
+  .panel{background:var(--ui-bg);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.04);padding:10px 12px;border-radius:10px;font-size:13px;color:var(--txt);max-width:320px;}
+  .row{display:flex; gap:8px; align-items:center;}
+  label{font-size:12px;color:rgba(255,255,255,0.9); min-width:92px;}
+  input[type="range"]{width:140px;}
+  button{background:transparent;color:var(--txt);border:1px solid rgba(255,255,255,0.06);padding:6px 8px;border-radius:8px;cursor:pointer;}
+  #hint{position:fixed; left:14px; top:12px; color:rgba(255,255,255,0.12); font-size:12px; z-index:2000;}
+  .small{font-size:12px;color:rgba(255,255,255,0.72)}
+  @media (max-width:640px){ .panel{font-size:12px;padding:8px} input[type="range"]{width:110px} }
+</style>
+</head>
+<body>
+
+<!-- Hidden video capture -->
+<video id="cam" autoplay playsinline muted style="display:none"></video>
+
+<!-- Main canvas -->
+<canvas id="c"></canvas>
+
+<div id="hint">click/touch to start camera • pinch to adjust mesh scale</div>
+
+<div id="ui" aria-hidden="false">
+  <div class="panel">
+    <div style="font-weight:700;margin-bottom:6px">Video Mesh — Reinterpretation Modes</div>
+
+    <div class="row"><label>Mode</label>
+      <select id="mode">
+        <option value="particles">Particles (mesh flow)</option>
+        <option value="displacement">Displacement Mesh (quads)</option>
+        <option value="textrain">Text Rain (reinterpret)</option>
+      </select>
+    </div>
+
+    <div class="row"><label>Mesh density</label><input id="mesh_res" type="range" min="8" max="160" step="2" value="64"></div>
+    <div class="row"><label>Video influence</label><input id="vid_influence" type="range" min="0" max="3" step="0.05" value="1.0"></div>
+    <div class="row"><label>Shift axis</label>
+      <select id="axis">
+        <option value="both">Both (x & y)</option>
+        <option value="horizontal">Horizontal only</option>
+        <option value="vertical">Vertical only</option>
+      </select>
+    </div>
+
+    <div class="row"><label>Visual blend</label><input id="vid_blend" type="checkbox"></div>
+
+    <div style="margin-top:8px;display:flex;gap:8px">
+      <button id="btn_clear">Clear</button>
+      <button id="btn_freeze">Pause</button>
+      <button id="btn_reset">Reset</button>
+    </div>
+    <div style="margin-top:8px" class="small">This mode uses the camera to compute a cheap vector field (finite difference / sobel-like)
+     and interprets that as horizontal/vertical shifts. No opacity fades — motion & position only.</div>
+  </div>
+</div>
+
+<script>
+/*
+Live-video mesh reinterpretation:
+- Samples camera into a low-res grid (vCanvas).
+- Computes horizontal/vertical gradients (finite differences) -> vector field.
+- Modes:
+  - particles: particles sample vector field to produce horizontal/vertical shifts.
+  - displacement: draw grid quads displaced by vector field (a mesh).
+  - textrain: map columns/rows to characters falling based on brightness/motion.
+- Controls for mesh resolution, axis constraints, influence, blending.
+- Touch-first: pointer attractors retained; pinch to scale mesh (mesh_res).
+*/
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: true });
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+function resize(){
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width  = Math.floor(window.innerWidth * DPR);
+  canvas.height = Math.floor(window.innerHeight * DPR);
+  canvas.style.width  = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const video = document.getElementById('cam');
+const vCanvas = document.createElement('canvas');
+const vCtx = vCanvas.getContext('2d');
+
+let vW = 160, vH = 120; // sampling resolution (grid)
+vCanvas.width = vW; vCanvas.height = vH;
+
+async function startCamera(){
+  try{
+    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment' }, audio:false });
+    video.srcObject = s;
+    await video.play();
+    // tune sampling resolution based on video aspect
+    const ar = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : (window.innerWidth/window.innerHeight);
+    vW = 160;
+    vH = Math.max(64, Math.round(vW / ar));
+    vCanvas.width = vW; vCanvas.height = vH;
+    console.log('camera started', vW, vH);
+  }catch(e){
+    console.warn('camera access failed', e);
+  }
+}
+
+// UI elements
+const modeSel = document.getElementById('mode');
+const meshRes = document.getElementById('mesh_res');
+const vidInfluenceEl = document.getElementById('vid_influence');
+const vidBlend = document.getElementById('vid_blend');
+const axisSel = document.getElementById('axis');
+const btnClear = document.getElementById('btn_clear');
+const btnFreeze = document.getElementById('btn_freeze');
+const btnReset = document.getElementById('btn_reset');
+
+let paused = false;
+btnFreeze.addEventListener('click', ()=>{ paused = !paused; btnFreeze.textContent = paused ? 'Resume' : 'Pause'; });
+btnClear.addEventListener('click', ()=> ctx.clearRect(0,0,canvas.width,canvas.height));
+btnReset.addEventListener('click', ()=> { resetParticles(params.count); });
+
+// pointer sculpting (attractors)
+const pointers = new Map();
+canvas.addEventListener('pointerdown', (e)=>{ canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); pointers.set(e.pointerId, {x:e.clientX,y:e.clientY,str:1,age:0}); });
+canvas.addEventListener('pointermove', (e)=>{ if(pointers.has(e.pointerId)){ const p=pointers.get(e.pointerId); p.x=e.clientX; p.y=e.clientY; p.str=1; }});
+canvas.addEventListener('pointerup', (e)=> pointers.delete(e.pointerId));
+canvas.addEventListener('pointercancel', (e)=> pointers.delete(e.pointerId));
+
+/* pinch for mesh resolution */
+let pinch = null;
+canvas.addEventListener('touchstart', (e)=>{
+  if(e.touches.length === 2){
+    const a = e.touches[0], b = e.touches[1];
+    pinch = { startDist: Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY), startRes: parseInt(meshRes.value,10) };
+  }
+}, { passive:false });
+canvas.addEventListener('touchmove', (e)=>{
+  if(pinch && e.touches.length===2){
+    const a=e.touches[0], b=e.touches[1];
+    const d = Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY);
+    const factor = d / (pinch.startDist || d);
+    let newRes = Math.round(Math.max(8, Math.min(160, pinch.startRes * factor)));
+    meshRes.value = newRes;
+    e.preventDefault();
+  }
+}, { passive:false });
+canvas.addEventListener('touchend', ()=> pinch = null);
+
+// sampling & vector field
+let gridW = parseInt(meshRes.value,10);
+let gridH = 0;
+function updateGridSize(){
+  gridW = Math.max(8, Math.min(160, parseInt(meshRes.value,10)));
+  const aspect = canvas.width / canvas.height;
+  gridH = Math.max(6, Math.round(gridW * (canvas.height / canvas.width)));
+  vW = gridW;
+  vH = gridH;
+  vCanvas.width = vW; vCanvas.height = vH;
+}
+meshRes.addEventListener('input', ()=> updateGridSize());
+updateGridSize();
+
+let field = { gx: null, gy: null, lum: null }; // Float32Arrays
+
+function computeField(){
+  // draw video scaled into vCanvas and compute luminance grid + gradients (finite differences)
+  if(!video || video.readyState < 2){ // no video, synth nice noise
+    const w = vCanvas.width, h = vCanvas.height;
+    const lum = new Float32Array(w*h);
+    const gx = new Float32Array(w*h);
+    const gy = new Float32Array(w*h);
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const i = y*w + x;
+        const v = Math.abs(Math.sin((x*0.03)+(y*0.02)+performance.now()*0.0006))*0.6 + 0.2;
+        lum[i] = v;
+      }
+    }
+    // finite differences
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const i = y*w + x;
+        const l = lum[i];
+        const lR = (x+1<w) ? lum[y*w + (x+1)] : l;
+        const lL = (x-1>=0)? lum[y*w + (x-1)] : l;
+        const lD = (y+1<h)? lum[(y+1)*w + x] : l;
+        const lU = (y-1>=0)? lum[(y-1)*w + x] : l;
+        gx[i] = (lR - lL) * 0.5;
+        gy[i] = (lD - lU) * 0.5;
+      }
+    }
+    field = { gx, gy, lum };
+    return;
+  }
+
+  try{
+    vCtx.drawImage(video, 0, 0, vCanvas.width, vCanvas.height);
+    const img = vCtx.getImageData(0,0,vCanvas.width,vCanvas.height).data;
+    const w = vCanvas.width, h = vCanvas.height;
+    const lum = new Float32Array(w*h);
+    const gx = new Float32Array(w*h);
+    const gy = new Float32Array(w*h);
+    // luminance
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const i = (y*w + x);
+        const di = i*4;
+        const r = img[di], g = img[di+1], b = img[di+2];
+        const L = (0.2126*r + 0.7152*g + 0.0722*b) / 255;
+        lum[i] = L;
+      }
+    }
+    // finite-difference gradient (cheap Sobel-lite)
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const i = y*w + x;
+        const l = lum[i];
+        const lR = (x+1<w) ? lum[y*w + (x+1)] : l;
+        const lL = (x-1>=0)? lum[y*w + (x-1)] : l;
+        const lD = (y+1<h)? lum[(y+1)*w + x] : l;
+        const lU = (y-1>=0)? lum[(y-1)*w + x] : l;
+        gx[i] = (lR - lL) * 0.5;
+        gy[i] = (lD - lU) * 0.5;
+      }
+    }
+    field = { gx, gy, lum };
+  }catch(e){
+    console.warn('computeField error', e);
+  }
+}
+
+// PARTICLE MODE
+let params = { count: 1800, speed: 1.6, decay: 0.96 };
+const particles = [];
+function makeParticle(){
+  return {
+    x: Math.random() * (canvas.width / DPR),
+    y: Math.random() * (canvas.height / DPR),
+    vx: 0, vy: 0,
+    hue: 180 + Math.random()*120,
+    size: 0.6 + Math.random()*2.2
+  };
+}
+function resetParticles(n){
+  particles.length = 0;
+  for(let i=0;i<n;i++) particles.push(makeParticle());
+}
+resetParticles(params.count);
+
+// sampling helpers
+function sampleFieldAt(px, py){
+  const w = vCanvas.width, h = vCanvas.height;
+  if(!field || !field.lum) return { gx:0, gy:0, lum:0.5 };
+  const sx = Math.floor((px / (canvas.width / DPR)) * w);
+  const sy = Math.floor((py / (canvas.height / DPR)) * h);
+  const x = Math.max(0, Math.min(w-1, sx));
+  const y = Math.max(0, Math.min(h-1, sy));
+  const i = y*w + x;
+  return { gx: field.gx[i], gy: field.gy[i], lum: field.lum[i] };
+}
+
+// TEXT RAIN MODE helpers
+const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789♠♥♦♣♫♪★☆≈≈∑πλ';
+let columns = [];
+function initTextRain(){
+  const cols = Math.max(8, Math.floor(canvas.width / (Math.min(20, Math.max(8, canvas.width / 40)))));
+  columns = [];
+  for(let i=0;i<cols;i++){
+    columns.push({ x: (i+0.5) * (canvas.width/cols), y: Math.random()*-canvas.height, speed: 1 + Math.random()*6, char: charset[Math.floor(Math.random()*charset.length)] });
+  }
+}
+
+// draw text rain column-wise using video brightness to set speed or char
+function stepTextRain(dt){
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = 'rgba(0,0,0,0.08)';
+  ctx.fillRect(0,0,canvas.width / DPR, canvas.height / DPR);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = 'rgba(0,255,120,0.9)';
+  ctx.font = Math.max(10, Math.round(canvas.width/40)) + 'px monospace';
+  for(let i=0;i<columns.length;i++){
+    const col = columns[i];
+    // sample video brightness at column x, y
+    const sample = sampleFieldAt(col.x, col.y);
+    // speed influenced by brightness and influence slider
+    const influence = parseFloat(vidInfluenceEl.value);
+    col.speed += (sample.lum - 0.5) * influence * 2 * dt;
+    col.y += col.speed;
+    if(Math.random() < 0.02) col.char = charset[Math.floor(Math.random()*charset.length)];
+    ctx.fillText(col.char, col.x, col.y);
+    if(col.y > (canvas.height / DPR) + 40) {
+      col.y = -Math.random()*200;
+      col.speed = 1 + Math.random()*6;
+    }
+  }
+}
+
+// DRAW DISPLACEMENT MESH (quads)
+function drawDisplacementMesh(){
+  const w = vCanvas.width, h = vCanvas.height;
+  const cellW = (canvas.width / DPR) / w;
+  const cellH = (canvas.height / DPR) / h;
+  const blend = vidBlend.checked;
+  // optionally draw low-alpha video under mesh for visual reference
+  if(blend && video && video.readyState >= 2){
+    ctx.save();
+    ctx.globalAlpha = 0.15;
+    try{ ctx.drawImage(video, 0, 0, canvas.width / DPR, canvas.height / DPR); }catch(e){}
+    ctx.restore();
+  }
+  // draw mesh cells as quads displaced horizontally/vertically by field
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const i = y*w + x;
+      const lum = field.lum[i];
+      const gx = field.gx[i];
+      const gy = field.gy[i];
+      // axis constraint
+      const axis = axisSel.value;
+      let dx = gx, dy = gy;
+      if(axis === 'horizontal') dy = 0;
+      if(axis === 'vertical') dx = 0;
+      const influence = parseFloat(vidInfluenceEl.value);
+      const dispX = dx * influence * 60; // scale to visible px
+      const dispY = dy * influence * 60;
+      // compute quad center
+      const cx = x*cellW + cellW*0.5 + dispX;
+      const cy = y*cellH + cellH*0.5 + dispY;
+      // color from luminance (no opacity shifts)
+      const hue = Math.floor(200 + (lum*160)) % 360;
+      ctx.fillStyle = `hsl(${hue} 80% 60%)`;
+      // draw small rounded rect
+      const wq = Math.max(1, cellW*0.92), hq = Math.max(1, cellH*0.92);
+      ctx.fillRect(cx - wq*0.5, cy - hq*0.5, wq, hq);
+    }
+  }
+}
+
+// particle stepping
+function stepParticles(dt){
+  const w = canvas.width / DPR, h = canvas.height / DPR;
+  const influence = parseFloat(vidInfluenceEl.value);
+  // translucent fade to preserve trails; but we will not change particle alpha based on video
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = 'rgba(0,0,0,0.12)';
+  ctx.fillRect(0,0,w,h);
+  ctx.globalCompositeOperation = 'lighter';
+
+  // update pointers
+  for(const p of pointers.values()){ p.age += dt; p.str *= 0.995; }
+
+  for(let i=0;i<particles.length;i++){
+    const p = particles[i];
+    // sample video-derived field
+    const s = sampleFieldAt(p.x, p.y);
+    let gx = s.gx, gy = s.gy;
+    // axis lock
+    const axis = axisSel.value;
+    if(axis === 'horizontal') gy = 0;
+    if(axis === 'vertical') gx = 0;
+
+    // particle acceleration from vector field (horizontal/vertical shift emphasis)
+    p.vx += gx * influence * params.speed * 2;
+    p.vy += gy * influence * params.speed * 2;
+
+    // pointers attractor
+    let ax=0, ay=0, tot=0;
+    for(const q of pointers.values()){
+      const dx = q.x - p.x, dy = q.y - p.y;
+      const d2 = dx*dx + dy*dy + 1;
+      const inv = Math.min(1, (q.str*20000)/d2);
+      ax += dx * inv; ay += dy * inv; tot++;
+    }
+    if(tot>0){ p.vx += (ax/tot) * 0.004 * params.speed; p.vy += (ay/tot) * 0.004 * params.speed; }
+
+    // damping
+    p.vx *= params.decay; p.vy *= params.decay;
+
+    // integrate
+    p.x += p.vx;
+    p.y += p.vy;
+
+    // wrap edges
+    if(p.x < -50) p.x = w + 50;
+    if(p.y < -50) p.y = h + 50;
+    if(p.x > w + 50) p.x = -50;
+    if(p.y > h + 50) p.y = -50;
+
+    // draw particle as tinted circle using sampled video color (no opacity shift)
+    // sample nearest video pixel color for tint
+    let tintR=120, tintG=255, tintB=180;
+    if(video && video.readyState >= 2){
+      try{
+        // sample video at mapped coords
+        const sx = Math.floor((p.x / w) * vCanvas.width);
+        const sy = Math.floor((p.y / h) * vCanvas.height);
+        const imgd = vCtx.getImageData(Math.max(0,Math.min(vCanvas.width-1,sx)), Math.max(0,Math.min(vCanvas.height-1,sy)), 1,1).data;
+        tintR = imgd[0]; tintG = imgd[1]; tintB = imgd[2];
+      }catch(e){}
+    }
+    const rad = 3 + p.size;
+    const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 12 + p.size*2);
+    grd.addColorStop(0, `rgba(${tintR},${tintG},${tintB},0.18)`);
+    grd.addColorStop(0.18, `rgba(${tintR},${tintG},${tintB},0.06)`);
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 10 + p.size*1.4, 0, Math.PI*2); ctx.fill();
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = `rgba(255,255,255,0.02)`;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 1.6 + p.size*0.4, 0, Math.PI*2); ctx.stroke();
+    ctx.globalCompositeOperation = 'lighter';
+  }
+}
+
+// animation loop
+let last = performance.now();
+function tick(now){
+  const dt = Math.min(48, now - last) / 1000;
+  last = now;
+  if(!paused){
+    updateGridSize(); // in case user changed controls
+    computeField();
+
+    const mode = modeSel.value;
+    if(mode === 'particles'){
+      stepParticles(dt);
+    } else if(mode === 'displacement'){
+      // clear for immediate mesh visibility (no trails)
+      ctx.clearRect(0,0,canvas.width / DPR, canvas.height / DPR);
+      drawDisplacementMesh();
+    } else if(mode === 'textrain'){
+      stepTextRain(dt);
+    }
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// ensure camera on first user action (mobile friendly)
+function ensureCamera(){
+  if(!video.srcObject) startCamera().catch(()=>{ console.warn('camera fail'); });
+}
+window.addEventListener('pointerdown', ensureCamera, { once:true });
+window.addEventListener('touchstart', ensureCamera, { once:true });
+
+// responsiveness: init text rain on size
+initTextRain();
+window.addEventListener('resize', ()=> { initTextRain(); });
+
+// small keyboard shortcuts
+window.addEventListener('keydown', (e)=>{
+  if(e.key === ' ') { paused = !paused; btnFreeze.textContent = paused ? 'Resume' : 'Pause'; }
+  if(e.key === 'r') resetParticles(params.count);
+  if(e.key === '1') modeSel.value = 'particles';
+  if(e.key === '2') modeSel.value = 'displacement';
+  if(e.key === '3') modeSel.value = 'textrain';
+});
+
+// Perf guard: map sliders to params
+document.getElementById('p_count').addEventListener('input', (e)=>{ params.count = parseInt(e.target.value,10); resetParticles(params.count); });
+document.getElementById('p_speed').addEventListener('input', (e)=>{ params.speed = parseFloat(e.target.value); });
+meshRes.addEventListener('input', ()=> updateGridSize());
+</script>
+</body>
+</html>
