@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Experiments — B (Touch Experiments)</title>
+<style>
+  :root{ --bg:#060607; --panel:rgba(255,255,255,0.03); --text:#e6eef2; --accent:#8ef; }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,monospace;}
+  .wrap{display:flex;height:100vh;gap:12px}
+  nav{width:300px;max-width:34vw;padding:18px;background:var(--panel);box-shadow:0 10px 30px rgba(0,0,0,0.6);overflow:auto}
+  nav h2{margin:0 0 12px 0;font-size:18px}
+  nav a{display:block;padding:8px 10px;margin:6px 0;border-radius:8px;color:var(--text);text-decoration:none;background:transparent;border:1px solid rgba(255,255,255,0.02)}
+  nav a:hover{background:rgba(255,255,255,0.02)}
+  main{flex:1;display:flex;flex-direction:column;align-items:stretch}
+  .frameWrap{position:relative;flex:1;border-left:1px solid rgba(255,255,255,0.03)}
+  iframe#liveFrame{width:100%;height:100%;border:0;background:#000}
+  .overlay{
+    position:absolute;left:12px;top:12px;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,0.35);
+    color:var(--accent);font-family:monospace;font-size:13px;z-index:9999;pointer-events:none;
+  }
+  .hint{padding:8px 12px;font-size:13px;color:#aab3b9;background:transparent;border-top:1px solid rgba(255,255,255,0.02)}
+  footer{padding:10px 18px;font-size:13px;color:#99a3aa;background:transparent;border-top:1px solid rgba(255,255,255,0.02)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <h2>B — Touch Experiments</h2>
+
+    <!-- Add one anchor per experiment file you save in B/ -->
+    <a href="01-touch-playground.html" data-title="Touch Playground">01 — Touch Playground</a>
+    <a href="02-grid-field.html" data-title="Grid Field (XY)">02 — Grid Field (XY)</a>
+    <a href="03-mesh-text.html" data-title="Mesh & Text Rain">03 — Mesh & Text Rain</a>
+
+    <div class="hint">
+      - Click a link to load it into the viewport.<br>
+      - Long‑press anywhere to advance to the next experiment.<br>
+      - Use ← / → to move back/forward.
+    </div>
+
+    <footer>To add a new experiment: save an HTML file into this B/ folder and add a matching link above.</footer>
+  </nav>
+
+  <main>
+    <div class="frameWrap">
+      <div class="overlay" id="overlay">No experiment loaded</div>
+      <iframe id="liveFrame" src=""></iframe>
+    </div>
+  </main>
+</div>
+
+<script>
+(function(){
+  const links = Array.from(document.querySelectorAll('nav a'));
+  const iframe = document.getElementById('liveFrame');
+  const overlay = document.getElementById('overlay');
+  let currentIndex = -1;
+  const experiments = links.map(a => ({ href: a.getAttribute('href'), title: a.dataset.title || a.textContent.trim() }));
+
+  function showOverlay(text){
+    overlay.textContent = text;
+    overlay.style.opacity = 1;
+    setTimeout(()=> overlay.style.opacity = 0.95, 10);
+  }
+
+  function loadIndex(i, pushState=true){
+    if(i < 0 || i >= experiments.length) return;
+    currentIndex = i;
+    const item = experiments[i];
+    iframe.src = item.href;
+    showOverlay((i+1) + " / " + experiments.length + " — " + item.title);
+    links.forEach((a,idx)=> a.style.outline = (idx===i ? '2px solid rgba(142,200,255,0.12)' : 'none'));
+    if(pushState && history && history.pushState){
+      try{ history.pushState({ idx:i }, '', '#bexp'+(i+1)); }catch(e){}
+    }
+  }
+
+  links.forEach((a,idx)=>{
+    a.addEventListener('click', (ev)=>{ ev.preventDefault(); loadIndex(idx); });
+  });
+
+  function next(){ const i = (currentIndex + 1) % experiments.length; loadIndex(i); }
+  function prev(){ const i = (currentIndex - 1 + experiments.length) % experiments.length; loadIndex(i); }
+
+  window.addEventListener('keydown', (e)=>{ if(e.key === 'ArrowRight') next(); if(e.key === 'ArrowLeft') prev(); });
+
+  // long-press to next
+  let lpTimer = null;
+  const LP_MS = 600;
+  function startLongPress(ev){
+    if(lpTimer) clearTimeout(lpTimer);
+    lpTimer = setTimeout(()=>{ next(); lpTimer = null; }, LP_MS);
+  }
+  function cancelLongPress(){ if(lpTimer){ clearTimeout(lpTimer); lpTimer = null; } }
+  ['pointerdown','touchstart'].forEach(evName => window.addEventListener(evName, startLongPress, {passive:true}));
+  ['pointerup','pointercancel','touchend','touchcancel','mousemove'].forEach(evName => window.addEventListener(evName, cancelLongPress, {passive:true}));
+
+  window.addEventListener('popstate', (ev)=>{ if(ev.state && typeof ev.state.idx === 'number') loadIndex(ev.state.idx, false); });
+
+  window.addEventListener('load', ()=>{
+    const h = location.hash;
+    if(h && h.startsWith('#bexp')){ const n = parseInt(h.replace('#bexp',''),10) - 1; if(!isNaN(n)) { loadIndex(n, false); return; } }
+    loadIndex(0, false);
+  });
+
+})();
+</script>
+</body>
+</html>
