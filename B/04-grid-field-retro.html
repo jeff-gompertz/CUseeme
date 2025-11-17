@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Grid Field — Retro Glyph Reinterpretation</title>
+<meta name="color-scheme" content="dark">
+<style>
+  :root{ --bg:#0b0b0b; --muted:#9aa0a6; --txt:#dfe6e9; --accent:#8ef; }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:ui-monospace,Menlo,Monaco,monospace;}
+  canvas{display:block;width:100vw;height:100vh;}
+  #ui{position:fixed;right:12px;top:12px;z-index:4000;display:flex;flex-direction:column;gap:8px;pointer-events:auto}
+  .panel{background:rgba(255,255,255,0.03);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.04);padding:10px;border-radius:10px;max-width:320px}
+  .row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+  label{min-width:110px;color:var(--muted);font-size:13px}
+  input[type=range]{width:140px}
+  button{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:6px 8px;border-radius:8px;color:var(--txt);cursor:pointer}
+  #hint{position:fixed;left:12px;top:12px;color:rgba(255,255,255,0.12);font-size:12px;z-index:4000}
+</style>
+</head>
+<body>
+<video id="cam" autoplay playsinline muted style="display:none"></video>
+<canvas id="c"></canvas>
+<div id="hint">Tap/click to enable camera • pinch to change grid • space to pause</div>
+<div id="ui">
+  <div class="panel">
+    <div style="font-weight:700;margin-bottom:6px">Retro Glyph Grid — Live</div>
+    <div class="row"><label>Grid size</label><input id="grid_res" type="range" min="8" max="160" value="48"></div>
+    <div class="row"><label>Mode</label>
+      <select id="glyph_mode"><option value="ascii">ASCII</option><option value="emoji">Emoji</option><option value="mixed">Mixed</option></select></div>
+    <div class="row"><label>Dynamic range</label><input id="dyn_range" type="range" min="0" max="1.5" step="0.05" value="1.0"></div>
+    <div class="row"><label>Axis</label>
+      <select id="axis"><option value="both">Both</option><option value="horizontal">Horizontal</option><option value="vertical">Vertical</option></select></div>
+    <div class="row"><label>Color inject</label><input id="color_inject" type="checkbox" checked></div>
+    <div style="display:flex;gap:8px;margin-top:8px"><button id="btn_clear">Clear</button><button id="btn_freeze">Pause</button></div>
+  </div>
+</div>
+
+<script>
+/* Grid Field — Retro Glyph Reinterpretation
+   - Samples camera into a low-res grid
+   - Maps dynamic range / luminance to a glyph set (ASCII / Emoji / Mixed)
+   - Grid is axis-aligned: glyphs shift horizontally or vertically (no slants)
+   - Color injected from camera only when enabled
+   - Pinch to change grid resolution
+*/
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+function resize(){ DPR = Math.max(1, window.devicePixelRatio || 1); canvas.width = Math.floor(window.innerWidth * DPR); canvas.height = Math.floor(window.innerHeight * DPR); canvas.style.width = window.innerWidth + 'px'; canvas.style.height = window.innerHeight + 'px'; ctx.setTransform(DPR,0,0,DPR,0,0); }
+window.addEventListener('resize', resize); resize();
+
+const video = document.getElementById('cam');
+const vCanvas = document.createElement('canvas');
+const vCtx = vCanvas.getContext('2d');
+
+let gridW = parseInt(document.getElementById('grid_res').value,10);
+let gridH = 0;
+function updateGridSize(){ gridW = Math.max(8, Math.min(160, parseInt(document.getElementById('grid_res').value,10))); const aspect = canvas.width / canvas.height; gridH = Math.max(6, Math.round(gridW / aspect)); vCanvas.width = gridW; vCanvas.height = gridH; }
+updateGridSize();
+
+async function startCamera(){ try{ const s = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}, audio:false}); video.srcObject = s; await video.play(); updateGridSize(); }catch(e){ console.warn('camera failed', e); }}
+window.addEventListener('pointerdown', ()=> { if(!video.srcObject) startCamera(); }, {once:true});
+
+// glyph sets
+const ascii = [' ','.',':','-','=','+','*','#','%','@'];
+const glyphEmoji = [' ', '·','◦','●','◍','◐','◑','◎','■','◆','★']; // mix of small shapes (keep neutral by default)
+const retroEmoji = ['👁','☼','◈','⌁','⚑','✽','⊙','◦','▫','▪'];
+const mixedSet = [' ','.',':','*','#','@','☼','✽','◈','👁'];
+
+function chooseGlyph(mode, value){ // value 0..1 (dark..bright)
+  if(mode === 'ascii'){ const idx = Math.floor(value * (ascii.length-1)); return ascii[idx]; }
+  if(mode === 'emoji'){ const idx = Math.floor(value * (retroEmoji.length-1)); return retroEmoji[idx]; }
+  return mixedSet[Math.floor(value * (mixedSet.length-1))];
+}
+
+// sample video luminance grid
+let lum = null;
+function computeLum(){ if(!video || video.readyState < 2){ // procedural fallback
+    const w=vCanvas.width,h=vCanvas.height; lum = new Float32Array(w*h); const t=performance.now()*0.0005; for(let y=0;y<h;y++) for(let x=0;x<w;x++){ lum[y*w+x] = 0.5 + 0.25*Math.sin(x*0.08+t) + 0.15*Math.cos(y*0.06+t*0.7); } return; }
+  try{ vCtx.drawImage(video,0,0,vCanvas.width,vCanvas.height); const img = vCtx.getImageData(0,0,vCanvas.width,vCanvas.height).data; const w=vCanvas.width,h=vCanvas.height; lum = new Float32Array(w*h); for(let y=0;y<h;y++){ for(let x=0;x<w;x++){ const i=(y*w+x)*4; const r=img[i], g=img[i+1], b=img[i+2]; lum[y*w+x] = (0.2126*r + 0.7152*g + 0.0722*b)/255; } } }catch(e){ console.warn('computeLum', e); }
+
+// draw loop
+let paused = false;
+function render(){ if(!paused){ updateGridSize(); computeLum(); drawGrid(); } requestAnimationFrame(render); }
+requestAnimationFrame(render);
+
+function drawGrid(){ const w = vCanvas.width, h = vCanvas.height; const cellW = (canvas.width/DPR)/w; const cellH = (canvas.height/DPR)/h; const mode = document.getElementById('glyph_mode').value; const dyn = parseFloat(document.getElementById('dyn_range').value); const axis = document.getElementById('axis').value; const colorInject = document.getElementById('color_inject').checked; ctx.clearRect(0,0,canvas.width/DPR,canvas.height/DPR); ctx.fillStyle='#0b0b0b'; ctx.fillRect(0,0,canvas.width/DPR,canvas.height/DPR);
+  // set font based on cell size; use monospace for ASCII
+  const fontSize = Math.max(8, Math.min(32, Math.round(Math.min(cellW,cellH)*0.95)));
+  ctx.font = `${fontSize}px ui-monospace, monospace`;
+  ctx.textAlign = 'center'; ctx.textBaseline='middle';
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){  
+      const i = y*w + x; const L = lum ? lum[i] : 0.5; // 0..1
+      // dynamic range mapping: compress/expand
+      const mapped = Math.min(1, Math.max(0, Math.pow(L, 1/dyn)) );
+      const glyph = chooseGlyph(mode, mapped);
+      // position
+      const cx = x*cellW + cellW*0.5; const cy = y*cellH + cellH*0.5;
+      // axis-aligned micro-shift: choose shift based on neighboring differences
+      let shiftX = 0, shiftY = 0;
+      if(axis === 'both' || axis === 'horizontal'){  
+        // horizontal shift scaled by local gradient along x (neighbor difference)
+        const left = (x>0)? lum[y*w + (x-1)] : L; const right = (x+1<w)? lum[y*w + (x+1)] : L; const gx = (right - left) * 0.5; shiftX = gx * cellW * 0.6 * dyn; }
+      if(axis === 'both' || axis === 'vertical'){  
+        const up = (y>0)? lum[(y-1)*w + x] : L; const down = (y+1<h)? lum[(y+1)*w + x] : L; const gy = (down - up) * 0.5; shiftY = gy * cellH * 0.6 * dyn; }
+      // color
+      let fill = '#bdbdbd';
+      if(colorInject && video && video.readyState >= 2){ try{ const px = Math.max(0, Math.min(vCanvas.width-1, x)); const py = Math.max(0, Math.min(vCanvas.height-1, y)); const d = vCtx.getImageData(px,py,1,1).data; fill = `rgb(${d[0]},${d[1]},${d[2]})`; }catch(e){} }
+      // subtle alpha for lighter look
+      ctx.fillStyle = fill;
+      // draw glyph
+      ctx.fillText(glyph, cx + shiftX, cy + shiftY);
+    }
+  }
+}
+
+// UI wiring
+document.getElementById('btn_clear').addEventListener('click', ()=> ctx.clearRect(0,0,canvas.width,canvas.height));
+document.getElementById('btn_freeze').addEventListener('click', (e)=>{ paused = !paused; e.target.textContent = paused? 'Resume':'Pause'; });
+document.getElementById('grid_res').addEventListener('input', ()=> updateGridSize());
+// pinch to change grid resolution
+let pinch = null; canvas.addEventListener('touchstart',(e)=>{ if(e.touches.length===2){ const a=e.touches[0], b=e.touches[1]; pinch = { startDist: Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY), startRes: parseInt(document.getElementById('grid_res').value,10) }; } }, {passive:false});
+canvas.addEventListener('touchmove',(e)=>{ if(pinch && e.touches.length===2){ const a=e.touches[0], b=e.touches[1]; const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY); const factor = d / (pinch.startDist || d); let newRes = Math.round(Math.max(8, Math.min(160, pinch.startRes * factor))); document.getElementById('grid_res').value = newRes; updateGridSize(); e.preventDefault(); } }, {passive:false});
+canvas.addEventListener('touchend', ()=> pinch = null);
+
+// keyboard: space to pause
+window.addEventListener('keydown',(e)=>{ if(e.key === ' ') { paused = !paused; document.getElementById('btn_freeze').textContent = paused ? 'Resume':'Pause'; } });
+
+// gentle initial pulses so the grid animates even without camera
+setInterval(()=>{ if(!video || video.readyState<2) requestAnimationFrame(()=>{ computeLum(); drawGrid(); }); }, 400);
+
+console.log('Retro glyph grid ready.');
+</script>
+</body>
+</html>
