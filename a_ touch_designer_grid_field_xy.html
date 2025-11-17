@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Grid Field — Camera → Axis-Aligned Mesh (XY)</title>
+<meta name="color-scheme" content="dark">
+<style>
+  :root{
+    --bg:#0b0b0b;
+    --ui-bg: rgba(255,255,255,0.03);
+    --muted:#9aa0a6;
+    --txt:#dfe6e9;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Roboto,Arial;}
+  canvas{display:block; width:100vw; height:100vh; touch-action:none;}
+  #ui{position:fixed; right:12px; top:12px; z-index:3000; display:flex; flex-direction:column; gap:8px; pointer-events:auto;}
+  .panel{background:var(--ui-bg);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.04);padding:10px 12px;border-radius:10px;font-size:13px;color:var(--txt);max-width:340px;}
+  .row{display:flex; gap:8px; align-items:center; margin-bottom:6px;}
+  label{font-size:12px;color:var(--muted); min-width:110px;}
+  input[type="range"]{ width:140px; }
+  button{ background:transparent; color:var(--txt); border:1px solid rgba(255,255,255,0.06); padding:6px 8px; border-radius:8px; cursor:pointer; }
+  #hint{ position:fixed; left:12px; top:12px; color:rgba(255,255,255,0.12); font-size:12px; z-index:3000; }
+  .small{ font-size:12px; color:var(--muted); margin-top:6px; }
+  @media (max-width:640px){ .panel{font-size:12px;padding:8px} input[type="range"]{width:110px} #ui{right:8px;top:8px} }
+</style>
+</head>
+<body>
+
+<video id="cam" autoplay playsinline muted style="display:none"></video>
+<canvas id="c"></canvas>
+
+<div id="hint">Tap/click canvas to enable camera. Grid is axis-aligned (no slants). Pinch to change grid resolution.</div>
+
+<div id="ui">
+  <div class="panel">
+    <div style="font-weight:700;margin-bottom:8px">Grid Field — Axis-Aligned (XY)</div>
+
+    <div class="row"><label>Mode</label>
+      <select id="mode">
+        <option value="gridParticles">Grid Particles</option>
+        <option value="gridMesh">Grid Mesh (displacement)</option>
+        <option value="textrain">Text Rain (grid)</option>
+      </select>
+    </div>
+
+    <div class="row"><label>Grid resolution</label><input id="mesh_res" type="range" min="8" max="160" step="2" value="48"></div>
+
+    <div class="row"><label>Vector source</label>
+      <select id="vector_source">
+        <option value="gradient">Brightness Gradient</option>
+        <option value="motion">Temporal Motion (delta)</option>
+      </select>
+    </div>
+
+    <div class="row"><label>Axis policy</label>
+      <select id="axis_policy">
+        <option value="dominant">Dominant-only (no diagonals)</option>
+        <option value="both">Both (x & y)</option>
+        <option value="horizontal">Horizontal-only</option>
+        <option value="vertical">Vertical-only</option>
+      </select>
+    </div>
+
+    <div class="row"><label>Video influence</label><input id="vid_influence" type="range" min="0" max="3" step="0.05" value="1.0"></div>
+    <div class="row"><label>Camera blend</label><input id="vid_blend" type="checkbox"></div>
+
+    <div style="display:flex; gap:8px; margin-top:8px;">
+      <button id="btn_clear">Clear</button>
+      <button id="btn_freeze">Pause</button>
+      <button id="btn_reset">Reset</button>
+    </div>
+
+    <div class="small">Base visuals are neutral/grayscale; camera injects color only where influence > 0. Grid vectors are axis-aligned per the Axis Policy — this avoids slanted/seaweed motion.</div>
+  </div>
+</div>
+
+<script>
+/* Grid Field — axis-aligned, grayscale base, camera adds color
+   - Grid maps camera -> luminance grid and computed gx/gy vectors (or motion delta)
+   - Axis policy can force dominant-only vectors (no diagonal), horizontal-only, vertical-only, or both
+   - Particles sample their cell and move aligned to the cell vector (no procedurally slanted noise)
+   - Mesh mode draws displaced quads (no rotation), only X/Y offsets
+   - Text rain interpreted per-column using grid brightness (optional)
+*/
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: true });
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+function resize(){
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width = Math.floor(window.innerWidth * DPR);
+  canvas.height = Math.floor(window.innerHeight * DPR);
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const video = document.getElementById('cam');
+const vCanvas = document.createElement('canvas');
+const vCtx = vCanvas.getContext('2d');
+
+let gridW = parseInt(document.getElementById('mesh_res').value, 10);
+let gridH = 0;
+function updateGridSize(){
+  gridW = Math.max(8, Math.min(160, parseInt(document.getElementById('mesh_res').value, 10)));
+  const aspect = canvas.width / canvas.height;
+  gridH = Math.max(6, Math.round(gridW / aspect));
+  vCanvas.width = gridW;
+  vCanvas.height = gridH;
+}
+updateGridSize();
+
+async function startCamera(){
+  try{
+    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    video.srcObject = s;
+    await video.play();
+    // keep sampling dims controlled by UI
+    updateGridSize();
+    console.log('camera started', vCanvas.width, vCanvas.height);
+  }catch(e){ console.warn('camera start failed', e); }
+}
+
+// grid arrays
+let lum = null, gx = null, gy = null, lumPrev = null;
+
+function computeField(){
+  // fallback procedural grid when camera unavailable
+  if(!video || video.readyState < 2){
+    const w = vCanvas.width, h = vCanvas.height;
+    lum = new Float32Array(w*h);
+    gx = new Float32Array(w*h);
+    gy = new Float32Array(w*h);
+    const t = performance.now() * 0.0004;
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const i = y*w + x;
+        const v = 0.5 + 0.25 * Math.sin(x*0.08 + t) + 0.15*Math.cos(y*0.06 + t*0.7);
+        lum[i] = v;
+      }
+    }
+    // compute gradients
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const i = y*w + x;
+        const l = lum[i];
+        const lR = (x+1<w) ? lum[y*w + (x+1)] : l;
+        const lL = (x-1>=0)? lum[y*w + (x-1)] : l;
+        const lD = (y+1<h)? lum[(y+1)*w + x] : l;
+        const lU = (y-1>=0)? lum[(y-1)*w + x] : l;
+        gx[i] = (lR - lL) * 0.5;
+        gy[i] = (lD - lU) * 0.5;
+      }
+    }
+    lumPrev = lum.slice();
+    return;
+  }
+
+  // camera sampling
+  try{
+    vCtx.drawImage(video, 0, 0, vCanvas.width, vCanvas.height);
+    const w = vCanvas.width, h = vCanvas.height;
+    const img = vCtx.getImageData(0,0,w,h).data;
+    lum = new Float32Array(w*h);
+    gx  = new Float32Array(w*h);
+    gy  = new Float32Array(w*h);
+
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const i = y*w + x;
+        const di = i*4;
+        const r = img[di], g = img[di+1], b = img[di+2];
+        const L = (0.2126*r + 0.7152*g + 0.0722*b) / 255;
+        lum[i] = L;
+      }
+    }
+
+    const source = document.getElementById('vector_source').value;
+    if(source === 'gradient'){
+      for(let y=0;y<h;y++){
+        for(let x=0;x<w;x++){
+          const i = y*w + x;
+          const l = lum[i];
+          const lR = (x+1<w) ? lum[y*w + (x+1)] : l;
+          const lL = (x-1>=0)? lum[y*w + (x-1)] : l;
+          const lD = (y+1<h)? lum[(y+1)*w + x] : l;
+          const lU = (y-1>=0)? lum[(y-1)*w + x] : l;
+          gx[i] = (lR - lL) * 0.5;
+          gy[i] = (lD - lU) * 0.5;
+        }
+      }
+    } else {
+      if(!lumPrev || lumPrev.length !== lum.length) lumPrev = lum.slice();
+      const delta = new Float32Array(w*h);
+      for(let i=0;i<w*h;i++) delta[i] = lum[i] - lumPrev[i];
+      for(let y=0;y<h;y++){
+        for(let x=0;x<w;x++){
+          const i = y*w + x;
+          const dR = (x+1<w) ? delta[y*w + (x+1)] : delta[i];
+          const dL = (x-1>=0)? delta[y*w + (x-1)] : delta[i];
+          const dD = (y+1<h)? delta[(y+1)*w + x] : delta[i];
+          const dU = (y-1>=0)? delta[(y-1)*w + x] : delta[i];
+          gx[i] = (dR - dL) * 0.5;
+          gy[i] = (dD - dU) * 0.5;
+        }
+      }
+      lumPrev.set(lum);
+    }
+
+    // small smoothing to reduce jitter
+    const smooth = 1;
+    const w4 = w, h4 = h;
+    const gx2 = gx.slice(), gy2 = gy.slice();
+    for(let y=0;y<h4;y++){
+      for(let x=0;x<w4;x++){
+        let sx=0, sy=0, c=0;
+        for(let oy=-smooth; oy<=smooth; oy++){
+          for(let ox=-smooth; ox<=smooth; ox++){
+            const nx = x+ox, ny=y+oy;
+            if(nx>=0 && ny>=0 && nx<w4 && ny<h4){
+              const ii = ny*w4 + nx;
+              sx += gx2[ii]; sy += gy2[ii]; c++;
+            }
+          }
+        }
+        const idx = y*w4 + x;
+        gx[idx] = sx / c;
+        gy[idx] = sy / c;
+      }
+    }
+  }catch(e){
+    console.warn('computeField error', e);
+  }
+}
+
+/* Particle mode: particles sample the grid cell vector and move aligned to axis policy */
+let params = { count: 1200, speed: 1.6, decay: 0.92 };
+const particles = [];
+function makeParticle(){
+  return {
+    x: Math.random() * (canvas.width / DPR),
+    y: Math.random() * (canvas.height / DPR),
+    vx: 0, vy: 0,
+    size: 1 + Math.random()*2
+  };
+}
+function resetParticles(n){
+  particles.length = 0;
+  for(let i=0;i<n;i++) particles.push(makeParticle());
+}
+resetParticles(params.count);
+
+function sampleGrid(px, py){
+  if(!gx || !gy) return { vx:0, vy:0, lum:0.5, color: [180,180,180] };
+  const w = vCanvas.width, h = vCanvas.height;
+  const sx = Math.floor((px / (canvas.width / DPR)) * w);
+  const sy = Math.floor((py / (canvas.height / DPR)) * h);
+  const x = Math.max(0, Math.min(w-1, sx));
+  const y = Math.max(0, Math.min(h-1, sy));
+  const i = y*w + x;
+  let sxVal = gx[i], syVal = gy[i];
+  const lumVal = lum ? lum[i] : 0.5;
+  // sample color for tint if video ready
+  let col = [180,180,180];
+  if(video && video.readyState >= 2){
+    try{
+      const di = i*4;
+      const img = vCtx.getImageData(x, y, 1, 1).data;
+      col = [img[0], img[1], img[2]];
+    }catch(e){}
+  }
+  return { vx: sxVal, vy: syVal, lum: lumVal, color: col };
+}
+
+function applyAxisPolicy(vx, vy){
+  const policy = document.getElementById('axis_policy').value;
+  if(policy === 'horizontal') return [vx, 0];
+  if(policy === 'vertical') return [0, vy];
+  if(policy === 'dominant'){
+    if(Math.abs(vx) >= Math.abs(vy)) return [vx, 0];
+    return [0, vy];
+  }
+  return [vx, vy]; // both
+}
+
+function stepParticles(dt){
+  const w = canvas.width / DPR, h = canvas.height / DPR;
+  const influence = parseFloat(document.getElementById('vid_influence').value);
+  // clear (keeps subtle trails but base is neutral grayscale)
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = 'rgba(8,8,8,0.12)';
+  ctx.fillRect(0,0,w,h);
+  ctx.globalCompositeOperation = 'lighter';
+
+  for(const p of particles){
+    const s = sampleGrid(p.x, p.y);
+    let vx = s.vx * influence * 140;
+    let vy = s.vy * influence * 140;
+    [vx, vy] = applyAxisPolicy(vx, vy);
+
+    // lerp velocity toward axis-aligned cell vector to avoid wavy noise
+    const lerpT = 0.72;
+    p.vx = p.vx * (1 - lerpT) + vx * lerpT;
+    p.vy = p.vy * (1 - lerpT) + vy * lerpT;
+
+    // basic integration
+    p.x += p.vx * dt * params.speed * 60;
+    p.y += p.vy * dt * params.speed * 60;
+
+    // wrapping
+    if(p.x < -50) p.x = w + 50;
+    if(p.y < -50) p.y = h + 50;
+    if(p.x > w + 50) p.x = -50;
+    if(p.y > h + 50) p.y = -50;
+
+    // draw: base greys, camera color injected only if influence > 0
+    const lumSample = s.lum;
+    const baseTone = Math.floor(200 - lumSample * 40);
+    const colorT = parseFloat(document.getElementById('vid_influence').value) > 0.05 ? s.color : [baseTone, baseTone, baseTone];
+
+    const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 10 + p.size*1.6);
+    grd.addColorStop(0, `rgba(${colorT[0]},${colorT[1]},${colorT[2]},0.14)`);
+    grd.addColorStop(0.2, `rgba(${colorT[0]},${colorT[1]},${colorT[2]},0.06)`);
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 8 + p.size, 0, Math.PI*2); ctx.fill();
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+    ctx.lineWidth = 0.7;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 1.4 + p.size*0.4, 0, Math.PI*2); ctx.stroke();
+    ctx.globalCompositeOperation = 'lighter';
+  }
+}
+
+/* grid mesh: strict axis-aligned displacement (no rotation) */
+function drawGridMesh(){
+  const w = vCanvas.width, h = vCanvas.height;
+  const cellW = (canvas.width / DPR) / w;
+  const cellH = (canvas.height / DPR) / h;
+  const influence = parseFloat(document.getElementById('vid_influence').value);
+  const axisPolicy = document.getElementById('axis_policy').value;
+
+  // optionally draw subtle grayscale camera underlay
+  if(document.getElementById('vid_blend').checked && video && video.readyState >= 2){
+    ctx.save(); ctx.globalAlpha = 0.12;
+    try{ ctx.drawImage(video, 0, 0, canvas.width / DPR, canvas.height / DPR); }catch(e){}
+    ctx.restore();
+  } else {
+    ctx.clearRect(0,0,canvas.width / DPR, canvas.height / DPR);
+  }
+
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const i = y*w + x;
+      const dx = (gx && gx[i]) ? gx[i] : 0;
+      const dy = (gy && gy[i]) ? gy[i] : 0;
+      let sx = dx * influence * 60;
+      let sy = dy * influence * 60;
+      // axis policy
+      if(axisPolicy === 'horizontal') sy = 0;
+      if(axisPolicy === 'vertical') sx = 0;
+      if(axisPolicy === 'dominant'){
+        if(Math.abs(sx) >= Math.abs(sy)) sy = 0; else sx = 0;
+      }
+      // center of cell displaced
+      const cx = x*cellW + cellW*0.5 + sx;
+      const cy = y*cellH + cellH*0.5 + sy;
+      // pick fill: grayscale base, camera color only when influence > 0
+      const lumVal = lum ? lum[i] : 0.5;
+      let fillColor = `hsl(${Math.floor(200 + lumVal*40)} 6% ${Math.floor(20 + lumVal*40)}%)`; // muted gray
+      if(video && video.readyState >= 2 && parseFloat(document.getElementById('vid_influence').value) > 0.05){
+        try{
+          const img = vCtx.getImageData(x, y, 1, 1).data;
+          const r = img[0], g = img[1], b = img[2];
+          fillColor = `rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(b)})`;
+        }catch(e){}
+      }
+      ctx.fillStyle = fillColor;
+      const wq = Math.max(1, cellW * 0.95);
+      const hq = Math.max(1, cellH * 0.95);
+      ctx.fillRect(cx - wq*0.5, cy - hq*0.5, wq, hq);
+    }
+  }
+}
+
+/* Text-rain (grid) - optional smaller style, uses grid brightness to set columns */
+let columns = [];
+function initTextRain(){
+  const cols = Math.max(8, Math.floor(canvas.width / Math.max(12, Math.round(canvas.width/60))));
+  columns = [];
+  for(let i=0;i<cols;i++){
+    columns.push({ x: (i+0.5) * (canvas.width/cols), y: -Math.random()*300, speed: 1 + Math.random()*4, char: String.fromCharCode(33 + Math.floor(Math.random()*80)) });
+  }
+}
+function stepTextRain(dt){
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = 'rgba(0,0,0,0.08)';
+  ctx.fillRect(0,0,canvas.width / DPR, canvas.height / DPR);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = 'rgba(200,220,200,0.95)';
+  ctx.font = Math.max(10, Math.round(canvas.width/48)) + 'px monospace';
+  for(let i=0;i<columns.length;i++){
+    const col = columns[i];
+    // sample at column top
+    const sample = sampleGrid(col.x, col.y);
+    const influence = parseFloat(document.getElementById('vid_influence').value);
+    col.speed += (sample.lum - 0.5) * influence * 2 * dt;
+    col.y += col.speed;
+    if(Math.random() < 0.03) col.char = String.fromCharCode(33 + Math.floor(Math.random()*80));
+    ctx.fillText(col.char, col.x, col.y);
+    if(col.y > (canvas.height / DPR) + 40) { col.y = -Math.random()*200; col.speed = 1 + Math.random()*4; }
+  }
+}
+
+/* animation */
+let last = performance.now();
+let paused = false;
+function tick(now){
+  const dt = Math.min(50, now - last) / 1000;
+  last = now;
+  if(!paused){
+    updateGridSize();
+    computeField();
+    const mode = document.getElementById('mode').value;
+    if(mode === 'gridParticles') stepParticles(dt);
+    else if(mode === 'gridMesh') drawGridMesh();
+    else if(mode === 'textrain') stepTextRain(dt);
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* UI wiring */
+document.getElementById('mesh_res').addEventListener('input', ()=> updateGridSize());
+document.getElementById('btn_clear').addEventListener('click', ()=> ctx.clearRect(0,0,canvas.width,canvas.height));
+document.getElementById('btn_freeze').addEventListener('click', (e)=>{ paused = !paused; e.target.textContent = paused ? 'Resume' : 'Pause'; });
+document.getElementById('btn_reset').addEventListener('click', ()=> resetParticles(params.count));
+
+/* pointer + pinch for touch */
+const pointers = new Map();
+canvas.addEventListener('pointerdown', (e)=>{ canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); pointers.set(e.pointerId, {x:e.clientX,y:e.clientY,str:1,age:0}); });
+canvas.addEventListener('pointermove', (e)=>{ if(pointers.has(e.pointerId)){ const p=pointers.get(e.pointerId); p.x=e.clientX; p.y=e.clientY; p.age=0; p.str=1; }});
+canvas.addEventListener('pointerup', (e)=> pointers.delete(e.pointerId));
+canvas.addEventListener('pointercancel', (e)=> pointers.delete(e.pointerId));
+
+let pinch = null;
+canvas.addEventListener('touchstart', (e)=>{
+  if(e.touches.length === 2){
+    const a=e.touches[0], b=e.touches[1];
+    pinch = { startDist: Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY), startRes: parseInt(document.getElementById('mesh_res').value,10) };
+  }
+}, { passive:false });
+canvas.addEventListener('touchmove', (e)=>{
+  if(pinch && e.touches.length===2){
+    const a=e.touches[0], b=e.touches[1];
+    const d = Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+    const factor = d / (pinch.startDist || d);
+    let newRes = Math.round(Math.max(8, Math.min(160, pinch.startRes * factor)));
+    document.getElementById('mesh_res').value = newRes;
+    updateGridSize();
+    e.preventDefault();
+  }
+}, { passive:false });
+canvas.addEventListener('touchend', ()=> pinch = null);
+
+/* camera start on first user gesture (mobile) */
+function ensureCamera(){ if(!video.srcObject) startCamera().catch(()=>console.warn('camera fail')); }
+window.addEventListener('pointerdown', ensureCamera, { once:true });
+window.addEventListener('touchstart', ensureCamera, { once:true });
+
+/* initialize text rain sizing */
+initTextRain();
+window.addEventListener('resize', initTextRain);
+
+/* performance guard */
+if(window.innerWidth < 700) params.count = Math.min(params.count, 900);
+
+/* small keyboard shortcuts */
+window.addEventListener('keydown', (e)=>{
+  if(e.key === ' ') { paused = !paused; document.getElementById('btn_freeze').textContent = paused ? 'Resume' : 'Pause'; }
+  if(e.key === '1') document.getElementById('mode').value = 'gridParticles';
+  if(e.key === '2') document.getElementById('mode').value = 'gridMesh';
+  if(e.key === '3') document.getElementById('mode').value = 'textrain';
+  if(e.key === 'r') resetParticles(params.count);
+});
+
+console.log('Grid XY field loaded — axis-aligned vectors, grayscale base, camera adds color when influence > 0.');
+</script>
+
+</body>
+</html>
