@@ -538,7 +538,7 @@ var repoNavInstance = createRepoNav({ owner: 'jeff-gompertz', repo: 'CUseeme', b
 // OVERRIDE the refresh method so the nav shows only the BBC2 link (preserve behavior elsewhere)
 repoNavInstance.refresh = async function() {
     try {
-        if (this.list) this.list.innerHTML = '<a href="https://jeff-gompertz.github.io/CUseeme/bbc2.html" target="_self">📰 BBC2</a>';
+        if (this.list) this.list.innerHTML = '<a href="https://jeff-gompertz.github.io/CUseeme/A/CUseeme_v1.7_dynamic_restyleBLACK.html" target="_self">📰Spawn5</a>';
         if (this.statusEl) setRepoStatus('loaded');
     } catch (e) { console.warn('override refresh failed', e); }
 };
