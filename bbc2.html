@@ -3,22 +3,22 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<title>CUSeeMe v2 — BBC2 (patched)</title>
+<title>CUSeeMe v2 — BBC2 (restored)</title>
 <style>
 /* === Base / layout === */
 html,body{margin:0;padding:0;height:100%;background:#000;font-family:"VT323",monospace;color:#0f0;overflow:hidden;}
 #camera{position:fixed;inset:0;object-fit:cover;transform:scaleX(-1);z-index:0;filter:brightness(1.05) contrast(1.1);}
 
-/* === Prevent iOS tap highlight & accidental selection === */
+/* Prevent iOS tap highlight & accidental selection */
 html, body, a, button, input, #hudToggle, #hudToggle_nav, #miniFeed, .repo-nav {
-  -webkit-tap-highlight-color: transparent;   /* iOS tap highlight */
-  -webkit-touch-callout: none;                 /* disable callout (copy/paste) */
-  -webkit-user-select: none;                   /* prevent accidental text selection */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
   user-select: none;
-  touch-action: manipulation;                  /* faster taps, avoid double-tap zoom */
+  touch-action: manipulation;
 }
 
-/* Allow visible focus for keyboard users */
+/* Keep keyboard focus visible for accessibility */
 :focus { outline: none; }
 :focus-visible { outline: 2px solid rgba(0,255,120,0.6); outline-offset: 2px; }
 
@@ -27,9 +27,9 @@ html, body, a, button, input, #hudToggle, #hudToggle_nav, #miniFeed, .repo-nav {
 #miniFeed video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:0.9}
 #miniFeed:hover{box-shadow:0 0 20px rgba(0,255,120,0.25);transform:scale(1.04)}
 
-/* === PROMPT / DICTATION === */
-#promptWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:5;pointer-events:none}
-#promptBox{pointer-events:auto;background:rgba(0,255,100,0.08);border:1px solid rgba(0,255,100,0.25);border-radius:10px;padding:.6rem 1rem;font-size:1.0rem;display:flex;align-items:center;gap:.4rem;color:#0f0;min-width:36vw;max-width:78vw}
+/* === PROMPT LAYER === */
+#promptWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:5;pointer-events:none;}
+#promptBox{pointer-events:auto;background:rgba(0,255,100,0.08);border:1px solid rgba(0,255,100,0.25);border-radius:10px;padding:.6rem 1rem;font-size:1.2rem;display:flex;align-items:center;gap:.4rem;color:#0f0;min-width:36vw;max-width:78vw}
 #input{background:transparent;border:none;outline:none;color:#fff;font-size:inherit;width:28ch}
 #caret{width:.25ch;height:1.3em;background:#0f0;animation:blink 1s step-end infinite}@keyframes blink{50%{opacity:0}}
 #dictateBtn{background:transparent;border:1px solid rgba(0,255,120,0.12);color:#0f0;padding:6px 8px;border-radius:8px;cursor:pointer}
@@ -38,27 +38,48 @@ html, body, a, button, input, #hudToggle, #hudToggle_nav, #miniFeed, .repo-nav {
 #ticker{position:fixed;left:14px;bottom:14px;width:38%;max-height:55%;display:flex;flex-direction:column-reverse;overflow:hidden;z-index:4;font-size:.95rem;line-height:1.15rem;color:#0f0}
 .tline{opacity:.8;margin:0;animation:fadeIn 1s ease forwards;transition:opacity 45s linear}@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:.8;transform:translateY(0)}}
 
-/* === HUD / NAV === */
-#hudToggle{position:fixed;top:12px;right:12px;z-index:8;background:rgba(0,255,80,0.1);border:1px solid rgba(0,255,120,0.2);border-radius:6px;color:#0f0;padding:6px 10px;cursor:pointer}
-#hudToggle_nav{position:fixed;top:56px;right:12px;z-index:8;background:rgba(0,255,80,0.1);border:1px solid rgba(0,255,120,0.2);border-radius:6px;color:#0f0;padding:6px 10px;cursor:pointer;display:flex;align-items:center;gap:.5rem;user-select:none}
-#hudToggle_nav.holding{background:linear-gradient(90deg,rgba(255,12,110,0.26),rgba(255,40,140,0.12));box-shadow:0 0 64px rgba(255,12,110,0.95);transform:scale(1.02)}
-#hudToggle_nav .holdProgress{position:absolute;left:0;top:0;height:100%;width:0%;border-radius:6px;background:linear-gradient(90deg,rgba(255,12,110,0.28),rgba(255,60,160,0.16));pointer-events:none;z-index:-1}
-#repoStatus{position:fixed;right:14px;top:108px;color:#7fffb0;z-index:8}
+/* === HUD / NAV === (kept consistent, touch-friendly) */
+#hudToggle, #hudToggle_nav {
+  height:44px;
+  min-width:52px;
+  padding:0 12px;
+  font-size:15px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  box-sizing:border-box;
+  line-height:1;
+  border-radius:8px;
+  background:rgba(0,255,80,0.1);
+  border:1px solid rgba(0,255,120,0.2);
+  color:#0f0;
+  cursor:pointer;
+  z-index:8;
+}
+#hudToggle { position:fixed; top:12px; right:12px; }
+#hudToggle:hover{ background: rgba(0,255,120,0.25); }
+
+#hudToggle_nav { position:fixed; top:64px; right:12px; }
+#hudToggle_nav.holding{ transform:none; box-shadow:0 0 36px rgba(255,12,110,0.9), inset 0 0 20px rgba(255,60,160,0.12); }
+#hudToggle_nav .holdProgress{ position:absolute; left:0; top:0; height:100%; width:0%; border-radius:8px; background:linear-gradient(90deg, rgba(255,12,110,0.28), rgba(255,60,160,0.16)); pointer-events:none; z-index:-1; }
+
+/* repo status bubble */
+#repoStatus{position:fixed; right:14px; top:108px; color:#7fffb0; z-index:8}
 
 /* === REPO NAV SIDEBAR === */
-.repo-nav{position:fixed;top:0;right:0;height:100%;width:360px;max-width:90%;background:linear-gradient(180deg,rgba(0,0,0,0.9),rgba(0,0,0,0.85));border-left:1px solid rgba(0,255,120,0.08);padding:12px;transform:translateX(100%);transition:transform .28s cubic-bezier(.2,.9,.3,1),opacity .28s;opacity:0;pointer-events:none;z-index:9;display:flex;flex-direction:column}
-.repo-nav.open{transform:translateX(0);opacity:1;pointer-events:auto}
-.repo-nav header{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px dashed rgba(0,255,120,0.06);padding-bottom:8px;margin-bottom:6px}
-.repo-nav .list{display:block;overflow:auto;padding-right:8px}
-.repo-nav a{display:block;padding:6px 8px;border-radius:6px;color:#9ffea0;text-decoration:none;font-size:13px;margin:4px 0}
-.repo-nav a:hover{background:rgba(0,255,120,0.04);text-decoration:underline}
-.repo-nav .meta{font-size:11px;color:#7fffb0;opacity:.8;margin-bottom:8px}
+.repo-nav{position:fixed; top:0; right:0; height:100%; width:360px; max-width:90%; background:linear-gradient(180deg, rgba(0,0,0,0.9), rgba(0,0,0,0.85)); border-left:1px solid rgba(0,255,120,0.08); padding:12px; transform:translateX(100%); transition:transform .28s cubic-bezier(.2,.9,.3,1), opacity .28s; opacity:0; pointer-events:none; z-index:9; display:flex; flex-direction:column; }
+.repo-nav.open{ transform:translateX(0); opacity:1; pointer-events:auto; }
+.repo-nav header{ display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom:1px dashed rgba(0,255,120,0.06); padding-bottom:8px; margin-bottom:6px; }
+.repo-nav .list{ display:block; overflow:auto; padding-right:8px; }
+.repo-nav a{ display:block; padding:6px 8px; border-radius:6px; color:#9ffea0; text-decoration:none; font-size:13px; margin:4px 0; }
+.repo-nav a:hover{ background:rgba(0,255,120,0.04); text-decoration:underline; }
+.repo-nav .meta{ font-size:11px; color:#7fffb0; opacity:.8; margin-bottom:8px; }
 
-@media (max-width:640px){.repo-nav{width:92%}#miniFeed{width:180px;height:140px}}
+@media (max-width:640px){ .repo-nav{ width:92% } #miniFeed{ width:180px; height:140px } }
 </style>
 </head>
 <body>
-<video id="camera" autoplay muted playsinline style="display:none;"></video>
+<video id="camera" autoplay muted playsinline></video>
 
 <div id="miniFeed" style="left:auto;top:24px;right:24px;">
   <video id="miniVideo" autoplay muted playsinline></video>
@@ -77,7 +98,7 @@ html, body, a, button, input, #hudToggle, #hudToggle_nav, #miniFeed, .repo-nav {
   <header>
     <div>
       <div style="font-family:inherit;font-weight:700">Repository navigation</div>
-      <div class="meta" id="repoMeta">local mode</div>
+      <div class="meta" id="repoMeta">loading...</div>
     </div>
     <div class="controls">
       <button id="repoRefresh" title="Refresh">⟳</button>
@@ -86,7 +107,12 @@ html, body, a, button, input, #hudToggle, #hudToggle_nav, #miniFeed, .repo-nav {
   </header>
   <nav id="repoList" class="list" role="navigation" aria-label="Repository files"></nav>
   <div style="margin-top:auto;font-size:12px;color:#9ffea0;opacity:.9;padding-top:10px">
-    Tip: click the single link to go to the live site.
+    Tip: click file to open on GitHub (opens in new tab). You can instantiate the nav with createRepoNav(owner, repo, branch).
+    <div style="margin-top:10px">
+      <div style="font-size:12px;margin-top:8px;color:#9ffea0">Site pages</div>
+      <a href="index.html" target="_self">🏠 Index</a>
+      <a href="bbc2.html" target="_self">📰 BBC2</a>
+    </div>
   </div>
 </aside>
 
@@ -100,31 +126,338 @@ html, body, a, button, input, #hudToggle, #hudToggle_nav, #miniFeed, .repo-nav {
 
 <div id="ticker"></div>
 
-<!-- lightweight local script -->
-<script>
-/* Safe/test bbc2.html for CodePen / iPad preview:
-   - no camera getUserMedia in this patched build (disabled)
-   - local/fallback RepoNav that only shows Index link
-   - robust handlers for drag and hold-to-open
-   - tap highlight and touch-focus sticking prevented via CSS + JS
-*/
+<!-- Hidden container where Bloople-injected anchors will be relocated -->
+<div id="rssSource" style="display:none;"></div>
+<script src="//rss.bloople.net/?url=https%3A%2F%2Ffeeds.bbci.co.uk%2Fnews%2Fworld%2Frss.xml&showtitle=false&type=js"></script>
 
+<script>
+/* ------------------------------------------------------------------
+  Restored bbc2.html — full semantic layer restored:
+  - relocateInjectedAnchors + MutationObserver (keeps injected anchors out of page)
+  - feed harvesting (harvests titles from #rssSource)
+  - TTS (speechSynthesis) and STT integration (SpeechRecognition)
+  - full RepoNav with GitHub API fetches
+  - robust drag + pointer-based hold-to-open behavior
+  - tap-highlight disable + touch-focus blur helper
+------------------------------------------------------------------*/
+
+/* TTS warm-up */
+speechSynthesis.cancel();
+
+/* TICKER helper */
+const ticker = document.getElementById('ticker');
 function addTickerLine(text, cls){
-  const ticker=document.getElementById('ticker');
-  if(!ticker) return;
-  const el=document.createElement('div');
-  el.className='tline'+(cls? ' '+cls:'');
-  el.textContent=text;
+  const el = document.createElement('div');
+  el.className = 'tline' + (cls ? ' ' + cls : '');
+  el.textContent = text;
   ticker.prepend(el);
-  if(ticker.children.length>40) ticker.removeChild(ticker.lastChild);
+  if(ticker.children.length > 40) ticker.removeChild(ticker.lastChild);
   setTimeout(()=>{ el.style.opacity = 0.15; }, 45000);
 }
-addTickerLine('Patched safe build — tap highlight disabled', 'note');
+addTickerLine('BBC2 — semantic layer restored', 'note');
+addTickerLine('Tip: tap 🎤 to dictate or type and press Enter', 'note');
 
-function setRepoStatus(msg){ var el=document.getElementById('repoStatus'); if(el) el.textContent = 'nav: '+msg; }
+/* Speech synthesis helpers */
+let voicesReady = false;
+function waitVoices(){ return new Promise(res=>{
+  if(voicesReady && speechSynthesis.getVoices().length) return res();
+  const id = setInterval(()=>{ if(speechSynthesis.getVoices().length){ clearInterval(id); voicesReady=true; res(); } }, 80);
+  setTimeout(()=>{ if(!voicesReady){ clearInterval(id); voicesReady=true; res(); } }, 4000);
+});}
+async function speak(text){
+  if(!('speechSynthesis' in window)) return;
+  await waitVoices();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 1.02; u.pitch = 0.95; u.volume = 0.95; u.lang = 'en-GB';
+  const vs = speechSynthesis.getVoices();
+  u.voice = vs.find(v => /en-GB|Google UK|Kate|Samantha/i.test(v.name)) || vs[0] || null;
+  try{ speechSynthesis.speak(u); }catch(e){ console.warn('speak failed', e); }
+}
 
-/* Robust draggable mini feed */
-(function makeMiniDraggable(){
+/* --- relocateInjectedAnchors + MutationObserver --- */
+function isPartOfUI(node){
+  if(!node || node.nodeType !== 1) return false;
+  return node.closest && ( node.closest('#promptBox') || node.closest('#repoNav') || node.closest('#miniFeed') || node.closest('#ticker') );
+}
+
+function sanitizeAndAppendToRssSource(el){
+  try{
+    el.removeAttribute && el.removeAttribute('href');
+    el.style.pointerEvents = 'none';
+    el.style.opacity = '0';
+    el.style.color = 'transparent';
+    el.style.textDecoration = 'none';
+  }catch(e){}
+  try{
+    const target = document.getElementById('rssSource');
+    if(target && el.parentNode !== target) target.appendChild(el);
+  }catch(e){}
+}
+
+function handleAddedNode(node){
+  try{
+    if(node.nodeType === Node.TEXT_NODE){
+      const text = node.textContent.trim();
+      if(text){
+        const target = document.getElementById('rssSource');
+        if(target){
+          target.appendChild(document.createTextNode(text));
+        }
+        node.parentNode && node.parentNode.removeChild(node);
+      }
+      return;
+    }
+
+    if(node.nodeType !== 1) return;
+
+    if(node.tagName === 'A' && !isPartOfUI(node)){
+      sanitizeAndAppendToRssSource(node);
+      return;
+    }
+
+    const anchors = Array.from(node.querySelectorAll ? node.querySelectorAll('a') : []);
+    if(anchors.length){
+      anchors.forEach(a => { if(!isPartOfUI(a)) sanitizeAndAppendToRssSource(a); });
+      if(!isPartOfUI(node) && !node.querySelector('a') && node.textContent.trim()===''){
+        try{ node.parentNode && node.parentNode.removeChild(node); } catch(e){}
+      }
+      return;
+    }
+
+    if(node.parentNode === document.body && !isPartOfUI(node)){
+      try{
+        const target = document.getElementById('rssSource');
+        if(target) target.appendChild(node);
+      }catch(e){}
+    }
+  }catch(err){
+    console.warn('handleAddedNode error', err);
+  }
+}
+
+const bodyObserver = new MutationObserver(muts=>{
+  for(const m of muts){
+    for(const n of Array.from(m.addedNodes || [])){
+      handleAddedNode(n);
+    }
+  }
+});
+bodyObserver.observe(document.documentElement || document.body, { childList:true, subtree:true, characterData:true });
+
+function relocateInjectedAnchors(){
+  try{
+    const target = document.getElementById('rssSource');
+    if(!target) return;
+    const allAnchors = Array.from(document.querySelectorAll('body > a, body a'));
+    for(const a of allAnchors){
+      if(a.closest && (a.closest('#repoNav') || a.closest('#promptBox') || a.closest('#miniFeed') || a.closest('#ticker'))) continue;
+      if(a.closest('#rssSource')) continue;
+      sanitizeAndAppendToRssSource(a);
+    }
+    const directChildren = Array.from(document.body.children);
+    for(const el of directChildren){
+      if(el.id === 'rssSource' || el.id === 'miniFeed' || el.id === 'promptWrap' || el.id === 'hudToggle' || el.id === 'hudToggle_nav' || el.id === 'repoNav' || el.id === 'ticker') continue;
+      if(el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.tagName === 'VIDEO' || el.tagName === 'LINK') continue;
+      if(!isPartOfUI(el)){
+        try{ target.appendChild(el); }catch(e){}
+      }
+    }
+  }catch(err){
+    console.warn('relocateInjectedAnchors failed', err);
+  }
+}
+setTimeout(relocateInjectedAnchors, 120);
+setTimeout(relocateInjectedAnchors, 900);
+setTimeout(relocateInjectedAnchors, 2500);
+
+/* ---------------- Harvest headlines (reads from #rssSource) ---------------- */
+let feedBuffer = [];
+function harvestHeadlines(){
+  const container = document.getElementById('rssSource');
+  const anchors = container ? Array.from(container.querySelectorAll('a')) : Array.from(document.querySelectorAll('a'));
+  const titles = anchors.map(a => (a.textContent || '').trim()).filter(Boolean);
+  const now = Date.now();
+  titles.forEach(t => {
+    if(!feedBuffer.some(x => x.title === t)){
+      feedBuffer.push({ title: t, ts: now });
+    }
+  });
+  if(feedBuffer.length > 120) feedBuffer = feedBuffer.slice(-120);
+}
+setTimeout(harvestHeadlines, 1500);
+setInterval(()=>{ relocateInjectedAnchors(); harvestHeadlines(); }, 60_000);
+
+/* ---------------- Helpers, blend, semantic router ---------------- */
+function keywordsFrom(text){
+  return (text||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/)
+    .filter(w => w.length > 3 && !['about','with','into','from','that','this','what','have','just','will','been','they','them'].includes(w));
+}
+function blendWithFeed(userText){
+  if(!feedBuffer.length) return null;
+  const keys = keywordsFrom(userText);
+  let candidates = [];
+  if(keys.length){
+    candidates = feedBuffer.map(h=>{
+      const score = keys.reduce((s,k)=> s + (h.title.toLowerCase().includes(k) ? 1 : 0), 0);
+      return {...h, score};
+    }).filter(x=>x.score>0).sort((a,b)=> b.score - a.score);
+  }
+  if(candidates.length === 0){
+    const pool = feedBuffer.slice(-20);
+    while(candidates.length < 2 && pool.length) candidates.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
+  }
+  const pick = (arr,n)=>{ const out=[]; const copy=arr.slice(); while(n-->0 && copy.length) out.push(copy.splice(Math.floor(Math.random()*copy.length),1)[0]); return out; };
+  const chosen = pick(candidates,2).map(x=>x.title);
+  const stems = ['signal echoes:', 'semantic crossover:', 'adjacent headline:', 'network murmur:', 'latent alignment:'];
+  const stem = stems[Math.floor(Math.random()*stems.length)];
+  if(chosen.length === 1) return `${stem} ${chosen[0]}`;
+  if(chosen.length === 2){
+    const A = chosen[0].replace(/[–—-]\s.*$/,'').replace(/\.$/,'');
+    const B = chosen[1].replace(/^[A-Z].{0,10}:\s*/,'');
+    return `${stem} ${A} — ${B}.`;
+  }
+  return null;
+}
+
+function semanticRouter(raw){
+  const text = (raw||'').trim();
+  if(!text) return;
+  addTickerLine('> ' + text);
+  const lower = text.toLowerCase();
+
+  if(lower === 'hello' || lower.startsWith('hi')){
+    const reply = "Hello. I'm listening.";
+    addTickerLine('< ' + reply);
+    speak(reply);
+  } else if(lower.includes('time')){
+    const reply = 'Current time: ' + new Date().toLocaleTimeString();
+    addTickerLine('< ' + reply);
+    speak(reply);
+  } else if(lower.startsWith('repeat after me')){
+    const say = text.replace(/^repeat after me/i,'').trim() || '…say what?';
+    addTickerLine('< ' + say);
+    speak(say);
+  } else {
+    const echo = 'You said: ' + text;
+    addTickerLine('< ' + echo);
+    speak(echo);
+  }
+
+  const blend = blendWithFeed(text);
+  if(blend){
+    setTimeout(()=>{ addTickerLine('< ' + blend); speak(blend); }, 520);
+  }
+}
+
+/* Input wiring */
+const input = document.getElementById('input');
+if(input){
+  input.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      const val = input.value.trim();
+      if(!val) return;
+      semanticRouter(val);
+      input.value = '';
+    }
+  });
+}
+
+/* STT integration for karaoke button (🎤) */
+(function enableDictationIntegration(){
+  const btn = document.getElementById('dictateBtn');
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  let recognition = null;
+  let listening = false;
+
+  function setListeningState(on){
+    listening = !!on;
+    if(!btn) return;
+    if(listening){
+      btn.classList.add('listening');
+      btn.textContent = '⏺️';
+    } else {
+      btn.classList.remove('listening');
+      btn.textContent = '🎤';
+    }
+  }
+
+  if(!btn) return;
+
+  if(SpeechRecognition){
+    recognition = new SpeechRecognition();
+    recognition.lang = 'en-GB';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = function(){ setListeningState(true); addTickerLine('→ dictation: listening…'); };
+    recognition.onend = function(){ setListeningState(false); };
+
+    recognition.onresult = function(evt){
+      let interim = '';
+      let final = '';
+      for(let i = evt.resultIndex; i < evt.results.length; ++i){
+        const res = evt.results[i];
+        const t = res[0].transcript;
+        if(res.isFinal) final += t;
+        else interim += t;
+      }
+      const display = (final || interim).trim();
+      if(display) input.value = display;
+      if(final && final.trim()){
+        semanticRouter(final.trim());
+        input.value = '';
+      }
+    };
+
+    recognition.onerror = function(err){
+      console.warn('SpeechRecognition error', err);
+      addTickerLine('⚠ dictation error: '+(err.error||err.message||'unknown'));
+      setListeningState(false);
+    };
+
+    btn.addEventListener('click', function(){
+      try{
+        if(listening){ recognition.stop(); }
+        else { recognition.start(); }
+      }catch(err){
+        console.warn('rec start/stop failed', err);
+        setListeningState(false);
+      }
+    });
+
+  } else {
+    btn.addEventListener('click', function(){ try{ input.focus(); }catch(e){} addTickerLine('→ Focused input for iOS keyboard dictation. Tap your keyboard mic to start.'); });
+  }
+})();
+
+/* diagnostics feed */
+const diagnostics = ["calibrating optical link...","signal noise threshold: 0.72","field sync nominal","mirror node online","loopback handshake OK"];\nsetInterval(function(){ const msg = diagnostics[Math.floor(Math.random()*diagnostics.length)]; addTickerLine(msg); }, 6500);
+
+/* camera init & mini feed */
+(async ()=>{
+  const cam = document.getElementById('camera');
+  const mini = document.getElementById('miniVideo');
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+    if(cam) cam.srcObject = stream;
+    if(mini) mini.srcObject = stream;
+  }catch(e){
+    const msg="⚠ camera access denied/unavailable";
+    document.body.style.background="#111";
+    console.warn(msg);
+    const t=document.createElement("div");
+    t.textContent=msg;
+    t.style.position="fixed";t.style.top="50%";t.style.left="50%";
+    t.style.transform="translate(-50%,-50%)";
+    t.style.color="#0f0";
+    document.body.appendChild(t);
+  }
+})();
+
+/* draggable mini feed (robust) */
+(() => {
   const el = document.getElementById('miniFeed');
   if(!el) return;
   let down=false, ox=0, oy=0;
@@ -133,84 +466,263 @@ function setRepoStatus(msg){ var el=document.getElementById('repoStatus'); if(el
     if(e.changedTouches && e.changedTouches[0]) return {x:e.changedTouches[0].clientX,y:e.changedTouches[0].clientY};
     return {x:e.clientX,y:e.clientY};
   }
-  const start = evt => { const p=getClient(evt); down=true; ox=p.x - el.offsetLeft; oy=p.y - el.offsetTop; el.style.cursor='grabbing'; };
-  const move = evt => { if(!down) return; const p=getClient(evt); el.style.left=(p.x-ox)+'px'; el.style.top=(p.y-oy)+'px'; if(evt.preventDefault) evt.preventDefault(); };
+  const start = e => {
+    const p = getClient(e);
+    down=true;
+    ox = p.x - el.offsetLeft;
+    oy = p.y - el.offsetTop;
+    el.style.cursor='grabbing';
+  };
+  const move = e => {
+    if(!down) return;
+    const p = getClient(e);
+    el.style.left = (p.x - ox) + 'px';
+    el.style.top = (p.y - oy) + 'px';
+    if(e.preventDefault) e.preventDefault();
+  };
   const stop = () => { down=false; el.style.cursor='grab'; };
-  el.addEventListener('mousedown', start); el.addEventListener('touchstart', start, {passive:false});
-  window.addEventListener('mousemove', move); window.addEventListener('touchmove', move, {passive:false});
-  window.addEventListener('mouseup', stop); window.addEventListener('touchend', stop);
+  el.addEventListener('mousedown', start);
+  el.addEventListener('touchstart', start, { passive:false });
+  window.addEventListener('mousemove', move);
+  window.addEventListener('touchmove', move, { passive:false });
+  window.addEventListener('mouseup', stop);
+  window.addEventListener('touchend', stop);
 })();
 
-/* Toggle mini feed */
+/* toggle mini feed */
 const miniBtn = document.getElementById('hudToggle');
-if(miniBtn) miniBtn.addEventListener('click', ()=>{ const m=document.getElementById('miniFeed'); if(m) m.style.display = m.style.display==='none'?'block':'none'; });
+if(miniBtn){
+  miniBtn.addEventListener('click', ()=>{
+    const mini = document.getElementById('miniFeed');
+    mini.style.display = mini.style.display === 'none' ? 'block' : 'none';
+  });
+}
 
-/* Local/fallback RepoNav (no network). Shows a single Index link. */
+/* Full RepoNav factory (GitHub API) */
 (function globalRepoNavFactory(){
   function RepoNav(opts){
+    this.owner = opts.owner;
+    this.repo = opts.repo;
+    this.branch = opts.branch || 'main';
     this.container = document.getElementById(opts.containerId || 'repoNav');
     this.list = document.getElementById(opts.listId);
     this.meta = document.getElementById(opts.metaId);
     this.statusEl = document.getElementById('repoStatus');
-    if(this.meta) this.meta.textContent = (opts.owner? opts.owner + '/'+ opts.repo : 'local') + ' · local';
+    if(!this.container || !this.list) throw new Error('RepoNav container/list not found');
+    this.apiBase = 'https://api.github.com/repos/'+this.owner+'/'+this.repo+'/contents';
+    this.blobBase = 'https://github.com/'+this.owner+'/'+this.repo+'/blob/'+this.branch;
+    this._open = false;
+    this.initUI();
   }
-  RepoNav.prototype.refresh = async function(){
-    if(this.list) this.list.innerHTML = '<a href="https://jeff-gompertz.github.io/CUseeme/index.html" target="_self">🏠 Index</a>';
-    if(this.statusEl) setRepoStatus('loaded');
+  RepoNav.prototype.initUI = function(){
+    var self=this;
+    var refreshBtn = document.getElementById('repoRefresh');
+    var closeBtn = document.getElementById('repoClose');
+    if(refreshBtn) refreshBtn.addEventListener('click',function(){ self.refresh(); });
+    if(closeBtn) closeBtn.addEventListener('click',function(){ self.close(); });
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape' && self._open) self.close(); });
+    if(this.meta) this.meta.textContent = this.owner+'/'+this.repo+' · branch: '+this.branch;
   };
-  RepoNav.prototype.open = async function(){ if(this.container) this.container.classList.add('open'); await this.refresh(); };
-  RepoNav.prototype.close = function(){ if(this.container) this.container.classList.remove('open'); };
-  window.createRepoNav = function(opts){ return new RepoNav(opts||{}); };
-})();
+  RepoNav.prototype.refresh = async function(){
+    if(this.list) this.list.innerHTML = '<div style="opacity:.6">loading…</div>';
+    if(this.statusEl) setRepoStatus('loading');
+    try{
+      await this.renderPath('');
+      if(this.statusEl) setRepoStatus('loaded');
+    }catch(err){
+      if(this.list) this.list.innerHTML = '<div style="color:#ffb8b8">failed to load repository: '+(err.message||'unknown')+'</div>';
+      if(this.statusEl) setRepoStatus('error — '+(err.message||'unknown'));
+    }
+  };
+  RepoNav.prototype.fetchContents = async function(path){
+    var url = this.apiBase+'/'+encodeURI(path)+'?ref='+encodeURIComponent(this.branch);
+    var resp = await fetch(url);
+    if(!resp.ok){
+      var txt = await resp.text().catch(function(){ return resp.statusText; });
+      throw new Error('GitHub API '+resp.status+' — '+txt);
+    }
+    return resp.json();
+  };
+  RepoNav.prototype.renderPath = async function(path){
+    try{
+      var items = await this.fetchContents(path || '');
+      var list = Array.isArray(items) ? items : [items];
+      list.sort(function(a,b){
+        if(a.type===b.type) return a.name.localeCompare(b.name);
+        return a.type === 'dir' ? -1 : 1;
+      });
+      this.list.innerHTML = '';
+      if(path){
+        var up = document.createElement('a');
+        up.href='#';
+        up.className='dir';
+        up.textContent='.. (up)';
+        up.addEventListener('click', (function(self){ return function(e){ if(e.preventDefault) e.preventDefault(); var parent = path.split('/').slice(0,-1).join('/'); self.renderPath(parent); }; })(this));
+        this.list.appendChild(up);
+      }
+      for(var i=0;i<list.length;i++){
+        var it=list[i];
+        var el=document.createElement('a');
+        el.textContent = it.name + (it.type==='dir' ? '/' : '');
+        if(it.type === 'dir'){
+          el.className = 'dir';
+          el.href = '#';
+          (function(self, itEl){
+            itEl.addEventListener('click', function(e){ if(e.preventDefault) e.preventDefault(); self.renderPath(it.path); });
+          })(this, el);
+        } else {
+          el.target = '_blank';
+          el.rel = 'noopener noreferrer';
+          el.href = this.blobBase + '/' + it.path;
+        }
+        this.list.appendChild(el);
+      }
+    }catch(err){
+      console.warn('RepoNav fetch failed:', err);
+      this.list.innerHTML = '';
+      var fallbackIntro = document.createElement('div');
+      fallbackIntro.style.opacity = '.8';
+      fallbackIntro.textContent = 'Could not load via API — fallback links:';
+      this.list.appendChild(fallbackIntro);
+      var fallbackPaths = [
+        {label:'Repository on GitHub', href:'https://github.com/'+this.owner+'/'+this.repo},
+        {label:'README', href:'https://github.com/'+this.owner+'/'+this.repo+'/blob/'+this.branch+'/README.md'},
+        {label:'This file', href:'https://github.com/'+this.owner+'/'+this.repo+'/blob/'+this.branch+'/bbc2.html'}
+      ];
+      for(var j=0;j<fallbackPaths.length;j++){
+        var f=fallbackPaths[j];
+        var a=document.createElement('a');
+        a.href=f.href; a.target='_blank'; a.rel='noopener noreferrer';
+        a.textContent = f.label;
+        this.list.appendChild(a);
+      }
+      if(this.statusEl) setRepoStatus('fallback — see list');
+    }
+  };
+  RepoNav.prototype.open = async function(){
+    if(!this._open){
+      this.container.classList.add('open');
+      this.container.setAttribute('aria-hidden','false');
+      this._open=true;
+      await this.refresh();
+    }
+  };
+  RepoNav.prototype.close = function(){
+    if(this._open){
+      this.container.classList.remove('open');
+      this.container.setAttribute('aria-hidden','true');
+      this._open=false;
+    }
+  };
+  RepoNav.prototype.toggle = function(){
+    return this._open ? this.close() : this.open();
+  };
 
-/* instantiate */
-var repoNavInstance = createRepoNav({ owner:'jeff-gompertz', repo:'CUseeme', branch:'main', containerId:'repoNav', listId:'repoList', metaId:'repoMeta' });
+  window.createRepoNav = function(opts){
+    if(!opts || !opts.owner || !opts.repo) throw new Error('owner and repo required to create repo nav');
+    return new RepoNav(opts);
+  };
+})(); // end factory
 
-/* Hold-to-open wiring (safe) */
+// instantiate repo nav
+var repoNavInstance = createRepoNav({ owner: 'jeff-gompertz', repo: 'CUseeme', branch: 'main', containerId: 'repoNav', listId: 'repoList', metaId: 'repoMeta' });
+
+// minimal surgical override (keeps nav intentionally simple in this build)
+repoNavInstance.refresh = async function() {
+  try {
+    if (this.list) this.list.innerHTML = '<a href="https://jeff-gompertz.github.io/CUseeme/index.html" target="_self">🏠 Index</a>';
+    if (this.statusEl) setRepoStatus('loaded');
+  } catch (e) { console.warn('override refresh failed', e); }
+};
+
+/* Hold-to-open behavior — pointer-first (robust across devices) */
 (function attachHoldToOpen(){
-  const btn = document.getElementById('hudToggle_nav');
-  if(!btn) return;
-  const progress = btn.querySelector('.holdProgress');
+  const BTN_ID = 'hudToggle_nav';
+  const PROG_SELECTOR = '.holdProgress';
   const HOLD_MS = 1000;
-  let holdTimer = null, startX=0, startY=0, triggered=false, moved=false, maxMove=12, lastOpenedAt=0;
+  const btn = document.getElementById(BTN_ID);
+  const repo = document.getElementById('repoNav');
+  const progressEl = btn ? btn.querySelector(PROG_SELECTOR) : null;
+  let holdTimer = null;
+  let startT = 0;
+  let startX = 0, startY = 0;
+  let raf = null;
 
-  function setProgress(p){ if(progress) progress.style.width = Math.max(0, Math.min(100, p*100)) + '%'; }
-  function startHold(x,y){
-    triggered=false; moved=false; startX=x; startY=y; btn.classList.add('holding'); setProgress(0);
-    if(progress){ progress.style.transition = 'width '+HOLD_MS+'ms linear'; setTimeout(()=>progress.style.width='100%',10); }
+  function setProgress(p){
+    if(progressEl) progressEl.style.width = Math.max(0, Math.min(100, p*100)) + '%';
+  }
+
+  function step(){
+    const elapsed = performance.now() - startT;
+    setProgress(Math.min(1, elapsed / HOLD_MS));
+    if(elapsed < HOLD_MS) raf = requestAnimationFrame(step);
+  }
+
+  function startHold(e){
+    e.preventDefault && e.preventDefault();
+    const client = (e.touches && e.touches[0]) ? {x:e.touches[0].clientX,y:e.touches[0].clientY} : (e.clientX!==undefined ? {x:e.clientX,y:e.clientY} : {x:0,y:0});
+    startX = client.x; startY = client.y;
+    startT = performance.now();
+    btn.classList.add('holding');
+    setProgress(0);
+    if(progressEl){ progressEl.style.transition = 'width '+HOLD_MS+'ms linear'; setTimeout(()=>{ if(progressEl) progressEl.style.width='100%'; }, 10); }
+    raf = requestAnimationFrame(step);
     holdTimer = setTimeout(()=>{
-      triggered=true; btn.setAttribute('aria-pressed','true'); lastOpenedAt=Date.now();
-      if(repoNavInstance && repoNavInstance.open) repoNavInstance.open();
-      setRepoStatus('opened'); clearHoldVisual();
+      if(repo) repo.classList.add('open');
+      if(typeof repoNavInstance !== 'undefined' && repoNavInstance && repoNavInstance.refresh) {
+        repoNavInstance.refresh();
+      }
+      setRepoStatus('loaded');
+      clearHoldVisual();
     }, HOLD_MS);
     setRepoStatus('holding');
   }
-  function clearHoldVisual(){ btn.classList.remove('holding'); if(progress){ progress.style.transition='width 160ms linear'; progress.style.width='0%'; } if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; } setTimeout(()=>{ if(btn.getAttribute('aria-pressed')==='true') btn.setAttribute('aria-pressed','false'); },350); }
-  function cancelHold(){ if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; } triggered=false; clearHoldVisual(); setRepoStatus('idle'); }
 
-  btn.addEventListener('touchstart', e => { const t=e.touches && e.touches[0]; if(!t) return; startHold(t.clientX,t.clientY); }, {passive:true});
-  btn.addEventListener('touchmove', e => { const t=e.touches && e.touches[0]; if(!t) return; if(Math.abs(t.clientX-startX)>maxMove||Math.abs(t.clientY-startY)>maxMove){ moved=true; cancelHold(); } }, {passive:true});
-  btn.addEventListener('touchend', e => { if(triggered) clearHoldVisual(); else cancelHold(); });
-  btn.addEventListener('touchcancel', cancelHold);
+  function clearHoldVisual(){
+    btn.classList.remove('holding');
+    if(progressEl){ progressEl.style.transition = 'width 160ms linear'; progressEl.style.width = '0%'; }
+    if(holdTimer){ clearTimeout(holdTimer); holdTimer = null; }
+    if(raf){ cancelAnimationFrame(raf); raf = null; }
+    setTimeout(()=>{ if(btn.getAttribute('aria-pressed') === 'true') btn.setAttribute('aria-pressed','false'); }, 350);
+  }
 
-  btn.addEventListener('mousedown', e => {
-    if(e.button!==0) return;
-    startHold(e.clientX,e.clientY);
-    function onMove(ev){ if(Math.abs(ev.clientX-startX)>maxMove||Math.abs(ev.clientY-startY)>maxMove){ moved=true; cancelHold(); document.removeEventListener('mousemove',onMove); } }
-    function onUp(ev){ document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); if(triggered) clearHoldVisual(); else cancelHold(); }
-    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
-  });
+  function cancelHold(){
+    if(holdTimer){ clearTimeout(holdTimer); holdTimer = null; }
+    if(raf){ cancelAnimationFrame(raf); raf = null; }
+    btn.classList.remove('holding');
+    setProgress(0);
+    setRepoStatus('idle');
+  }
 
-  btn.addEventListener('keydown', e => { if(e.key===' '||e.key==='Enter'){ startHold(0,0); } });
-  btn.addEventListener('keyup', e => { if(e.key===' '||e.key==='Enter'){ if(holdTimer) cancelHold(); else clearHoldVisual(); } });
+  if(!btn) return;
+
+  // pointer events (preferred)
+  btn.addEventListener('pointerdown', startHold, {passive:false});
+  btn.addEventListener('pointermove', function(e){
+    const dx = Math.abs(e.clientX - startX);
+    const dy = Math.abs(e.clientY - startY);
+    if(dx > 12 || dy > 12) cancelHold();
+  }, {passive:true});
+  btn.addEventListener('pointerup', function(){ clearHoldVisual(); }, {passive:true});
+  btn.addEventListener('pointercancel', cancelHold, {passive:true});
+
+  // fallbacks
+  btn.addEventListener('touchstart', startHold, {passive:false});
+  btn.addEventListener('touchmove', function(e){ const t=e.touches && e.touches[0]; if(t && (Math.abs(t.clientX - startX) > 12 || Math.abs(t.clientY - startY) > 12)) cancelHold(); }, {passive:true});
+  btn.addEventListener('touchend', function(){ clearHoldVisual(); });
 
   const closeBtn = document.getElementById('repoClose');
-  if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(repoNavInstance) repoNavInstance.close(); setRepoStatus('idle'); });
+  if(closeBtn){
+    closeBtn.addEventListener('click', function(){ if(repo) repo.classList.remove('open'); setRepoStatus('idle'); });
+  }
 
   document.addEventListener('click', function(e){
-    const nav = document.getElementById('repoNav'); const toggle = document.getElementById('hudToggle_nav');
-    if(!nav.contains(e.target) && !toggle.contains(e.target)){ if(Date.now()-lastOpenedAt<350) return; if(repoNavInstance) repoNavInstance.close(); }
-  });
+    if(!repo) return;
+    if(repo.classList.contains('open') && !repo.contains(e.target) && !btn.contains(e.target)){
+      repo.classList.remove('open');
+      setRepoStatus('idle');
+    }
+  }, true);
 })();
 
 /* Prevent touch-caused focus sticking (keeps keyboard focus intact) */
@@ -219,19 +731,14 @@ var repoNavInstance = createRepoNav({ owner:'jeff-gompertz', repo:'CUseeme', bra
   document.addEventListener('touchstart', ()=>{ lastTouch = Date.now(); }, {passive:true});
   document.addEventListener('focusin', (e)=>{
     if(Date.now() - lastTouch < 500 && e.target && (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.getAttribute('role') === 'button')){
-      try { e.target.blur(); } catch(e){}
+      try{ e.target.blur(); }catch(_){ }
     }
   }, true);
 })();
 
-/* Lightweight input/dictation fallback */
-const input = document.getElementById('input');
-if(input){
-  input.addEventListener('keydown', e=>{
-    if(e.key === 'Enter'){ e.preventDefault(); const v=input.value.trim(); if(!v) return; addTickerLine('> '+v); input.value=''; setTimeout(()=>addTickerLine('< echo: '+v),300); }
-  });
-}
-(function dictationFallback(){ const btn=document.getElementById('dictateBtn'); if(!btn) return; btn.addEventListener('click', ()=>{ try{ input && input.focus(); }catch(e){} addTickerLine('→ Focused input (use keyboard mic on mobile)'); }); })();
+setTimeout(()=> addTickerLine('Feed harvesting initialized'), 800);
+setTimeout(()=> addTickerLine('Ready — speak or type to blend headlines'), 1200);
+function setRepoStatus(msg){ var el=document.getElementById('repoStatus'); if(el) el.textContent = 'nav: '+msg; }
 </script>
 </body>
 </html>
