@@ -128,15 +128,20 @@ html,body{
   border:1px solid rgba(0,255,120,0.2);
   border-radius:6px;
   color:#0f0;
-  font-size:12px;
-  padding:6px 10px;
+/*  font-size:12px;
+  padding:6px 10px;*/
+ font-size: 14px;    /* was 12px — up one step */
+  padding: 8px 12px;  /* was 6px 10px — slightly bigger hit area */
   cursor:pointer;
   backdrop-filter:blur(3px);
 }
 #hudToggle:hover{background:rgba(0,255,120,0.25);} 
 
 #hudToggle_nav{
-  position:fixed;top:48px;right:12px;z-index:4;
+  position:fixed;      /*top:48px;right:12px;z-index:4;*/
+  top: 68px;          /* moved down to allow for bigger FLOAT (12 + 48 + 8 gap) */
+  right: 12px;
+  z-index: 4;
   background:rgba(0,255,80,0.1);
   border:1px solid rgba(0,255,120,0.2);
   border-radius:6px;
