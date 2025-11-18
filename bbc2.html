@@ -3,24 +3,49 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<title>CUSeeMe v2 — BBC2 (safe test build)</title>
+<title>CUSeeMe v2 — BBC2 (patched)</title>
 <style>
+/* === Base / layout === */
 html,body{margin:0;padding:0;height:100%;background:#000;font-family:"VT323",monospace;color:#0f0;overflow:hidden;}
 #camera{position:fixed;inset:0;object-fit:cover;transform:scaleX(-1);z-index:0;filter:brightness(1.05) contrast(1.1);}
+
+/* === Prevent iOS tap highlight & accidental selection === */
+html, body, a, button, input, #hudToggle, #hudToggle_nav, #miniFeed, .repo-nav {
+  -webkit-tap-highlight-color: transparent;   /* iOS tap highlight */
+  -webkit-touch-callout: none;                 /* disable callout (copy/paste) */
+  -webkit-user-select: none;                   /* prevent accidental text selection */
+  user-select: none;
+  touch-action: manipulation;                  /* faster taps, avoid double-tap zoom */
+}
+
+/* Allow visible focus for keyboard users */
+:focus { outline: none; }
+:focus-visible { outline: 2px solid rgba(0,255,120,0.6); outline-offset: 2px; }
+
+/* === MINI FEED === */
 #miniFeed{position:absolute;top:24px;right:24px;width:240px;height:180px;border-radius:10px;overflow:hidden;z-index:6;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.15);backdrop-filter:blur(4px);cursor:grab;transition:box-shadow .3s ease, transform .4s ease;}
 #miniFeed video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:0.9}
 #miniFeed:hover{box-shadow:0 0 20px rgba(0,255,120,0.25);transform:scale(1.04)}
+
+/* === PROMPT / DICTATION === */
 #promptWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:5;pointer-events:none}
-#promptBox{pointer-events:auto;background:rgba(0,255,100,0.08);border:1px solid rgba(0,255,100,0.25);border-radius:10px;padding:.6rem 1rem;font-size:1.2rem;display:flex;align-items:center;gap:.4rem;color:#0f0;min-width:40vw;max-width:80vw}
-#input{background:transparent;border:none;outline:none;color:#ffffff;font-size:inherit;width:28ch}
+#promptBox{pointer-events:auto;background:rgba(0,255,100,0.08);border:1px solid rgba(0,255,100,0.25);border-radius:10px;padding:.6rem 1rem;font-size:1.0rem;display:flex;align-items:center;gap:.4rem;color:#0f0;min-width:36vw;max-width:78vw}
+#input{background:transparent;border:none;outline:none;color:#fff;font-size:inherit;width:28ch}
 #caret{width:.25ch;height:1.3em;background:#0f0;animation:blink 1s step-end infinite}@keyframes blink{50%{opacity:0}}
 #dictateBtn{background:transparent;border:1px solid rgba(0,255,120,0.12);color:#0f0;padding:6px 8px;border-radius:8px;cursor:pointer}
-#ticker{position:fixed;left:14px;bottom:14px;width:38%;max-height:55%;display:flex;flex-direction:column-reverse;overflow:hidden;z-index:4;font-size:0.95rem;line-height:1.15rem;color:#0f0}
+
+/* === TICKER === */
+#ticker{position:fixed;left:14px;bottom:14px;width:38%;max-height:55%;display:flex;flex-direction:column-reverse;overflow:hidden;z-index:4;font-size:.95rem;line-height:1.15rem;color:#0f0}
 .tline{opacity:.8;margin:0;animation:fadeIn 1s ease forwards;transition:opacity 45s linear}@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:.8;transform:translateY(0)}}
+
+/* === HUD / NAV === */
 #hudToggle{position:fixed;top:12px;right:12px;z-index:8;background:rgba(0,255,80,0.1);border:1px solid rgba(0,255,120,0.2);border-radius:6px;color:#0f0;padding:6px 10px;cursor:pointer}
 #hudToggle_nav{position:fixed;top:56px;right:12px;z-index:8;background:rgba(0,255,80,0.1);border:1px solid rgba(0,255,120,0.2);border-radius:6px;color:#0f0;padding:6px 10px;cursor:pointer;display:flex;align-items:center;gap:.5rem;user-select:none}
 #hudToggle_nav.holding{background:linear-gradient(90deg,rgba(255,12,110,0.26),rgba(255,40,140,0.12));box-shadow:0 0 64px rgba(255,12,110,0.95);transform:scale(1.02)}
 #hudToggle_nav .holdProgress{position:absolute;left:0;top:0;height:100%;width:0%;border-radius:6px;background:linear-gradient(90deg,rgba(255,12,110,0.28),rgba(255,60,160,0.16));pointer-events:none;z-index:-1}
+#repoStatus{position:fixed;right:14px;top:108px;color:#7fffb0;z-index:8}
+
+/* === REPO NAV SIDEBAR === */
 .repo-nav{position:fixed;top:0;right:0;height:100%;width:360px;max-width:90%;background:linear-gradient(180deg,rgba(0,0,0,0.9),rgba(0,0,0,0.85));border-left:1px solid rgba(0,255,120,0.08);padding:12px;transform:translateX(100%);transition:transform .28s cubic-bezier(.2,.9,.3,1),opacity .28s;opacity:0;pointer-events:none;z-index:9;display:flex;flex-direction:column}
 .repo-nav.open{transform:translateX(0);opacity:1;pointer-events:auto}
 .repo-nav header{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px dashed rgba(0,255,120,0.06);padding-bottom:8px;margin-bottom:6px}
@@ -28,7 +53,7 @@ html,body{margin:0;padding:0;height:100%;background:#000;font-family:"VT323",mon
 .repo-nav a{display:block;padding:6px 8px;border-radius:6px;color:#9ffea0;text-decoration:none;font-size:13px;margin:4px 0}
 .repo-nav a:hover{background:rgba(0,255,120,0.04);text-decoration:underline}
 .repo-nav .meta{font-size:11px;color:#7fffb0;opacity:.8;margin-bottom:8px}
-#repoStatus{position:fixed;right:14px;top:108px;color:#7fffb0;z-index:8}
+
 @media (max-width:640px){.repo-nav{width:92%}#miniFeed{width:180px;height:140px}}
 </style>
 </head>
@@ -75,13 +100,13 @@ html,body{margin:0;padding:0;height:100%;background:#000;font-family:"VT323",mon
 
 <div id="ticker"></div>
 
+<!-- lightweight local script -->
 <script>
-/*
-  Safe/test bbc2.html for CodePen:
-  - NO getUserMedia (camera disabled)
-  - NO GitHub API fetches (RepoNav is local/fallback-only)
-  - lightweight, robust wiring for hold-to-open + drag
-  This should avoid freezes in CodePen preview.
+/* Safe/test bbc2.html for CodePen / iPad preview:
+   - no camera getUserMedia in this patched build (disabled)
+   - local/fallback RepoNav that only shows Index link
+   - robust handlers for drag and hold-to-open
+   - tap highlight and touch-focus sticking prevented via CSS + JS
 */
 
 function addTickerLine(text, cls){
@@ -94,7 +119,7 @@ function addTickerLine(text, cls){
   if(ticker.children.length>40) ticker.removeChild(ticker.lastChild);
   setTimeout(()=>{ el.style.opacity = 0.15; }, 45000);
 }
-addTickerLine('Safe test build — no camera, no API fetch', 'note');
+addTickerLine('Patched safe build — tap highlight disabled', 'note');
 
 function setRepoStatus(msg){ var el=document.getElementById('repoStatus'); if(el) el.textContent = 'nav: '+msg; }
 
@@ -138,10 +163,10 @@ if(miniBtn) miniBtn.addEventListener('click', ()=>{ const m=document.getElementB
   window.createRepoNav = function(opts){ return new RepoNav(opts||{}); };
 })();
 
-/* instantiate and minimal override already baked in refresh above */
+/* instantiate */
 var repoNavInstance = createRepoNav({ owner:'jeff-gompertz', repo:'CUseeme', branch:'main', containerId:'repoNav', listId:'repoList', metaId:'repoMeta' });
 
-/* Hold-to-open wiring (safe, copied from index, identical behavior) */
+/* Hold-to-open wiring (safe) */
 (function attachHoldToOpen(){
   const btn = document.getElementById('hudToggle_nav');
   if(!btn) return;
@@ -149,9 +174,7 @@ var repoNavInstance = createRepoNav({ owner:'jeff-gompertz', repo:'CUseeme', bra
   const HOLD_MS = 1000;
   let holdTimer = null, startX=0, startY=0, triggered=false, moved=false, maxMove=12, lastOpenedAt=0;
 
-  function setProgress(p){
-    if(progress) progress.style.width = Math.max(0, Math.min(100, p*100)) + '%';
-  }
+  function setProgress(p){ if(progress) progress.style.width = Math.max(0, Math.min(100, p*100)) + '%'; }
   function startHold(x,y){
     triggered=false; moved=false; startX=x; startY=y; btn.classList.add('holding'); setProgress(0);
     if(progress){ progress.style.transition = 'width '+HOLD_MS+'ms linear'; setTimeout(()=>progress.style.width='100%',10); }
@@ -162,12 +185,7 @@ var repoNavInstance = createRepoNav({ owner:'jeff-gompertz', repo:'CUseeme', bra
     }, HOLD_MS);
     setRepoStatus('holding');
   }
-  function clearHoldVisual(){
-    btn.classList.remove('holding');
-    if(progress){ progress.style.transition='width 160ms linear'; progress.style.width='0%'; }
-    if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; }
-    setTimeout(()=>{ if(btn.getAttribute('aria-pressed')==='true') btn.setAttribute('aria-pressed','false'); },350);
-  }
+  function clearHoldVisual(){ btn.classList.remove('holding'); if(progress){ progress.style.transition='width 160ms linear'; progress.style.width='0%'; } if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; } setTimeout(()=>{ if(btn.getAttribute('aria-pressed')==='true') btn.setAttribute('aria-pressed','false'); },350); }
   function cancelHold(){ if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; } triggered=false; clearHoldVisual(); setRepoStatus('idle'); }
 
   btn.addEventListener('touchstart', e => { const t=e.touches && e.touches[0]; if(!t) return; startHold(t.clientX,t.clientY); }, {passive:true});
@@ -180,8 +198,7 @@ var repoNavInstance = createRepoNav({ owner:'jeff-gompertz', repo:'CUseeme', bra
     startHold(e.clientX,e.clientY);
     function onMove(ev){ if(Math.abs(ev.clientX-startX)>maxMove||Math.abs(ev.clientY-startY)>maxMove){ moved=true; cancelHold(); document.removeEventListener('mousemove',onMove); } }
     function onUp(ev){ document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); if(triggered) clearHoldVisual(); else cancelHold(); }
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
   });
 
   btn.addEventListener('keydown', e => { if(e.key===' '||e.key==='Enter'){ startHold(0,0); } });
@@ -191,24 +208,30 @@ var repoNavInstance = createRepoNav({ owner:'jeff-gompertz', repo:'CUseeme', bra
   if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(repoNavInstance) repoNavInstance.close(); setRepoStatus('idle'); });
 
   document.addEventListener('click', function(e){
-    const nav = document.getElementById('repoNav');
-    const toggle = document.getElementById('hudToggle_nav');
+    const nav = document.getElementById('repoNav'); const toggle = document.getElementById('hudToggle_nav');
     if(!nav.contains(e.target) && !toggle.contains(e.target)){ if(Date.now()-lastOpenedAt<350) return; if(repoNavInstance) repoNavInstance.close(); }
   });
 })();
 
-/* Light dictation fallback and input wiring */
+/* Prevent touch-caused focus sticking (keeps keyboard focus intact) */
+(function preventTouchFocusSticking(){
+  let lastTouch = 0;
+  document.addEventListener('touchstart', ()=>{ lastTouch = Date.now(); }, {passive:true});
+  document.addEventListener('focusin', (e)=>{
+    if(Date.now() - lastTouch < 500 && e.target && (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.getAttribute('role') === 'button')){
+      try { e.target.blur(); } catch(e){}
+    }
+  }, true);
+})();
+
+/* Lightweight input/dictation fallback */
 const input = document.getElementById('input');
 if(input){
   input.addEventListener('keydown', e=>{
     if(e.key === 'Enter'){ e.preventDefault(); const v=input.value.trim(); if(!v) return; addTickerLine('> '+v); input.value=''; setTimeout(()=>addTickerLine('< echo: '+v),300); }
   });
 }
-(function dictationFallback(){
-  const btn = document.getElementById('dictateBtn');
-  if(!btn) return;
-  btn.addEventListener('click', ()=>{ try{ input && input.focus(); }catch(e){} addTickerLine('→ Focused input (use keyboard mic on mobile)'); });
-})();
+(function dictationFallback(){ const btn=document.getElementById('dictateBtn'); if(!btn) return; btn.addEventListener('click', ()=>{ try{ input && input.focus(); }catch(e){} addTickerLine('→ Focused input (use keyboard mic on mobile)'); }); })();
 </script>
 </body>
 </html>
