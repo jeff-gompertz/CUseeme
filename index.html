@@ -121,43 +121,57 @@ html,body{
   to{opacity:.8;transform:translateY(0)}
 }
 
-/* === TOGGLE BUTTONS ===
-   Patched: make index FLOAT and NAV larger to match BBC sizing.
-   Explicit height/min-width & larger font-size applied.
-*/
-#hudToggle,
-#hudToggle_nav {
-  height: 48px;            /* explicit height to match BBC large size */
-  min-width: 56px;         /* minimum width to match BBC */
-  padding: 0 14px;         /* horizontal padding; vertical handled by height */
-  font-size: 16px;         /* larger text for touch targets */
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  line-height: 1;
-  border-radius: 8px;
-  background: rgba(0,255,80,0.1);
-  border: 1px solid rgba(0,255,120,0.2);
-  color: #0f0;
-  cursor: pointer;
-  z-index: 4;
+/* === TOGGLE BUTTONS === */
+#hudToggle{
+  position:fixed;top:12px;right:12px;z-index:4;
+  background:rgba(0,255,80,0.1);
+  border:1px solid rgba(0,255,120,0.2);
+  border-radius:6px;
+  color:#0f0;
+  font-size:12px;
+  padding:6px 10px;
+  cursor:pointer;
+  backdrop-filter:blur(3px);
+}
+#hudToggle:hover{background:rgba(0,255,120,0.25);} 
+
+#hudToggle_nav{
+  position:fixed;top:48px;right:12px;z-index:4;
+  background:rgba(0,255,80,0.1);
+  border:1px solid rgba(0,255,120,0.2);
+  border-radius:6px;
+  color:#0f0;
+  font-size:12px;
+  padding:6px 10px;
+  cursor:pointer;
+  backdrop-filter:blur(3px);
+  user-select:none;
+  -webkit-user-select:none;
+  touch-action:manipulation;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  position:fixed;
 }
 
-/* Positioning: FLOAT at 12px, NAV pushed down to account for larger FLOAT height */
-#hudToggle { position: fixed; top: 12px; right: 12px; }
-#hudToggle:hover{ background: rgba(0,255,120,0.25); }
-
-#hudToggle_nav { position: fixed; top: 68px; right: 12px; }
+/* Strong neon reddish-pink hold-state (high contrast with green) */
 #hudToggle_nav.holding{
-  /* keep the glowing effect but avoid scaling so sizes remain identical */
-  transform: none;
+  background:linear-gradient(90deg, rgba(255,12,110,0.26), rgba(255,40,140,0.12));
   box-shadow:0 0 64px rgba(255,12,110,0.95), inset 0 0 36px rgba(255,60,160,0.32);
+  transform:scale(1.06);
+  border-color:rgba(255,12,110,0.7);
 }
+
+/* progress indicator inside the button (grows left→right while holding) */
 #hudToggle_nav .holdProgress{
-  position:absolute;left:0;top:0;height:100%;width:0%;border-radius:8px;
+  position:absolute;
+  left:0;top:0;height:100%;width:0%;
+  border-radius:6px;
   background:linear-gradient(90deg, rgba(255,12,110,0.28), rgba(255,60,160,0.16));
-  pointer-events:none;transition:width 0s linear;z-index:-1;
+  pointer-events:none;
+  transition:width 0s linear;
+  z-index:-1;
 }
 
 /* status bubble */
@@ -298,16 +312,14 @@ function setRepoStatus(msg){
   let down=false,ox=0,oy=0;
   const start=e=>{
     down=true;
-    const touch = e.touches && e.touches[0];
-    ox = (touch ? touch.clientX : e.clientX) - el.offsetLeft;
-    oy = (touch ? touch.clientY : e.clientY) - el.offsetTop;
+    ox=(e.touches?e.touches[0].clientX:e.clientX)-el.offsetLeft;
+    oy=(e.touches?e.touches[0].clientY:e.clientY)-el.offsetTop;
     el.style.cursor='grabbing';
   };
   const move=e=>{
     if(!down)return;
-    const touch = e.touches && e.touches[0];
-    const cx = touch ? touch.clientX : e.clientX;
-    const cy = touch ? touch.clientY : e.clientY;
+    const cx=(e.touches?e.touches[0].clientX:e.clientX);
+    const cy=(e.touches?e.touches[0].clientY:e.clientY);
     el.style.left=(cx-ox)+'px';
     el.style.top=(cy-oy)+'px';
     if(e.preventDefault) e.preventDefault();
