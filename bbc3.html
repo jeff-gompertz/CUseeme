@@ -1,453 +1,214 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>BBC two</title>
-
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>CUSeeMe v2 — BBC2 (safe test build)</title>
 <style>
-/* =========================================================
-Retro4.4 — Aqua Glass HUD + Minimal Ticker
-Refined for v2.1 Unlinked — proper spacing & font balance
-========================================================= */
-
-:root {
-  --hud-glass: rgba(185, 225, 255, 0.18);
-  --hud-border-light: rgba(255, 255, 255, 0.22);
-  --hud-border-dark: rgba(0, 45, 90, 0.06);
-  --hud-shadow: 0 12px 45px rgba(0, 50, 90, 0.25);
-  --hud-text: #dfffe6;
-  --btn-bg: rgba(255,255,255,0.04);
-  --btn-inset-light: rgba(255,255,255,0.06);
-  --btn-inset-dark: rgba(0,30,60,0.06);
-  --bg: #000000;
-  --ticker: #ff3a2f;
-  --orange: #ff7a30;
-}
-
-/* page background */
-html,body{height:100%;margin:0;background:var(--bg);color:var(--hud-text);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
-
-/* centered minimalist prompt area (responsive) */
-#centerWrap{
-  position:fixed;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:18px;
-  box-sizing:border-box;
-  pointer-events: none; /* allow the small controls to capture events */
-}
-.centerCard{
-  pointer-events:auto;
-  width:min(820px,94vw);
-  max-width:820px;
-  display:flex;
-  align-items:center;
-  gap:14px;
-  justify-content:center;
-  flex-direction:column;
-}
-.inputRow{
-  width:100%;
-  position:relative;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-#input{
-  width:100%;
-  max-width:720px;
-  box-sizing:border-box;
-  padding:14px 64px 14px 16px;
-  border-radius:14px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.04);
-  color:var(--hud-text);
-  font-size:18px;
-  outline:none;
-  caret-color: var(--orange);
-  text-align:center;
-}
-
-/* center mic button — orange outline variant the user asked for */
-#centerMic{
-  position:absolute;
-  right:12px;
-  width:46px;
-  height:46px;
-  min-width:46px;
-  border-radius:10px;
-  border:2px solid rgba(255,122,48,0.14);
-  background: linear-gradient(180deg, rgba(255,122,48,0.12), rgba(255,122,48,0.06));
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:18px;
-  color:var(--orange);
-  cursor:pointer;
-  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
-  box-shadow: 0 8px 22px rgba(0,0,0,0.6);
-  -webkit-tap-highlight-color: transparent;
-}
-#centerMic:active{ transform: translateY(1px) scale(0.995); }
-#centerMic.on{
-  box-shadow: inset 0 0 0 3px rgba(255,122,48,0.12), 0 10px 26px rgba(255,122,48,0.06);
-  background: linear-gradient(180deg, rgba(255,122,48,0.18), rgba(255,122,48,0.08));
-  color: #fff;
-}
-
-/* helper text under input */
-#helper { font-size:13px; color: rgba(255,255,255,0.22); text-align:center; margin-top:8px; min-height:18px; }
-
-/* HUD (top-right) — kept but made compact & responsive */
-#hudShell{
-  position: fixed;
-  top: 18px;
-  right: 14px;
-  z-index: 1100;
-  display:grid;
-  gap:10px;
-  padding:12px;
-  min-width: 260px;
-  text-align:center;
-  color: var(--hud-text);
-  background: var(--hud-glass);
-  border-radius: 12px;
-  border: 1px solid var(--hud-border-light);
-  box-shadow: var(--hud-shadow);
-  backdrop-filter: blur(10px) saturate(1.1);
-  -webkit-backdrop-filter: blur(10px) saturate(1.1);
-}
-#hudHeader{ font-size:14px; margin:0; color:var(--hud-text); font-weight:600; }
-.hud-row{ display:flex; gap:8px; }
-.hud-btn{
-  flex:1; font:inherit; font-size:14px; cursor:pointer;
-  color:var(--hud-text); background: var(--btn-bg);
-  border:1px solid rgba(255,255,255,0.03);
-  border-radius:10px; padding:8px 10px;
-  transition: all .12s ease; box-shadow: inset 1px 1px 2px var(--btn-inset-light);
-}
-.hud-btn:active{ transform: translateY(1px); }
-.hud-btn.on{
-  background: linear-gradient(180deg, rgba(255,122,48,0.12), rgba(255,122,48,0.06));
-  color: #fff; border-color: rgba(255,122,48,0.22);
-  box-shadow: 0 8px 20px rgba(255,122,48,0.06), inset 0 0 0 2px rgba(255,122,48,0.06);
-}
-
-/* Ticker (bottom-left) */
-#ticker{
-  position: fixed; left: 14px; bottom: 14px; z-index: 900;
-  width: 46vw; max-width: 700px;
-  display: flex; flex-direction: column-reverse; gap:6px;
-  pointer-events: none; font-family: monospace; font-size:18px; line-height:1.3;
-}
-.tline{ background: rgba(255,255,255,0.02); padding:8px 10px; border-left:4px solid var(--orange); border-radius:6px; color:var(--hud-text); opacity:0.98; animation: fadeIn .5s ease; }
-.user{ color: #9fd7ff; font-weight:600; }
-.sys{ color: var(--orange); font-weight:700; font-size:20px; }
-.note{ color: rgba(255,255,255,0.26); font-weight:300; font-size:14px; }
-
-@keyframes fadeIn { from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
-
-/* responsive tweaks */
-@media (max-width:720px){
-  #hudShell{ right:10px; top:10px; min-width:200px; padding:8px; }
-  #input{ max-width:88vw; font-size:16px; padding-right:56px; }
-  #centerMic{ right:8px; width:42px; height:42px; border-radius:8px; }
-  #ticker{ width:74vw; font-size:15px; left:8px; bottom:10px; }
-  .hud-btn{ font-size:13px; padding:8px 6px; }
-}
-
-/* preserve hidden Bloople anchors from display (same as before) */
-body > a, body > b, body > h1, body > p { display:none !important; }
-#rssSource, #rssSource * { display:none !important; }
-
+html,body{margin:0;padding:0;height:100%;background:#000;font-family:"VT323",monospace;color:#0f0;overflow:hidden;}
+#camera{position:fixed;inset:0;object-fit:cover;transform:scaleX(-1);z-index:0;filter:brightness(1.05) contrast(1.1);}
+#miniFeed{position:absolute;top:24px;right:24px;width:240px;height:180px;border-radius:10px;overflow:hidden;z-index:6;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.15);backdrop-filter:blur(4px);cursor:grab;transition:box-shadow .3s ease, transform .4s ease;}
+#miniFeed video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:0.9}
+#miniFeed:hover{box-shadow:0 0 20px rgba(0,255,120,0.25);transform:scale(1.04)}
+#promptWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:5;pointer-events:none}
+#promptBox{pointer-events:auto;background:rgba(0,255,100,0.08);border:1px solid rgba(0,255,100,0.25);border-radius:10px;padding:.6rem 1rem;font-size:1.2rem;display:flex;align-items:center;gap:.4rem;color:#0f0;min-width:40vw;max-width:80vw}
+#input{background:transparent;border:none;outline:none;color:#ffffff;font-size:inherit;width:28ch}
+#caret{width:.25ch;height:1.3em;background:#0f0;animation:blink 1s step-end infinite}@keyframes blink{50%{opacity:0}}
+#dictateBtn{background:transparent;border:1px solid rgba(0,255,120,0.12);color:#0f0;padding:6px 8px;border-radius:8px;cursor:pointer}
+#ticker{position:fixed;left:14px;bottom:14px;width:38%;max-height:55%;display:flex;flex-direction:column-reverse;overflow:hidden;z-index:4;font-size:0.95rem;line-height:1.15rem;color:#0f0}
+.tline{opacity:.8;margin:0;animation:fadeIn 1s ease forwards;transition:opacity 45s linear}@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:.8;transform:translateY(0)}}
+#hudToggle{position:fixed;top:12px;right:12px;z-index:8;background:rgba(0,255,80,0.1);border:1px solid rgba(0,255,120,0.2);border-radius:6px;color:#0f0;padding:6px 10px;cursor:pointer}
+#hudToggle_nav{position:fixed;top:56px;right:12px;z-index:8;background:rgba(0,255,80,0.1);border:1px solid rgba(0,255,120,0.2);border-radius:6px;color:#0f0;padding:6px 10px;cursor:pointer;display:flex;align-items:center;gap:.5rem;user-select:none}
+#hudToggle_nav.holding{background:linear-gradient(90deg,rgba(255,12,110,0.26),rgba(255,40,140,0.12));box-shadow:0 0 64px rgba(255,12,110,0.95);transform:scale(1.02)}
+#hudToggle_nav .holdProgress{position:absolute;left:0;top:0;height:100%;width:0%;border-radius:6px;background:linear-gradient(90deg,rgba(255,12,110,0.28),rgba(255,60,160,0.16));pointer-events:none;z-index:-1}
+.repo-nav{position:fixed;top:0;right:0;height:100%;width:360px;max-width:90%;background:linear-gradient(180deg,rgba(0,0,0,0.9),rgba(0,0,0,0.85));border-left:1px solid rgba(0,255,120,0.08);padding:12px;transform:translateX(100%);transition:transform .28s cubic-bezier(.2,.9,.3,1),opacity .28s;opacity:0;pointer-events:none;z-index:9;display:flex;flex-direction:column}
+.repo-nav.open{transform:translateX(0);opacity:1;pointer-events:auto}
+.repo-nav header{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px dashed rgba(0,255,120,0.06);padding-bottom:8px;margin-bottom:6px}
+.repo-nav .list{display:block;overflow:auto;padding-right:8px}
+.repo-nav a{display:block;padding:6px 8px;border-radius:6px;color:#9ffea0;text-decoration:none;font-size:13px;margin:4px 0}
+.repo-nav a:hover{background:rgba(0,255,120,0.04);text-decoration:underline}
+.repo-nav .meta{font-size:11px;color:#7fffb0;opacity:.8;margin-bottom:8px}
+#repoStatus{position:fixed;right:14px;top:108px;color:#7fffb0;z-index:8}
+@media (max-width:640px){.repo-nav{width:92%}#miniFeed{width:180px;height:140px}}
 </style>
 </head>
 <body>
+<video id="camera" autoplay muted playsinline style="display:none;"></video>
 
-<!-- Centered prompt -->
-<div id="centerWrap" aria-live="polite">
-  <div class="centerCard" role="region" aria-label="Centered prompt">
-    <div class="inputRow">
-      <input id="input" placeholder="speak or type… then Enter" autocomplete="off" />
-      <button id="centerMic" title="Start/Stop mic">🎙️</button>
+<div id="miniFeed" style="left:auto;top:24px;right:24px;">
+  <video id="miniVideo" autoplay muted playsinline></video>
+</div>
+
+<div id="hudToggle">⧉ FLOAT</div>
+
+<div id="hudToggle_nav" role="button" aria-pressed="false" aria-label="Hold to open navigation">
+  <div class="holdProgress" aria-hidden="true" style="position:absolute;"></div>
+  ⧉ NAV
+</div>
+
+<div id="repoStatus">nav: idle</div>
+
+<aside id="repoNav" class="repo-nav" aria-hidden="true">
+  <header>
+    <div>
+      <div style="font-family:inherit;font-weight:700">Repository navigation</div>
+      <div class="meta" id="repoMeta">local mode</div>
     </div>
-    <div id="helper">Tap the orange mic or press Enter to submit — spoken words will be read back.</div>
+    <div class="controls">
+      <button id="repoRefresh" title="Refresh">⟳</button>
+      <button id="repoClose" title="Close">✕</button>
+    </div>
+  </header>
+  <nav id="repoList" class="list" role="navigation" aria-label="Repository files"></nav>
+  <div style="margin-top:auto;font-size:12px;color:#9ffea0;opacity:.9;padding-top:10px">
+    Tip: click the single link to go to the live site.
+  </div>
+</aside>
+
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" spellcheck="false" autocomplete="off" placeholder="ask or speak..." />
+    <button id="dictateBtn" type="button" aria-label="Start dictation" title="Start dictation">🎤</button>
   </div>
 </div>
 
-<!-- Compact HUD (top-right) -->
-<div id="hudShell" aria-hidden="false">
-  <div id="hudHeader">Semantic Feed — BBC Reactive</div>
-  <input id="input_hidden_for_hud" style="display:none" />
-  <div class="hud-row">
-    <button id="btnMic"  class="hud-btn" title="Start/Stop mic">🎙️</button>
-    <button id="btnMute" class="hud-btn on" title="Toggle spoken replies">🔊</button>
-    <button id="btnNext" class="hud-btn" title="Next HUD">➡</button>
-  </div>
-</div>
-
-<!-- Ticker -->
-<div id="ticker" aria-live="polite" role="status"></div>
-
-<!-- ===== BBC via Bloople (no CORS) ===== -->
-<div id="rssSource" style="display:none;"></div>
-<script src="//rss.bloople.net/?url=https%3A%2F%2Ffeeds.bbci.co.uk%2Fnews%2Fworld%2Frss.xml&showtitle=false&type=js"></script>
+<div id="ticker"></div>
 
 <script>
-/* =========================================================
-v2.1 — Semantic Core + Reactive BBC Blender
-Modified for:
- - responsive centered input
- - orange center mic with outline (mirrors HUD mic)
- - HUD kept compact and functional (btnMic, btnMute, btnNext still wired)
-All original functionality preserved.
+/*
+  Safe/test bbc2.html for CodePen:
+  - NO getUserMedia (camera disabled)
+  - NO GitHub API fetches (RepoNav is local/fallback-only)
+  - lightweight, robust wiring for hold-to-open + drag
+  This should avoid freezes in CodePen preview.
 */
 
-// ---------- Voice engine warm-up ----------
-speechSynthesis.cancel(); // clears stale speech queue on reload
-
-// ---------- DOM refs ----------
-const input = document.getElementById('input');
-const centerMic = document.getElementById('centerMic');
-const btnMic = document.getElementById('btnMic');
-const btnMute = document.getElementById('btnMute');
-const btnNext = document.getElementById('btnNext');
-const ticker = document.getElementById('ticker');
-
-// helper to mirror hud mic class to center mic so visual state stays in sync
-function mirrorMicState(){
-  if(btnMic.classList.contains('on')) centerMic.classList.add('on');
-  else centerMic.classList.remove('on');
-}
-// observe class changes on btnMic
-const micObserver = new MutationObserver(muts=>{
-  for(const m of muts){
-    if(m.attributeName === 'class') mirrorMicState();
-  }
-});
-micObserver.observe(btnMic, { attributes: true, attributeFilter: ['class'] });
-
-// ensure clicking the center button triggers the HUD mic behavior (wires into existing listeners)
-centerMic.addEventListener('click', ()=>{ btnMic.click(); });
-
-// ---------- Ticker ----------
-function addLine(text, cls='sys'){
-  const el = document.createElement('div');
-  el.className = `tline ${cls}`;
-  el.textContent = text;
+function addTickerLine(text, cls){
+  const ticker=document.getElementById('ticker');
+  if(!ticker) return;
+  const el=document.createElement('div');
+  el.className='tline'+(cls? ' '+cls:'');
+  el.textContent=text;
   ticker.prepend(el);
-  if(ticker.children.length > 80) ticker.removeChild(ticker.lastChild);
+  if(ticker.children.length>40) ticker.removeChild(ticker.lastChild);
+  setTimeout(()=>{ el.style.opacity = 0.15; }, 45000);
 }
-addLine('v2.1 online — semantic core + BBC reactive blending', 'note');
-addLine('Mic optional. Typing always works. Say: "time?", "repeat after me …", or anything.', 'note');
+addTickerLine('Safe test build — no camera, no API fetch', 'note');
 
-// ---------- Speech Synthesis (reply) ----------
-let speakEnabled = true;
-let voicesReady = false;
-function waitVoices(){
-  return new Promise(res=>{
-    const id = setInterval(()=>{
-      if (speechSynthesis.getVoices().length){ clearInterval(id); voicesReady=true; res(); }
-    }, 100);
-    setTimeout(()=>{ if(!voicesReady){ clearInterval(id); voicesReady=true; res(); } }, 3500);
-  });
-}
-async function speak(text){
-  if(!speakEnabled || !('speechSynthesis' in window)) return;
-  if(!voicesReady) await waitVoices();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'en-GB';
-  u.rate = 1.02; u.pitch = 0.95; u.volume = 0.9;
-  const v = speechSynthesis.getVoices();
-  u.voice = v.find(x => /en-GB|UK|Kate|Samantha|Google UK English/i.test(x.name)) || v[0];
-  try{ speechSynthesis.speak(u); }catch(e){ /* ignore */ }
-}
+function setRepoStatus(msg){ var el=document.getElementById('repoStatus'); if(el) el.textContent = 'nav: '+msg; }
 
-// wire mute (keeps original behavior)
-btnMute.addEventListener('click', ()=>{
-  speakEnabled = !speakEnabled;
-  btnMute.classList.toggle('on', speakEnabled);
-  btnMute.textContent = speakEnabled ? '🔊 Voice On' : '🔇 Voice Off';
-  addLine(`Spoken replies ${speakEnabled?'enabled':'disabled'}`, 'note');
-});
-
-// iOS/WebKit needs a user action before speaking reliably
-window.addEventListener('touchstart', ()=> { try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch(_){} }, { once:true });
-
-// ---------- BBC feed buffer (via Bloople injecting anchors) ----------
-let feedBuffer = [];   // array of {title, ts}
-function harvestHeadlines(){
-  // Bloople injects into <body>; select anchors and dedupe by text
-  const anchors = Array.from(document.body.querySelectorAll('a'));
-  const titles = anchors.map(a => (a.textContent || '').trim()).filter(Boolean);
-  const now = Date.now();
-  titles.forEach(t => {
-    if(!feedBuffer.some(x => x.title === t)){
-      feedBuffer.push({ title: t, ts: now });
-    }
-  });
-  if(feedBuffer.length > 80) feedBuffer = feedBuffer.slice(-80);
-}
-setTimeout(harvestHeadlines, 1500);
-setInterval(harvestHeadlines, 60000);
-
-// ensure feed anchors inert and styled (non-intrusive)
-setTimeout(() => {
-  document.querySelectorAll('a').forEach(a => {
-    a.removeAttribute('href');
-    a.style.color = 'rgba(150,200,255,0.4)';
-    a.style.pointerEvents = 'none';
-    a.style.textDecoration = 'none';
-  });
-}, 3000);
-
-// ---------- Tiny keyword helper ----------
-function keywordsFrom(text){
-  return (text.toLowerCase()
-    .replace(/[^a-z0-9\s]/g,' ')
-    .split(/\s+/)
-    .filter(w => w.length > 3 && !'about with into from that this what your have just will been they them than then here there which where only also because while after before could would should doing being hello thank'.includes(w))
-  );
-}
-
-// ---------- Blend user text with BBC headlines ----------
-function blendWithFeed(userText){
-  if(feedBuffer.length === 0) return null;
-  const keys = keywordsFrom(userText);
-  let candidates = [];
-
-  if(keys.length){
-    candidates = feedBuffer
-      .map(h => {
-        const score = keys.reduce((s,k)=> s + (h.title.toLowerCase().includes(k) ? 1 : 0), 0);
-        return { ...h, score };
-      })
-      .filter(x => x.score > 0)
-      .sort((a,b) => b.score - a.score);
+/* Robust draggable mini feed */
+(function makeMiniDraggable(){
+  const el = document.getElementById('miniFeed');
+  if(!el) return;
+  let down=false, ox=0, oy=0;
+  function getClient(e){
+    if(e.touches && e.touches[0]) return {x:e.touches[0].clientX,y:e.touches[0].clientY};
+    if(e.changedTouches && e.changedTouches[0]) return {x:e.changedTouches[0].clientX,y:e.changedTouches[0].clientY};
+    return {x:e.clientX,y:e.clientY};
   }
-  if(candidates.length === 0){
-    const pool = feedBuffer.slice(-20);
-    for(let i=0;i<3 && pool.length;i++){
-      const idx = Math.floor(Math.random()*pool.length);
-      candidates.push(pool.splice(idx,1)[0]);
-    }
-  }
+  const start = evt => { const p=getClient(evt); down=true; ox=p.x - el.offsetLeft; oy=p.y - el.offsetTop; el.style.cursor='grabbing'; };
+  const move = evt => { if(!down) return; const p=getClient(evt); el.style.left=(p.x-ox)+'px'; el.style.top=(p.y-oy)+'px'; if(evt.preventDefault) evt.preventDefault(); };
+  const stop = () => { down=false; el.style.cursor='grab'; };
+  el.addEventListener('mousedown', start); el.addEventListener('touchstart', start, {passive:false});
+  window.addEventListener('mousemove', move); window.addEventListener('touchmove', move, {passive:false});
+  window.addEventListener('mouseup', stop); window.addEventListener('touchend', stop);
+})();
 
-  const pick = (arr, n) => {
-    const out = [];
-    const copy = arr.slice();
-    while(n-- > 0 && copy.length){
-      out.push(copy.splice(Math.floor(Math.random()*copy.length),1)[0]);
-    }
-    return out;
+/* Toggle mini feed */
+const miniBtn = document.getElementById('hudToggle');
+if(miniBtn) miniBtn.addEventListener('click', ()=>{ const m=document.getElementById('miniFeed'); if(m) m.style.display = m.style.display==='none'?'block':'none'; });
+
+/* Local/fallback RepoNav (no network). Shows a single Index link. */
+(function globalRepoNavFactory(){
+  function RepoNav(opts){
+    this.container = document.getElementById(opts.containerId || 'repoNav');
+    this.list = document.getElementById(opts.listId);
+    this.meta = document.getElementById(opts.metaId);
+    this.statusEl = document.getElementById('repoStatus');
+    if(this.meta) this.meta.textContent = (opts.owner? opts.owner + '/'+ opts.repo : 'local') + ' · local';
+  }
+  RepoNav.prototype.refresh = async function(){
+    if(this.list) this.list.innerHTML = '<a href="https://jeff-gompertz.github.io/CUseeme/index.html" target="_self">🏠 Index</a>';
+    if(this.statusEl) setRepoStatus('loaded');
   };
+  RepoNav.prototype.open = async function(){ if(this.container) this.container.classList.add('open'); await this.refresh(); };
+  RepoNav.prototype.close = function(){ if(this.container) this.container.classList.remove('open'); };
+  window.createRepoNav = function(opts){ return new RepoNav(opts||{}); };
+})();
 
-  const chosen = pick(candidates, 2).map(x => x.title);
-  const stems = ['signal echoes:','semantic crossover:','field resonance:','adjacent headline:','network murmur:','latent alignment:'];
-  const stem = stems[Math.floor(Math.random()*stems.length)];
+/* instantiate and minimal override already baked in refresh above */
+var repoNavInstance = createRepoNav({ owner:'jeff-gompertz', repo:'CUseeme', branch:'main', containerId:'repoNav', listId:'repoList', metaId:'repoMeta' });
 
-  if(chosen.length === 1) return `${stem} ${chosen[0]}`;
-  if(chosen.length === 2){
-    const [a,b] = chosen;
-    const A = a.replace(/[–—-]\s.*$/,'').replace(/\.$/,'');
-    const B = b.replace(/^[A-Z].{0,10}:\s*/,'');
-    return `${stem} ${A} — ${B}.`;
+/* Hold-to-open wiring (safe, copied from index, identical behavior) */
+(function attachHoldToOpen(){
+  const btn = document.getElementById('hudToggle_nav');
+  if(!btn) return;
+  const progress = btn.querySelector('.holdProgress');
+  const HOLD_MS = 1000;
+  let holdTimer = null, startX=0, startY=0, triggered=false, moved=false, maxMove=12, lastOpenedAt=0;
+
+  function setProgress(p){
+    if(progress) progress.style.width = Math.max(0, Math.min(100, p*100)) + '%';
   }
-  return 'channel quiet.';
-}
-
-// ---------- Semantic router (same public behavior) ----------
-function semanticRouter(raw){
-  const text = (raw||'').trim();
-  if(!text) return;
-  addLine('> ' + text, 'user');
-
-  const lower = text.toLowerCase();
-  if (lower === 'hello' || lower.startsWith('hi')) {
-    const reply = "Hello. I'm listening.";
-    addLine(reply, 'sys'); speak(reply);
-  } else if (lower.includes('time')) {
-    const reply = 'Current time: ' + new Date().toLocaleTimeString();
-    addLine(reply, 'sys'); speak(reply);
-  } else if (lower.startsWith('repeat after me')) {
-    const say = text.replace(/^repeat after me/i, '').trim() || '…say what?';
-    addLine(say, 'sys'); speak(say);
-  } else {
-    const echo = 'You said: ' + text;
-    addLine(echo, 'sys'); speak(echo);
+  function startHold(x,y){
+    triggered=false; moved=false; startX=x; startY=y; btn.classList.add('holding'); setProgress(0);
+    if(progress){ progress.style.transition = 'width '+HOLD_MS+'ms linear'; setTimeout(()=>progress.style.width='100%',10); }
+    holdTimer = setTimeout(()=>{
+      triggered=true; btn.setAttribute('aria-pressed','true'); lastOpenedAt=Date.now();
+      if(repoNavInstance && repoNavInstance.open) repoNavInstance.open();
+      setRepoStatus('opened'); clearHoldVisual();
+    }, HOLD_MS);
+    setRepoStatus('holding');
   }
-
-  const blend = blendWithFeed(text);
-  if(blend){
-    setTimeout(()=>{ addLine(blend, 'sys'); speak(blend); }, 520);
+  function clearHoldVisual(){
+    btn.classList.remove('holding');
+    if(progress){ progress.style.transition='width 160ms linear'; progress.style.width='0%'; }
+    if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; }
+    setTimeout(()=>{ if(btn.getAttribute('aria-pressed')==='true') btn.setAttribute('aria-pressed','false'); },350);
   }
-}
+  function cancelHold(){ if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; } triggered=false; clearHoldVisual(); setRepoStatus('idle'); }
 
-// ---------- Input (text) wiring ----------
-input.addEventListener('keydown', (e)=>{
-  if(e.key === 'Enter'){
-    e.preventDefault();
-    const v = input.value.trim();
-    if(v){ semanticRouter(v); input.value = ''; }
-  }
-});
-setTimeout(()=> input.focus(), 250);
+  btn.addEventListener('touchstart', e => { const t=e.touches && e.touches[0]; if(!t) return; startHold(t.clientX,t.clientY); }, {passive:true});
+  btn.addEventListener('touchmove', e => { const t=e.touches && e.touches[0]; if(!t) return; if(Math.abs(t.clientX-startX)>maxMove||Math.abs(t.clientY-startY)>maxMove){ moved=true; cancelHold(); } }, {passive:true});
+  btn.addEventListener('touchend', e => { if(triggered) clearHoldVisual(); else cancelHold(); });
+  btn.addEventListener('touchcancel', cancelHold);
 
-// ---------- Voice input (unchanged logic) ----------
-let rec = null, listening = false;
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (!SR) {
-  btnMic.addEventListener('click', ()=>{
-    addLine('Mic recognition not available on this browser. Typing still works.', 'note');
-    // quick flash of center mic to show feedback
-    centerMic.classList.add('on');
-    setTimeout(()=> centerMic.classList.remove('on'), 500);
+  btn.addEventListener('mousedown', e => {
+    if(e.button!==0) return;
+    startHold(e.clientX,e.clientY);
+    function onMove(ev){ if(Math.abs(ev.clientX-startX)>maxMove||Math.abs(ev.clientY-startY)>maxMove){ moved=true; cancelHold(); document.removeEventListener('mousemove',onMove); } }
+    function onUp(ev){ document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); if(triggered) clearHoldVisual(); else cancelHold(); }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   });
-} else {
-  rec = new SR();
-  rec.lang = 'en-US';
-  rec.interimResults = true;
-  rec.continuous = true;
 
-  rec.onstart = () => { listening = true; btnMic.classList.add('on'); addLine('🎙️ Voice capture started', 'note'); };
-  rec.onend   = () => { listening = false; btnMic.classList.remove('on'); addLine('⏹️ Voice capture stopped', 'note'); };
+  btn.addEventListener('keydown', e => { if(e.key===' '||e.key==='Enter'){ startHold(0,0); } });
+  btn.addEventListener('keyup', e => { if(e.key===' '||e.key==='Enter'){ if(holdTimer) cancelHold(); else clearHoldVisual(); } });
 
-  rec.onresult = (evt)=>{
-    let finalChunk = '';
-    for (let i = evt.resultIndex; i < evt.results.length; i++) {
-      const t = evt.results[i][0].transcript;
-      if (evt.results[i].isFinal) finalChunk += t;
-    }
-    if (finalChunk) {
-      input.value = finalChunk;
-      semanticRouter(finalChunk);
-    }
-  };
-  rec.onerror = (e)=>{ addLine('Voice error: ' + (e && e.error? e.error : e), 'note'); };
+  const closeBtn = document.getElementById('repoClose');
+  if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(repoNavInstance) repoNavInstance.close(); setRepoStatus('idle'); });
 
-  btnMic.addEventListener('click', ()=>{
-    try{ if(!listening){ rec.start(); } else { rec.stop(); } }
-    catch(err){ addLine('Mic error: ' + (err.message||err), 'note'); }
+  document.addEventListener('click', function(e){
+    const nav = document.getElementById('repoNav');
+    const toggle = document.getElementById('hudToggle_nav');
+    if(!nav.contains(e.target) && !toggle.contains(e.target)){ if(Date.now()-lastOpenedAt<350) return; if(repoNavInstance) repoNavInstance.close(); }
+  });
+})();
+
+/* Light dictation fallback and input wiring */
+const input = document.getElementById('input');
+if(input){
+  input.addEventListener('keydown', e=>{
+    if(e.key === 'Enter'){ e.preventDefault(); const v=input.value.trim(); if(!v) return; addTickerLine('> '+v); input.value=''; setTimeout(()=>addTickerLine('< echo: '+v),300); }
   });
 }
-
-// clicking centerMic triggers the same behavior (already wired above to btnMic.click())
-
-// ---------- Mode Shift (unchanged) ----------
-btnNext.addEventListener('click', () => {
-  addLine('Mode shift → entering Scene 2: Video environment', 'note');
-  speak('Switching mode');
-  setTimeout(() => {
-    window.location.href = 'video_scene2_.html';
-  }, 800);
-});
-
-// ---------- First pulse ----------
-setTimeout(()=> addLine('BBC headlines linked. Waiting for your input…', 'note'), 1200);
-
+(function dictationFallback(){
+  const btn = document.getElementById('dictateBtn');
+  if(!btn) return;
+  btn.addEventListener('click', ()=>{ try{ input && input.focus(); }catch(e){} addTickerLine('→ Focused input (use keyboard mic on mobile)'); });
+})();
 </script>
 </body>
 </html>
