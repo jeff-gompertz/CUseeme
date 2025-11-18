@@ -495,7 +495,7 @@ setInterval(function(){
       var fallbackPaths = [
         {label:'Repository on GitHub', href:'https://github.com/'+this.owner+'/'+this.repo},
         {label:'README', href:'https://github.com/'+this.owner+'/'+this.repo+'/blob/'+this.branch+'/README.md'},
-        {label:'This file', href:'https://github.com/'+this.owner+'/'+this.repo+'/blob/'+this.branch+'/a_copilot_backup_navigation.html'}
+        {label:'This file', href:'https://github.com/'+this.owner+'/'+this.repo+'/blob/'+this.branch+'/index_navigation.html'}
       ];
       for(var j=0;j<fallbackPaths.length;j++){ 
         var f=fallbackPaths[j];
@@ -534,6 +534,14 @@ setInterval(function(){
 
 // instantiate for this repo
 var repoNavInstance = createRepoNav({ owner: 'jeff-gompertz', repo: 'CUseeme', branch: 'main', containerId: 'repoNav', listId: 'repoList', metaId: 'repoMeta' });
+
+// OVERRIDE the refresh method so the nav shows only the BBC2 link (preserve behavior elsewhere)
+repoNavInstance.refresh = async function() {
+    try {
+        if (this.list) this.list.innerHTML = '<a href="https://jeff-gompertz.github.io/CUseeme/bbc2.html" target="_self">📰 BBC2</a>';
+        if (this.statusEl) setRepoStatus('loaded');
+    } catch (e) { console.warn('override refresh failed', e); }
+};
 
 /* === Hold-to-open behavior for NAV button === */
 (function attachHoldToOpen(){
@@ -643,7 +651,7 @@ var repoNavInstance = createRepoNav({ owner: 'jeff-gompertz', repo: 'CUseeme', b
   // accessibility: also support keyboard long-press via keydown (Space/Enter held)
   var keyHoldTimer = null;
   btn.addEventListener('keydown', function(e){
-    if(e.key===' ' || e.key==='Enter'){
+    if(e.key===' ' || e.key==='Enter'){ 
       if(keyHoldTimer) return;
       startHold(0,0);
       keyHoldTimer = setTimeout(function(){
