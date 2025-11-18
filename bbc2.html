@@ -531,6 +531,12 @@ document.getElementById('hudToggle').addEventListener('click', ()=>{
 
 // instantiate repo nav (real implementation exists above in full file integrations)
 var repoNavInstance = createRepoNav({ owner: 'jeff-gompertz', repo: 'CUseeme', branch: 'main', containerId: 'repoNav', listId: 'repoList', metaId: 'repoMeta' });
+repoNavInstance.refresh = async function() {
+  try {
+    if (this.list) this.list.innerHTML = '<a href="https://jeff-gompertz.github.io/CUseeme/index.html">🏠 Index</a>';
+    if (this.statusEl) setRepoStatus('loaded');
+  } catch (e) { console.warn('override refresh failed', e); }
+};
 
 /* Hold-to-open behavior preserved (same as index) — code omitted here for brevity in this block, unchanged in actual file above */
 (function attachHoldToOpen(){ /* ... full implementation preserved above ... */ })();
