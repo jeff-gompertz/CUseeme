@@ -116,6 +116,31 @@ HUD Panels
 }
 .hud-panel:not(.active) { opacity: 0.8; }
 
+  
+/* HUD: near-transparent shell, buttons remain visible (override) */
+/* Paste this at the end of your stylesheet (after line ~119) */
+#hudShell {
+  background: rgba(0, 0, 0, 0.02) !important;   /* almost invisible — tweak alpha 0.00–0.06 */
+  border: 1px solid rgba(255,255,255,0.03) !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Keep buttons visible and slightly highlighted */
+.hud-btn {
+  background: rgba(255,255,255,0.03) !important; /* faint panel for buttons */
+  color: #eee !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25) !important;
+}
+
+/* Active button (keeps your color but slightly stronger) */
+.hud-btn.active {
+  background: rgba(255,165,100,0.12) !important; /* a little stronger than default */
+  box-shadow: 0 12px 30px rgba(0,0,0,0.35) !important;
+}
+
+
 /* =========================================================
 Ticker
 ========================================================= */
