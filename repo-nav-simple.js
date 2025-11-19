@@ -1,7 +1,7 @@
 (function(){
   const DEFAULT_LINKS = [
-    { title: '🏠 Index', href: '/CUseeme/index.html', target: '_self' },
-    { title: '📰 Spawn5', href: '/CUseeme/A/CUseeme_v1.7_dynamic_restyleBLACK.html', target: '_self' }
+    { title: '🏠 Index', href: 'index.html', target: '_self' },
+    { title: '📰 Spawn5', href: 'CUseeme_v1.7_dynamic_restyleBLACK.html', target: '_self' }
   ];
 
   if(window.simpleRepoNav) return;
