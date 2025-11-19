@@ -139,82 +139,6 @@ HUD Panels
   box-shadow: 0 12px 30px rgba(0,0,0,0.35) !important;
 }
 
-/* RESPONSIVE HUD for small screens
-   Paste this file into your repo (or paste the contents at the end of each page's <style>)
-   It overrides the HUD layout to be phone-friendly, stacks rows, and hides heavy mini windows.
-*/
-
-/* Small / tablet breakpoint */
-@media (max-width: 860px) {
-  /* make the HUD shell narrower and anchored with left/right insets */
-  #hudShell{
-    position:fixed;
-    top:12px;
-    right:12px;
-    left:12px;                 /* allow it to center horizontally on small screens */
-    z-index:1000;
-    min-width:0 !important;    /* override earlier min-width:320px; */
-    width:auto;
-    max-width:calc(100% - 24px);
-    padding:12px 10px;
-    display:block;             /* grid -> block so children flow naturally */
-    border-radius:12px;
-    background:rgba(0,0,0,0.02); /* subtle background on phones */
-    box-shadow:none;           /* reduce heavy shadows on phones */
-    -webkit-backdrop-filter:none;
-    backdrop-filter:none;
-  }
-
-  /* stack HUD rows vertically so each button gets full width */
-  .hud-row{
-    display:flex;
-    flex-direction:column;     /* vertical stacking on phone */
-    gap:10px;
-    align-items:stretch;
-  }
-
-  /* make buttons full-width and scaled down */
-  .hud-btn{
-    width:100%;
-    box-sizing:border-box;
-    font-size:clamp(14px, 4vw, 16px); /* responsive font sizing */
-    padding:8px 10px;
-    border-radius:10px;
-    justify-content:center;
-    text-align:center;
-  }
-
-  /* keep active style visible but less heavy on phones */
-  .hud-btn.active{
-    background:rgba(255,165,100,0.12) !important;
-    box-shadow:0 8px 18px rgba(0,0,0,0.28) !important;
-  }
-}
-
-/* Extra small: tighten further for narrow phones */
-@media (max-width: 420px) {
-  #hudShell{
-    top:8px;
-    padding:8px;
-    border-radius:10px;
-  }
-  .hud-btn{
-    font-size:clamp(13px, 4.5vw, 15px);
-    padding:8px;
-  }
-  /* collapse the HUD header label if it overlaps */
-  #hudHeader{ font-size:clamp(18px, 6vw, 22px); }
-}
-
-/* Hide or shrink heavy mini windows on phones (optional) */
-@media (max-width: 860px) {
-  .miniWin{
-    display:none !important; /* hide floating windows on phones */
-    /* Alternative: shrink instead of hide
-       width:160px; height:auto; opacity:0.95; transform:scale(0.85);
-    */
-  }
-}
 
 /* =========================================================
 Ticker
@@ -282,6 +206,119 @@ Prompt bar — centered input
 }
 #caret{ width:.5ch; height:1.2em; background:#ddd; animation:blink 1s step-end infinite; }
 @keyframes blink{ 50%{opacity:0} }
+
+/* Responsive HUD (phone-only, preserves mini windows)
+   Save as hud-responsive.css or paste at end of your <style> block.
+   This version:
+   - Applies only to narrow phones (max-width: 520px)
+   - Makes the HUD compact and stacked without removing miniWin elements
+   - Shrinks and pins miniWin windows to the right-side so they remain visible
+   - Avoids disabling backdrop-filter globally (reduces on phone for perf)
+*/
+
+/* PHONE-ONLY breakpoint (narrow phones) */
+@media (max-width: 520px) {
+  /* compact the HUD container so it fits phones (overrides earlier min-width) */
+  #hudShell {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    left: 10px;                    /* center-ish on very narrow screens */
+    z-index: 1200;
+    min-width: 0 !important;       /* override original min-width */
+    width: auto;
+    max-width: calc(100% - 20px);
+    padding: 10px 8px;
+    display: block;                /* let internal rows stack naturally */
+    border-radius: 12px;
+    background: rgba(0,0,0,0.02);  /* near-transparent HUD */
+    border: 1px solid rgba(255,255,255,0.03);
+    box-shadow: none;              /* reduce heavy shadows on phones */
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /* make HUD rows stack vertically and stretch buttons full width */
+  .hud-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch; /* buttons span full width */
+  }
+
+  .hud-btn {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: clamp(13px, 4.2vw, 15px);
+    padding: 8px 10px;
+    border-radius: 10px;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .hud-btn:hover {
+    transform: none;  /* avoid slight translate affecting layout on phone */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+  }
+
+  .hud-btn.active {
+    background: rgba(255,165,100,0.12) !important;
+    color: #ff6a2f !important;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.28) !important;
+  }
+
+  /* Reduce HUD header size on phones */
+  #hudHeader {
+    font-size: clamp(18px, 6vw, 22px);
+    margin-bottom: 8px;
+  }
+
+  /* ensure the prompt stays usable below the HUD */
+  #promptWrap { z-index: 1100; pointer-events: none; }
+  #promptBox { pointer-events: auto; margin-top: 68px; width: calc(100% - 40px); max-width: 560px; }
+
+  /* MINI WINDOWS: keep visible but small, pinned to right side.
+     This preserves spawned windows but prevents them covering the HUD.
+     We do NOT hide miniWin on phones; we shrink and stack them to the right. */
+  .miniWin {
+    position: fixed !important;   /* pin to viewport rather than absolute body offsets */
+    right: 10px !important;
+    bottom: 90px !important;      /* leave space for HUD and prompt */
+    width: 160px !important;      /* compact width */
+    height: auto !important;
+    aspect-ratio: 9 / 12;
+    border-radius: 10px !important;
+    transform: none !important;
+    opacity: 0.98 !important;
+    z-index: 1050 !important;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.3) !important;
+    transition: transform .18s ease, opacity .18s ease !important;
+  }
+
+  /* Offset stacked miniWins so multiple don't fully overlap.
+     Most recent appended elements are higher in DOM; use nth-child offsets as a simple heuristic. */
+  body .miniWin:nth-last-of-type(1) { bottom: 90px; right: 10px; }
+  body .miniWin:nth-last-of-type(2) { bottom: 120px; right: 14px; transform: scale(0.98); opacity:0.95; }
+  body .miniWin:nth-last-of-type(3) { bottom: 150px; right: 18px; transform: scale(0.96); opacity:0.92; }
+  body .miniWin:nth-last-of-type(4) { bottom: 180px; right: 22px; transform: scale(0.94); opacity:0.90; }
+  body .miniWin:nth-last-of-type(n+5) { bottom: calc(180px + ( (n - 4) * 30px) ); right: 24px; transform: scale(0.92); opacity:0.88; }
+
+  /* keep video element fitted inside the compact mini window */
+  .miniWin .miniVideo {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+}
+
+/* EXTRA-SMALL TIGHTENING for very narrow phones with tiny viewports */
+@media (max-width: 360px) {
+  #hudShell { padding: 8px; border-radius: 8px; top: 6px; left: 6px; right: 6px; }
+  .hud-btn { font-size: clamp(12px, 4.5vw, 14px); padding: 6px 8px; }
+  .miniWin { width: 140px !important; }
+}
+
+  
 </style>
 </head>
 <body>
