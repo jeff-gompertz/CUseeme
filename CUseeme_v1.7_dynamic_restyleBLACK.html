@@ -116,6 +116,30 @@ HUD Panels
 }
 .hud-panel:not(.active) { opacity: 0.8; }
 
+/* HUD: near-transparent shell, buttons remain visible (override) */
+/* Paste this at the end of your stylesheet (after line ~119) */
+#hudShell {
+  background: rgba(0, 0, 0, 0.02) !important;   /* almost invisible — tweak alpha 0.00–0.06 */
+  border: 1px solid rgba(255,255,255,0.03) !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Keep buttons visible and slightly highlighted */
+.hud-btn {
+  background: rgba(255,255,255,0.03) !important; /* faint panel for buttons */
+  color: #eee !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25) !important;
+}
+
+/* Active button (keeps your color but slightly stronger) */
+.hud-btn.active {
+  background: rgba(255,165,100,0.12) !important; /* a little stronger than default */
+  box-shadow: 0 12px 30px rgba(0,0,0,0.35) !important;
+}
+
+
 /* =========================================================
 Ticker
 ========================================================= */
@@ -182,6 +206,181 @@ Prompt bar — centered input
 }
 #caret{ width:.5ch; height:1.2em; background:#ddd; animation:blink 1s step-end infinite; }
 @keyframes blink{ 50%{opacity:0} }
+
+/* PHONE-ONLY breakpoint (narrow phones)
+   Replace your current @media (max-width:520px) block with this.
+   Behavior:
+    - HUD hugs the right edge with a fixed compact width (var --hud-compact-width)
+    - miniWin windows are pinned just left of the HUD so they are visible and draggable
+    - drag handle (.miniBar) has touch-action:none so pointer/touch dragging works
+*/
+@media (max-width: 520px) {
+  /* predictable compact HUD width for phone, hugging right */
+  :root { --hud-compact-width: 260px; } /* tweak as needed (px) */
+
+  #hudShell {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    left: auto;                         /* hug right edge */
+    z-index: 1200;
+    min-width: 0 !important;
+    width: var(--hud-compact-width);
+    max-width: calc(100% - 20px);
+    padding: 10px 8px;
+    display: block;
+    border-radius: 12px;
+    background: rgba(0,0,0,0.02);
+    border: 1px solid rgba(255,255,255,0.03);
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /* vertical stacking of rows so buttons don't overlap */
+  .hud-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .hud-btn {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: clamp(13px, 4.2vw, 15px);
+    padding: 8px 10px;
+    border-radius: 10px;
+    text-align: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .hud-btn:hover { transform: none; box-shadow: 0 4px 10px rgba(0,0,0,0.25); }
+  .hud-btn.active { background: rgba(255,165,100,0.12) !important; color:#ff6a2f !important; }
+
+  #hudHeader { font-size: clamp(18px, 6vw, 22px); margin-bottom: 8px; }
+
+  /* prompt placement so it doesn't overlap HUD */
+  #promptWrap { z-index: 1100; pointer-events: none; }
+  #promptBox { pointer-events: auto; margin-top: 68px; width: calc(100% - 40px); max-width: 560px; }
+
+  /* MINI WINDOWS: keep visible, pinned left-of-HUD (so HUD does not cover them).
+     Use the hud compact width variable to compute the offset. */
+  .miniWin {
+    position: fixed !important;
+    /* pin to right-of-screen but offset left by HUD width so windows sit left-of-HUD */
+    right: calc(12px + var(--hud-compact-width));
+    bottom: 90px !important;
+    width: 160px !important;
+    height: auto !important;
+    aspect-ratio: 9 / 12;
+    border-radius: 10px !important;
+    transform: none !important;
+    opacity: 0.98 !important;
+    z-index: 1300 !important; /* higher than HUD so touch events reach them */
+    box-shadow: 0 8px 18px rgba(0,0,0,0.3) !important;
+    transition: transform .18s ease, opacity .18s ease !important;
+    touch-action: none; /* allow dragging (prevent passive touch) */
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* drag handle should accept touch/pointer events reliably */
+  .miniWin .miniBar, .miniWin .miniInner {
+    touch-action: none;       /* critical to make dragging responsive on touch */
+    -webkit-user-drag: none;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: grab;
+  }
+  .miniWin .miniBar:active { cursor: grabbing; }
+
+  /* stagger stacked windows so they are readable */
+  body .miniWin:nth-last-of-type(1) { bottom: 90px; right: calc(12px + var(--hud-compact-width)); }
+  body .miniWin:nth-last-of-type(2) { bottom: 120px; right: calc(16px + var(--hud-compact-width)); transform: scale(0.98); opacity:0.95; }
+  body .miniWin:nth-last-of-type(3) { bottom: 150px; right: calc(20px + var(--hud-compact-width)); transform: scale(0.96); opacity:0.92; }
+  body .miniWin:nth-last-of-type(4) { bottom: 180px; right: calc(24px + var(--hud-compact-width)); transform: scale(0.94); opacity:0.90; }
+  body .miniWin:nth-last-of-type(n+5) { bottom: calc(180px + ((n - 4) * 30px)); right: calc(28px + var(--hud-compact-width)); transform: scale(0.92); opacity:0.88; }
+
+  /* ensure the video itself fills the small window */
+  .miniWin .miniVideo { width: 100% !important; height: 100% !important; object-fit: cover !important; }
+}
+
+/* extra-tight for very narrow devices */
+@media (max-width: 360px) {
+  :root { --hud-compact-width: 220px; }
+  #hudShell { padding: 8px; border-radius: 8px; top: 6px; }
+  .hud-btn { font-size: clamp(12px, 4.5vw, 14px); padding: 6px 8px; }
+  .miniWin { width: 140px !important; }
+}
+
+/* Move miniWin landing pad down across ALL screens (no media-query)
+   Save as hud-miniwin-offsets.css and include it after your main CSS,
+   or paste the contents at the end of your page's <style> block.
+
+   Tweak:
+     --mini-landing-pad: 50px  -> sets how many pixels the whole stack moves down
+     --mini-step: 30px          -> vertical step between stacked cards
+     baseStart: 90px           -> the bottom offset of the top (newest) card before landing pad
+*/
+
+/* Configurable variables (document root) */
+:root{
+  --mini-landing-pad: 50px; /* set 50px -> 75px as you prefer */
+  --mini-step: 30px;
+  --mini-base-start: 90px;
+  /* HUD compact width used for computing horizontal offset if you keep that system.
+     If you don't use it, mini windows will remain right: 10px by default. */
+  --hud-compact-width: 260px;
+}
+
+/* Apply stacking offsets globally (applies on all screen sizes) */
+body .miniWin:nth-last-of-type(1) {
+  bottom: calc(var(--mini-base-start) + var(--mini-landing-pad));
+  right: 10px; /* default horizontal placement; adjust if you pin to HUD */
+}
+body .miniWin:nth-last-of-type(2) {
+  bottom: calc(var(--mini-base-start) + 30px + var(--mini-landing-pad));
+  right: 14px;
+  transform: scale(0.98);
+  opacity: 0.95;
+}
+body .miniWin:nth-last-of-type(3) {
+  bottom: calc(var(--mini-base-start) + 60px + var(--mini-landing-pad));
+  right: 18px;
+  transform: scale(0.96);
+  opacity: 0.92;
+}
+body .miniWin:nth-last-of-type(4) {
+  bottom: calc(var(--mini-base-start) + 90px + var(--mini-landing-pad));
+  right: 22px;
+  transform: scale(0.94);
+  opacity: 0.90;
+}
+/* For the 5th and later windows we approximate the incremental offsets;
+   for precise behavior with arbitrary counts use the JS below */
+body .miniWin:nth-last-of-type(n+5) {
+  bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + 90px + ((n - 4) * var(--mini-step, 30px)));
+  right: 24px;
+  transform: scale(0.92);
+  opacity: 0.88;
+}
+
+/* smooth landing animation when offsets change */
+.miniWin {
+  transition: bottom .28s cubic-bezier(.2,.9,.3,1), transform .18s ease, opacity .18s ease !important;
+  will-change: bottom, transform, opacity;
+}
+
+/* Ensure the video fills its window */
+.miniWin .miniVideo{
+  width:100% !important;
+  height:100% !important;
+  object-fit:cover !important;
+}
+  
+  
 </style>
 </head>
 <body>
