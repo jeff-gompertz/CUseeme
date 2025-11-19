@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>CUSeeMe v2 — BBC2 (index-styled)</title>
+<style>
+html,body{
+  margin:0;padding:0;height:100%;
+  background:#000;
+  font-family:"VT323", monospace;
+  color:#0f0;
+  overflow:hidden;
+}
+
+/* IMMEDIATE CSS HIDE FOR BLOOPLE INJECTED ANCHORS */
+body > a,
+#rssSource a,
+.rss-feed a,
+a.bloople {
+  color: transparent !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  text-decoration: none !important;
+  display: inline !important;
+}
+
+/* === MAIN CAMERA FEED === */
+#camera{
+  position:fixed; inset:0;
+  object-fit:cover;
+  transform:scaleX(-1);
+  z-index:0;
+  filter:brightness(1.05) contrast(1.1);
+}
+
+/* === FLOATING MINI FEED === */
+#miniFeed{
+  position:absolute;
+  top:24px; right:24px;
+  width:240px; height:180px;
+  border-radius:10px;
+  overflow:hidden;
+  z-index:6;
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.15);
+  backdrop-filter:blur(4px);
+  cursor:grab;
+  transition:box-shadow .3s ease, transform .4s ease;
+}
+#miniFeed video{ width:100%;height:100%; object-fit:cover; transform:scaleX(-1); opacity:0.9; }
+#miniFeed:hover{ box-shadow:0 0 20px rgba(0,255,120,0.25); transform:scale(1.04); }
+
+/* === PROMPT LAYER === */
+#promptWrap{ position:fixed;inset:0;display:flex; align-items:center;justify-content:center; z-index:5;pointer-events:none; }
+#promptBox{
+  pointer-events:auto;
+  background:rgba(0,255,100,0.08);
+  border:1px solid rgba(0,255,100,0.25);
+  border-radius:10px;
+  padding:.6rem 1rem;
+  font-size:1.8rem;
+  display:flex;align-items:center;gap:.4rem;
+  color:#0f0;
+  min-width:38vw;
+  max-width:78vw;
+}
+#input{ background:transparent;border:none;outline:none;color:#ffffff;font-size:inherit;width:36ch;min-width:18ch; }
+#input::placeholder{ color: rgba(255,255,255,0.6); }
+#caret{ width:.25ch;height:1.3em;background:#0f0; animation:blink 1s step-end infinite; }
+@keyframes blink{50%{opacity:0} }
+
+/* Dictation (karaoke) button — single mic UI */
+#dictateBtn {
+  background:transparent;border:1px solid rgba(0,255,120,0.12);color:#0f0;font-size:1.1rem;padding:6px 8px;border-radius:8px;cursor:pointer;margin-left:6px;line-height:1;
+}
+#dictateBtn.listening{ color:#ff0; border-color:rgba(255,12,110,0.9); box-shadow:0 0 18px rgba(255,12,110,0.35), inset 0 0 8px rgba(255,60,160,0.12); transform:scale(1.05); }
+
+/* === TICKER === */
+#ticker{ position:fixed; left:14px;bottom:14px; width:40%; max-height:55%; display:flex;flex-direction:column-reverse; overflow:hidden; z-index:4; font-size:1rem;line-height:1.2rem; color:#0f0; }
+.tline{ opacity:.8;margin:0; animation:fadeIn 1s ease forwards; transition:opacity 45s linear; }
+@keyframes fadeIn{ from{opacity:0;transform:translateY(10px)} to{opacity:.8;transform:translateY(0)} }
+
+/* === TOGGLE BUTTONS / HUD / NAV etc === */
+/* Use the same positions/z-index as the index page to ensure visual parity */
+#hudToggle{ position:fixed; top:12px; right:12px; z-index:8; background:rgba(0,255,80,0.1); border:1px solid rgba(0,255,120,0.2); border-radius:6px; color:#0f0; font-size:12px; padding:6px 10px; cursor:pointer; }
+#hudToggle:hover{background:rgba(0,255,120,0.25);} 
+#hudToggle_nav{ position:fixed; top:56px; right:12px; z-index:8; background:rgba(0,255,80,0.1); border:1px solid rgba(0,255,120,0.2); border-radius:6px; color:#0f0; font-size:12px; padding:6px 10px; cursor:pointer; display:flex; align-items:center; gap:.5rem; }
+#hudToggle_nav.holding{ background:linear-gradient(90deg, rgba(255,12,110,0.26), rgba(255,40,140,0.12)); box-shadow:0 0 64px rgba(255,12,110,0.95), inset 0 0 36px rgba(255,60,160,0.32); transform:scale(1.02); }
+#hudToggle_nav .holdProgress{ position:absolute; left:0; top:0; height:100%; width:0%; border-radius:6px; background:linear-gradient(90deg, rgba(255,12,110,0.28), rgba(255,60,160,0.16)); pointer-events:none; z-index:-1; }
+
+/* repo-nav */
+.repo-nav{ position:fixed; top:0; right:0; height:100%; width:360px; max-width:90%; background:linear-gradient(180deg, rgba(0,0,0,0.9), rgba(0,0,0,0.85)); border-left:1px solid rgba(0,255,120,0.08); padding:12px; transform:translateX(100%); transition:transform .28s cubic-bezier(.2,.9,.3,1), opacity .28s; opacity:0; pointer-events:none; z-index:9; display:flex; flex-direction:column; }
+.repo-nav.open{ transform:translateX(0); opacity:1; pointer-events:auto; }
+.repo-nav header{ display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom:1px dashed rgba(0,255,120,0.06); padding-bottom:8px; margin-bottom:6px; }
+.repo-nav .controls button{ background:transparent; border:1px solid rgba(0,255,120,0.06); color:#0f0; padding:6px; border-radius:6px; cursor:pointer; }
+.repo-nav .list{ display:block; overflow:auto; padding-right:8px; }
+.repo-nav a{ display:block; padding:6px 8px; border-radius:6px; color:#9ffea0; text-decoration:none; font-size:13px; margin:4px 0; }
+.repo-nav a:hover{ background:rgba(0,255,120,0.04); text-decoration:underline; }
+.repo-nav .dir{ font-weight:700; color:#c8ffd0 }
+.repo-nav .meta{ font-size:11px; color:#7fffb0; opacity:.8; margin-bottom:8px }
+
+@media (max-width:640px){
+  .repo-nav{ width:92% }
+  #miniFeed{ width:180px; height:140px }
+}
+</style>
+</head>
+<body>
+<video id="camera" autoplay muted playsinline></video>
+
+<div id="miniFeed">
+  <video id="miniVideo" autoplay muted playsinline></video>
+</div>
+
+<div id="hudToggle">⧉ FLOAT</div>
+
+<!-- NAV button contains a progress element -->
+<div id="hudToggle_nav" role="button" aria-pressed="false" aria-label="Hold to open navigation">
+  <div class="holdProgress" aria-hidden="true" style="position:absolute;"></div>
+  ⧉ NAV
+</div>
+
+<div id="repoStatus" style="position:fixed; right:14px; top:108px; color:#7fffb0; z-index:8">nav: idle</div>
+
+<!-- Repository navigation / file browser -->
+<aside id="repoNav" class="repo-nav" aria-hidden="true">
+  <header>
+    <div>
+      <div style="font-family:inherit;font-weight:700">Repository navigation</div>
+      <div class="meta" id="repoMeta">loading...</div>
+    </div>
+    <div class="controls">
+      <button id="repoRefresh" title="Refresh">⟳</button>
+      <button id="repoClose" title="Close">✕</button>
+    </div>
+  </header>
+  <nav id="repoList" class="list" role="navigation" aria-label="Repository files"></nav>
+  <div style="margin-top:auto;font-size:12px;color:#7fffb0;opacity:.9;padding-top:10px">
+    Tip: click file to open on GitHub (opens in new tab). You can instantiate the nav with createRepoNav(owner, repo, branch).
+    <div style="margin-top:10px">
+      <div style="font-size:12px;margin-top:8px;color:#9ffea0">Site pages</div>
+      <a href="index.html" target="_self">🏠 Index</a>
+      <a href="bbc2.html" target="_self">📰 BBC2</a>
+    </div>
+  </div>
+</aside>
+
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" spellcheck="false" autocomplete="off" placeholder="ask or speak..." />
+    <button id="dictateBtn" type="button" aria-label="Start dictation" title="Start dictation">🎤</button>
+  </div>
+</div>
+
+<div id="ticker"></div>
+
+<!-- Hidden container where Bloople-injected anchors will be relocated -->
+<div id="rssSource" style="display:none"></div>
+<script src="//rss.bloople.net/?url=https%3A%2F%2Ffeeds.bbci.co.uk%2Fnews%2Fworld%2Frss.xml&showtitle=false&type=js"></script>
+
+<script>
+/* ------------------------------------------------------------------
+  Full, corrected bbc2.html — includes consistent HUD/nav wiring identical
+  in behavior and placement to index. The change is minimal: the
+  repoNavInstance.refresh is overridden to show only the Index link.
+------------------------------------------------------------------*/
+
+/* TTS warm-up */
+speechSynthesis.cancel();
+
+/* TICKER helper */
+const ticker = document.getElementById('ticker');
+function addTickerLine(text, cls){
+  const el = document.createElement('div');
+  el.className = 'tline' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+  ticker.prepend(el);
+  if(ticker.children.length > 40) ticker.removeChild(ticker.lastChild);
+  setTimeout(()=>{ el.style.opacity = 0.15; }, 45000);
+}
+addTickerLine('BBC2 — styled like index, semantic blending active', 'note');
+addTickerLine('Tip: tap 🎤 to dictate or type and press Enter', 'note');
+
+/* Speech synthesis */
+let voicesReady = false;
+function waitVoices(){ return new Promise(res=>{
+  if(voicesReady && speechSynthesis.getVoices().length) return res();
+  const id = setInterval(()=>{ if(speechSynthesis.getVoices().length){ clearInterval(id); voicesReady=true; res(); } }, 80);
+  setTimeout(()=>{ if(!voicesReady){ clearInterval(id); voicesReady=true; res(); } }, 4000);
+});}
+async function speak(text){
+  if(!('speechSynthesis' in window)) return;
+  await waitVoices();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 1.02; u.pitch = 0.95; u.volume = 0.95; u.lang = 'en-GB';
+  const vs = speechSynthesis.getVoices();
+  u.voice = vs.find(v => /en-GB|Google UK|Kate|Samantha/i.test(v.name)) || vs[0] || null;
+  try{ speechSynthesis.speak(u); }catch(e){ console.warn('speak failed', e); }
+}
+
+/* --- relocateInjectedAnchors + MutationObserver --- */
+function isPartOfUI(node){
+  if(!node || node.nodeType !== 1) return false;
+  return node.closest && ( node.closest('#promptBox') || node.closest('#repoNav') || node.closest('#miniFeed') || node.closest('#ticker') );
+}
+
+function sanitizeAndAppendToRssSource(el){
+  try{
+    el.removeAttribute && el.removeAttribute('href');
+    el.style.pointerEvents = 'none';
+    el.style.opacity = '0';
+    el.style.color = 'transparent';
+    el.style.textDecoration = 'none';
+  }catch(e){}
+  try{
+    const target = document.getElementById('rssSource');
+    if(target && el.parentNode !== target) target.appendChild(el);
+  }catch(e){}
+}
+
+function handleAddedNode(node){
+  try{
+    if(node.nodeType === Node.TEXT_NODE){
+      const text = node.textContent.trim();
+      if(text){
+        const target = document.getElementById('rssSource');
+        if(target){
+          target.appendChild(document.createTextNode(text));
+        }
+        node.parentNode && node.parentNode.removeChild(node);
+      }
+      return;
+    }
+
+    if(node.nodeType !== 1) return;
+
+    if(node.tagName === 'A' && !isPartOfUI(node)){
+      sanitizeAndAppendToRssSource(node);
+      return;
+    }
+
+    const anchors = Array.from(node.querySelectorAll ? node.querySelectorAll('a') : []);
+    if(anchors.length){
+      anchors.forEach(a => { if(!isPartOfUI(a)) sanitizeAndAppendToRssSource(a); });
+      if(!isPartOfUI(node) && !node.querySelector('a') && node.textContent.trim()===''){
+        try{ node.parentNode && node.parentNode.removeChild(node); } catch(e){}
+      }
+      return;
+    }
+
+    if(node.parentNode === document.body && !isPartOfUI(node)){
+      try{
+        const target = document.getElementById('rssSource');
+        if(target) target.appendChild(node);
+      }catch(e){}
+    }
+  }catch(err){
+    console.warn('handleAddedNode error', err);
+  }
+}
+
+const bodyObserver = new MutationObserver(muts=>{
+  for(const m of muts){
+    for(const n of Array.from(m.addedNodes || [])){ 
+      handleAddedNode(n);
+    }
+  }
+});
+bodyObserver.observe(document.documentElement || document.body, { childList:true, subtree:true, characterData:true });
+
+function relocateInjectedAnchors(){
+  try{
+    const target = document.getElementById('rssSource');
+    if(!target) return;
+    const allAnchors = Array.from(document.querySelectorAll('body > a, body a'));
+    for(const a of allAnchors){
+      if(a.closest && (a.closest('#repoNav') || a.closest('#promptBox') || a.closest('#miniFeed') || a.closest('#ticker'))) continue;
+      if(a.closest('#rssSource')) continue;
+      sanitizeAndAppendToRssSource(a);
+    }
+    const directChildren = Array.from(document.body.children);
+    for(const el of directChildren){
+      if(el.id === 'rssSource' || el.id === 'miniFeed' || el.id === 'promptWrap' || el.id === 'hudToggle' || el.id === 'hudToggle_nav' || el.id === 'repoNav' || el.id === 'ticker') continue;
+      if(el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.tagName === 'VIDEO' || el.tagName === 'LINK') continue;
+      if(!isPartOfUI(el)){ 
+        try{ target.appendChild(el); }catch(e){}
+      }
+    }
+  }catch(err){
+    console.warn('relocateInjectedAnchors failed', err);
+  }
+}
+setTimeout(relocateInjectedAnchors, 120);
+setTimeout(relocateInjectedAnchors, 900);
+setTimeout(relocateInjectedAnchors, 2500);
+
+/* ---------------- Harvest headlines (reads from #rssSource) ---------------- */
+let feedBuffer = [];
+function harvestHeadlines(){
+  const container = document.getElementById('rssSource');
+  const anchors = container ? Array.from(container.querySelectorAll('a')) : Array.from(document.querySelectorAll('a'));
+  const titles = anchors.map(a => (a.textContent || '').trim()).filter(Boolean);
+  const now = Date.now();
+  titles.forEach(t => {
+    if(!feedBuffer.some(x => x.title === t)){ 
+      feedBuffer.push({ title: t, ts: now });
+    }
+  });
+  if(feedBuffer.length > 120) feedBuffer = feedBuffer.slice(-120);
+}
+setTimeout(harvestHeadlines, 1500);
+setInterval(()=>{ relocateInjectedAnchors(); harvestHeadlines(); }, 60_000);
+
+/* ---------------- Helpers, blend, semantic router ---------------- */
+function keywordsFrom(text){
+  return (text||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/)
+    .filter(w => w.length > 3 && !['about','with','into','from','that','this','what','have','just','will','been','they','them'].includes(w));
+}
+function blendWithFeed(userText){
+  if(!feedBuffer.length) return null;
+  const keys = keywordsFrom(userText);
+  let candidates = [];
+  if(keys.length){
+    candidates = feedBuffer.map(h=>{
+      const score = keys.reduce((s,k)=> s + (h.title.toLowerCase().includes(k) ? 1 : 0), 0);
+      return {...h, score};
+    }).filter(x=>x.score>0).sort((a,b)=> b.score - a.score);
+  }
+  if(candidates.length === 0){
+    const pool = feedBuffer.slice(-20);
+    while(candidates.length < 2 && pool.length) candidates.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
+  }
+  const pick = (arr,n)=>{ const out=[]; const copy=arr.slice(); while(n-->0 && copy.length) out.push(copy.splice(Math.floor(Math.random()*copy.length),1)[0]); return out; };
+  const chosen = pick(candidates,2).map(x=>x.title);
+  const stems = ['signal echoes:', 'semantic crossover:', 'adjacent headline:', 'network murmur:', 'latent alignment:'];
+  const stem = stems[Math.floor(Math.random()*stems.length)];
+  if(chosen.length === 1) return `${stem} ${chosen[0]}`;
+  if(chosen.length === 2){
+    const A = chosen[0].replace(/[–—-]\s.*$/,'').replace(/\.$/,'');
+    const B = chosen[1].replace(/^[A-Z].{0,10}:\s*/,'');
+    return `${stem} ${A} — ${B}.`;
+  }
+  return null;
+}
+
+function semanticRouter(raw){
+  const text = (raw||'').trim();
+  if(!text) return;
+  addTickerLine('> ' + text);
+  const lower = text.toLowerCase();
+
+  if(lower === 'hello' || lower.startsWith('hi')){
+    const reply = "Hello. I'm listening.";
+    addTickerLine('< ' + reply);
+    speak(reply);
+  } else if(lower.includes('time')){
+    const reply = 'Current time: ' + new Date().toLocaleTimeString();
+    addTickerLine('< ' + reply);
+    speak(reply);
+  } else if(lower.startsWith('repeat after me')){
+    const say = text.replace(/^repeat after me/i,'').trim() || '…say what?';
+    addTickerLine('< ' + say);
+    speak(say);
+  } else {
+    const echo = 'You said: ' + text;
+    addTickerLine('< ' + echo);
+    speak(echo);
+  }
+
+  const blend = blendWithFeed(text);
+  if(blend){
+    setTimeout(()=>{ addTickerLine('< ' + blend); speak(blend); }, 520);
+  }
+}
+
+/* Input wiring */
+const input = document.getElementById('input');
+input.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    const val = input.value.trim();
+    if(!val) return;
+    semanticRouter(val);
+    input.value = '';
+  }
+});
+
+/* STT integration for karaoke button (🎤) */
+(function enableDictationIntegration(){
+  const btn = document.getElementById('dictateBtn');
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  let recognition = null;
+  let listening = false;
+
+  function setListeningState(on){
+    listening = !!on;
+    if(!btn) return;
+    if(listening){
+      btn.classList.add('listening');
+      btn.textContent = '⏺️';
+    } else {
+      btn.classList.remove('listening');
+      btn.textContent = '🎤';
+    }
+  }
+
+  if(!btn) return;
+
+  if(SpeechRecognition){
+    recognition = new SpeechRecognition();
+    recognition.lang = 'en-GB';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = function(){ setListeningState(true); addTickerLine('→ dictation: listening…'); };
+    recognition.onend = function(){ setListeningState(false); };
+
+    recognition.onresult = function(evt){
+      let interim = '';
+      let final = '';
+      for(let i = evt.resultIndex; i < evt.results.length; ++i){
+        const res = evt.results[i];
+        const t = res[0].transcript;
+        if(res.isFinal) final += t;
+        else interim += t;
+      }
+      const display = (final || interim).trim();
+      if(display) input.value = display;
+      if(final && final.trim()){
+        semanticRouter(final.trim());
+        input.value = '';
+      }
+    };
+
+    recognition.onerror = function(err){
+      console.warn('SpeechRecognition error', err);
+      addTickerLine('⚠ dictation error: '+(err.error||err.message||'unknown'));
+      setListeningState(false);
+    };
+
+    btn.addEventListener('click', function(){
+      try{
+        if(listening){ recognition.stop(); }
+        else { recognition.start(); }
+      }catch(err){
+        console.warn('rec start/stop failed', err);
+        setListeningState(false);
+      }
+    });
+
+  } else {
+    btn.addEventListener('click', function(){ input.focus(); addTickerLine('→ Focused input for iOS keyboard dictation. Tap your keyboard mic to start.'); });
+  }
+})();
+
+/* diagnostics feed */
+const diagnostics = ["calibrating optical link...","signal noise threshold: 0.72","field sync nominal","mirror node online","loopback handshake OK"];
+setInterval(function(){ const msg = diagnostics[Math.floor(Math.random()*diagnostics.length)]; addTickerLine(msg); }, 6500);
+
+/* camera init & mini feed */
+(async ()=>{
+  const cam = document.getElementById('camera');
+  const mini = document.getElementById('miniVideo');
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+    cam.srcObject = stream;
+    mini.srcObject = stream;
+  }catch(e){
+    const msg="⚠ camera access denied/unavailable";
+    document.body.style.background="#111";
+    console.warn(msg);
+    const t=document.createElement("div");
+    t.textContent=msg;
+    t.style.position="fixed";t.style.top="50%";t.style.left="50%";
+    t.style.transform="translate(-50%,-50%)";
+    t.style.color="#0f0";
+    document.body.appendChild(t);
+  }
+})();
+
+/* draggable mini feed */
+(()=>{
+  const el = document.getElementById('miniFeed');
+  let down=false, ox=0, oy=0;
+  const start = e => {
+    down=true;
+    ox = (e.touches?e.touches[0].clientX:e.clientX) - el.offsetLeft;
+    oy = (e.touches?e.touches[0].clientY:e.clientY) - el.offsetTop;
+    el.style.cursor='grabbing';
+  };
+  const move = e => {
+    if(!down) return;
+    const cx=(e.touches?e.touches[0].clientX:e.clientX);
+    const cy=(e.touches?e.touches[0].clientY:e.clientY);
+    el.style.left = (cx - ox) + 'px';
+    el.style.top = (cy - oy) + 'px';
+    if(e.preventDefault) e.preventDefault();
+  };
+  const stop = () => { down=false; el.style.cursor='grab'; };
+  el.addEventListener('mousedown', start);
+  el.addEventListener('touchstart', start, { passive:false });
+  window.addEventListener('mousemove', move);
+  window.addEventListener('touchmove', move, { passive:false });
+  window.addEventListener('mouseup', stop);
+  window.addEventListener('touchend', stop);
+})();
+
+/* toggle mini feed */
+document.getElementById('hudToggle').addEventListener('click', ()=>{
+  const mini = document.getElementById('miniFeed');
+  mini.style.display = mini.style.display === 'none' ? 'block' : 'none';
+});
+
+/* Simple RepoNav factory (sufficient for UI + override) */
+(function globalRepoNavFactory(){
+  function RepoNav(opts){
+    this.owner = opts.owner; this.repo = opts.repo; this.branch = opts.branch || 'main';
+    this.container = document.getElementById(opts.containerId);
+    this.list = document.getElementById(opts.listId);
+    this.metaEl = document.getElementById(opts.metaId);
+    this.statusEl = document.getElementById('repoStatus');
+    // minimal placeholder refresh which would normally fetch the repo tree.
+    this.refresh = async function(){
+      if(this.metaEl) this.metaEl.textContent = `${this.owner}/${this.repo} @ ${this.branch}`;
+      if(this.list) this.list.innerHTML = '<div class="meta">loading listing…</div>';
+    };
+  }
+  RepoNav.prototype.open = function(){ if(this.container) this.container.classList.add('open'); };
+  RepoNav.prototype.close = function(){ if(this.container) this.container.classList.remove('open'); };
+  window.createRepoNav = function(opts){ if(!opts || !opts.owner || !opts.repo) throw new Error('owner and repo required'); return new RepoNav(opts); };
+})();
+
+// instantiate repo nav
+var repoNavInstance = createRepoNav({ owner: 'jeff-gompertz', repo: 'CUseeme', branch: 'main', containerId: 'repoNav', listId: 'repoList', metaId: 'repoMeta' });
+
+/* Override repoNavInstance.refresh to show a single Index link (minimal, surgical change)
+   This ensures the repo panel displays only the index link and preserves the rest of the UI wiring.
+*/
+repoNavInstance.refresh = async function() {
+  try {
+    if (this.list) this.list.innerHTML = '<a href="https://jeff-gompertz.github.io/CUseeme/A/CUseeme_v1.7_dynamic_restyleBLACK.html" target="_self">📰 Spawn5</a>';
+    if (this.list) this.list.innerHTML = '<a href="https://jeff-gompertz.github.io/CUseeme/A/CUseeme_v1.7_dynamic_restyleBLACK.html" target="_self">📰 Spawn5</a>';
+    if (this.statusEl) setRepoStatus('loaded');
+  } catch (e) { console.warn('override refresh failed', e); }
+};
+
+/* Hold-to-open behavior (consistent with index)
+   - press & hold hudToggle_nav to open the repo nav after HOLD_MS
+   - cancel on pointerup/pointerleave
+   - show a progress fill by animating .holdProgress width
+*/
+(function attachHoldToOpen(){
+  const BTN_ID = 'hudToggle_nav';
+  const PROG_SELECTOR = '.holdProgress';
+  const HOLD_MS = 700;
+  const btn = document.getElementById(BTN_ID);
+  const repo = document.getElementById('repoNav');
+  const progressEl = btn ? btn.querySelector(PROG_SELECTOR) : null;
+  let holdTimer = null;
+  let startT = 0;
+
+  function setProgress(p){
+    if(progressEl) progressEl.style.width = Math.max(0, Math.min(100, p*100)) + '%';
+  }
+
+  function startHold(e){
+    if(!btn) return;
+    btn.classList.add('holding');
+    startT = performance.now();
+    setProgress(0);
+    holdTimer = setInterval(()=>{
+      const elapsed = performance.now() - startT;
+      const pct = Math.min(1, elapsed / HOLD_MS);
+      setProgress(pct);
+      if(elapsed >= HOLD_MS){
+        clearInterval(holdTimer); holdTimer = null;
+        // open the nav
+        if(repo) repo.classList.add('open');
+        if(typeof repoNavInstance !== 'undefined' && repoNavInstance && repoNavInstance.refresh) repoNavInstance.refresh();
+        setRepoStatus('loaded');
+      }
+    }, 16);
+  }
+
+  function cancelHold(){
+    if(!btn) return;
+    btn.classList.remove('holding');
+    if(holdTimer){ clearInterval(holdTimer); holdTimer = null; }
+    setProgress(0);
+  }
+
+  if(btn){
+    btn.addEventListener('pointerdown', startHold, {passive:true});
+    ['pointerup','pointercancel','pointerleave','pointerout'].forEach(ev => btn.addEventListener(ev, cancelHold));
+  }
+
+  // repo close button
+  const closeBtn = document.getElementById('repoClose');
+  if(closeBtn){
+    closeBtn.addEventListener('click', function(){ if(repo) repo.classList.remove('open'); setRepoStatus('idle'); });
+  }
+
+  // refresh button
+  const refreshBtn = document.getElementById('repoRefresh');
+  if(refreshBtn){
+    refreshBtn.addEventListener('click', function(){ if(typeof repoNavInstance !== 'undefined' && repoNavInstance && repoNavInstance.refresh) repoNavInstance.refresh(); });
+  }
+
+  // close when clicking outside panel
+  document.addEventListener('click', function(e){
+    if(!repo) return;
+    if(repo.classList.contains('open') && !repo.contains(e.target) && !btn.contains(e.target)){
+      repo.classList.remove('open');
+      setRepoStatus('idle');
+    }
+  }, true);
+})();
+
+/* Prevent touch-caused focus sticking (keeps keyboard focus intact) */
+(function preventTouchFocusSticking(){
+  let lastTouch = 0;
+  document.addEventListener('touchstart', ()=>{ lastTouch = Date.now(); }, {passive:true});
+  document.addEventListener('focusin', (e)=>{
+    if(Date.now() - lastTouch < 500 && e.target && (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.getAttribute('role') === 'button')){
+      try{ e.target.blur(); }catch(_){ }
+    }
+  }, true);
+})();
+
+setTimeout(()=> addTickerLine('Feed harvesting initialized'), 800);
+setTimeout(()=> addTickerLine('Ready — speak or type to blend headlines'), 1200);
+
+function setRepoStatus(msg){ var el=document.getElementById('repoStatus'); if(el) el.textContent = 'nav: '+msg; }
+</script>
+
+<!-- Repo nav simple include and link list -->
+<script>
+window.SIMPLE_REPO_NAV_LINKS = [
+  { title: '🏠 Index', href: '/CUseeme/index.html', target:'_self' },
+  { title: '🎛 Dynamic v1.7', href: '/CUseeme/1stCUseeme_v1.7_dynamic_restyleBLACK.html', target:'_self' }
+];
+</script>
+<script src="/CUseeme/repo-nav-simple.js"></script>
+</body>
+</html>
