@@ -7,9 +7,6 @@
 <title>CUSeeMe Modular v1.7 — Mode Shift Dynamic (fixed)</title>
 
 <style>
-/* =========================================================
-CUSeeMe Retro4.4 — Aqua Glass HUD (Black Glass variant)
-========================================================= */
 :root {
   --hud-glass: rgba(255, 225, 255, 0.18);
   --hud-border-light: rgba(255, 255, 255, 0.35);
@@ -21,15 +18,15 @@ CUSeeMe Retro4.4 — Aqua Glass HUD (Black Glass variant)
   --btn-inset-dark: rgba(0,0,0,0.4);
   --btn-glow: rgba(255,120,50,0.7);
   --btn-glow-outer: rgba(255,150,80,0.35);
-  --bg: #000000; /* ✅ black background */
+  --bg: #000000;
   --ticker: #ff3a2f;
 
   /* miniWin stacking config (global) */
-  --mini-landing-pad: 50px; /* <-- change this to 75px to move stack down */
+  --mini-landing-pad: 75px; /* changed to 75px per request */
   --mini-step: 30px;
   --mini-base-start: 90px;
   --mini-width: 160px;
-  --hud-compact-width: 260px; /* used by responsive rules to compute offsets */
+  --hud-compact-width: 260px;
 }
 
 html,body{
@@ -40,9 +37,7 @@ html,body{
   overflow:visible;
 }
 
-/* =========================================================
-HUD — Aqua Glass shell
-========================================================= */
+/* HUD */
 #hudShell{
   position:fixed;
   top:24px; right:32px;
@@ -66,286 +61,76 @@ HUD — Aqua Glass shell
 }
 #hudShell:hover{ transform:translateY(-1px); }
 
-#hudHeader{
-  display:block;
-  margin-bottom:10px;
-  font-size:24px;
-  color:#ccc;
-  text-shadow:0 1px 0 rgba(255,255,255,0.1);
-  user-select:none;
-  cursor:pointer;
-}
-#hudIndex{
-  position:absolute;
-  top:6px; left:10px;
-  font-size:12px;
-  opacity:.55;
-}
+#hudHeader{ display:block; margin-bottom:10px; font-size:24px; color:#ccc; cursor:pointer; user-select:none; }
+#hudIndex{ position:absolute; top:6px; left:10px; font-size:12px; opacity:.55; }
 .hud-row{ display:flex; gap:12px; justify-content:space-between; }
 .hud-btn{
-  flex:1;
-  font-family:"VT323", monospace;
-  font-size:17px;
-  color:#eee;
-  background:var(--btn-bg);
-  border:none;
-  border-radius:10px;
-  box-shadow:
-    inset 1px 1px 2px var(--btn-inset-light),
-    inset -1px -2px 3px var(--btn-inset-dark),
-    0 3px 6px rgba(0,0,0,0.4);
-  padding:10px 12px;
-  cursor:pointer;
-  transition:all .22s ease;
+  flex:1; font-family:"VT323", monospace; font-size:17px; color:#eee;
+  background:var(--btn-bg); border:none; border-radius:10px;
+  box-shadow: inset 1px 1px 2px var(--btn-inset-light), inset -1px -2px 3px var(--btn-inset-dark), 0 3px 6px rgba(0,0,0,0.4);
+  padding:10px 12px; cursor:pointer; transition:all .22s ease;
 }
-.hud-btn:hover{
-  transform:translateY(-1px);
-  box-shadow:0 5px 12px rgba(0,0,0,0.6);
-}
-.hud-btn.active{
-  background:rgba(255,165,100,0.15);
-  color:#ff6a2f;
-  font-weight:600;
-  box-shadow:
-    inset 0 0 4px var(--btn-glow),
-    0 0 14px 3px var(--btn-glow-outer),
-    0 2px 8px rgba(0,0,0,0.2);
-}
+.hud-btn:hover{ transform:translateY(-1px); box-shadow:0 5px 12px rgba(0,0,0,0.6); }
+.hud-btn.active{ background:rgba(255,165,100,0.15); color:#ff6a2f; font-weight:600; box-shadow: inset 0 0 4px var(--btn-glow), 0 0 14px 3px var(--btn-glow-outer), 0 2px 8px rgba(0,0,0,0.2); }
 
-/* =========================================================
-HUD Panels
-========================================================= */
-.hud-panel {
-  position: relative;
-  opacity: 1;
-  pointer-events: auto;
-  transition: opacity .3s ease;
-}
+/* Panel opacity */
+.hud-panel { position: relative; opacity: 1; pointer-events: auto; transition: opacity .3s ease; }
 .hud-panel:not(.active) { opacity: 0.8; }
 
-/* HUD: near-transparent shell, buttons remain visible (override)
-   This override keeps the HUD visually subtle while leaving internals intact.
-*/
-#hudShell {
-  background: rgba(0, 0, 0, 0.02) !important;
-  border: 1px solid rgba(255,255,255,0.03) !important;
-  box-shadow: none !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
+/* Subtle HUD override */
+#hudShell { background: rgba(0,0,0,0.02) !important; border: 1px solid rgba(255,255,255,0.03) !important; box-shadow:none !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; }
+.hud-btn { background: rgba(255,255,255,0.03) !important; color:#eee !important; box-shadow:0 6px 18px rgba(0,0,0,0.25) !important; }
+.hud-btn.active { background: rgba(255,165,100,0.12) !important; box-shadow:0 12px 30px rgba(0,0,0,0.35) !important; }
 
-/* Keep buttons visible and slightly highlighted */
-.hud-btn {
-  background: rgba(255,255,255,0.03) !important;
-  color: #eee !important;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.25) !important;
-}
-.hud-btn.active {
-  background: rgba(255,165,100,0.12) !important;
-  box-shadow: 0 12px 30px rgba(0,0,0,0.35) !important;
-}
-
-/* =========================================================
-Ticker
-========================================================= */
-#ticker{
-  position:fixed; left:16px; bottom:14px; z-index:900;
-  width:45vw; max-width:700px; max-height:50vh;
-  display:flex; flex-direction:column-reverse; overflow:hidden;
-  color:var(--ticker);
-  font-size:18px; line-height:1.25;
-}
+/* Ticker */
+#ticker{ position:fixed; left:16px; bottom:14px; z-index:900; width:45vw; max-width:700px; max-height:50vh; display:flex; flex-direction:column-reverse; overflow:hidden; color:var(--ticker); font-size:18px; line-height:1.25; }
 .tline{ opacity:.95; margin:0; animation:fadeIn .6s ease; }
 @keyframes fadeIn{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
 
-/* =========================================================
-Mini windows — draggable live video windows
-========================================================= */
+/* Mini windows */
 .miniWin{
-  /* default is absolute so existing left/top placement still works on desktop */
   position:absolute;
   width:44vw; max-width:380px; aspect-ratio:9/12;
-  background:rgba(0,0,0,0.35); /* ✅ translucent black glass */
-  border:1px solid rgba(255,255,255,0.25);
-  border-radius:16px;
-  backdrop-filter:blur(12px);
-  box-shadow:
-    inset 0 1px 2px rgba(255,255,255,0.25),
-    0 18px 40px rgba(0,0,0,0.45);
-  overflow:hidden;
-  cursor:grab;
-  z-index:500;
+  background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.25); border-radius:16px;
+  backdrop-filter:blur(12px); box-shadow: inset 0 1px 2px rgba(255,255,255,0.25), 0 18px 40px rgba(0,0,0,0.45);
+  overflow:hidden; cursor:grab; z-index:500;
   transition: bottom .28s cubic-bezier(.2,.9,.3,1), transform .18s ease, opacity .18s ease;
 }
 .miniWin:active{ cursor:grabbing; }
-.miniBar{
-  display:flex; align-items:center; justify-content:space-between;
-  padding:4px 10px; height:26px;
-  background:rgba(255,255,255,0.08);
-  font-size:12px; color:#ccc;
-  user-select:none;
-  touch-action: none; /* ensure drag works on touch devices */
-}
+.miniBar{ display:flex; align-items:center; justify-content:space-between; padding:4px 10px; height:26px; background:rgba(255,255,255,0.08); font-size:12px; color:#ccc; user-select:none; touch-action:none; }
 .miniInner{ position:relative; width:100%; height:calc(100% - 26px); }
-.miniVideo{
-  position:absolute; inset:0; width:100%; height:100%;
-  object-fit:cover; transform:scaleX(-1);
-}
+.miniVideo{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
 
-/* =========================================================
-Prompt bar — centered input
-========================================================= */
-#promptWrap{
-  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-  pointer-events:none; z-index:800;
-}
-#promptBox{
-  pointer-events:auto; display:flex; gap:10px; align-items:center;
-  padding:10px 16px;
-  background:rgba(30,30,30,.55);
-  border:1px solid rgba(255,255,255,.2);
-  border-radius:12px;
-  box-shadow:0 8px 24px rgba(0,0,0,.5);
-}
-#input{
-  background:transparent; border:none; outline:none;
-  font:inherit; font-size:18px; color:#ddd;
-  width:24ch;
-}
+/* Prompt */
+#promptWrap{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:800; }
+#promptBox{ pointer-events:auto; display:flex; gap:10px; align-items:center; padding:10px 16px; background:rgba(30,30,30,.55); border:1px solid rgba(255,255,255,.2); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.5); }
+#input{ background:transparent; border:none; outline:none; font:inherit; font-size:18px; color:#ddd; width:24ch; }
 #caret{ width:.5ch; height:1.2em; background:#ddd; animation:blink 1s step-end infinite; }
 @keyframes blink{ 50%{opacity:0} }
 
-/* PHONE-ONLY breakpoint (narrow phones)
-   HUD hugs right, miniWins pinned left-of-HUD for visibility.
-*/
+/* Responsive - phone-only compact HUD (keeps miniWins visible) */
 @media (max-width: 520px) {
-  /* predictable compact HUD width for phone, hugging right */
-  #hudShell {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    left: auto;
-    z-index: 1200;
-    min-width: 0 !important;
-    width: var(--hud-compact-width);
-    max-width: calc(100% - 20px);
-    padding: 10px 8px;
-    display: block;
-    border-radius: 12px;
-    background: rgba(0,0,0,0.02);
-    border: 1px solid rgba(255,255,255,0.03);
-    box-shadow: none;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-
-  .hud-row {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: stretch;
-  }
-
-  .hud-btn {
-    width: 100%;
-    box-sizing: border-box;
-    font-size: clamp(13px, 4.2vw, 15px);
-    padding: 8px 10px;
-    border-radius: 10px;
-    text-align: center;
-    justify-content: center;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .hud-btn:hover { transform: none; box-shadow: 0 4px 10px rgba(0,0,0,0.25); }
-  .hud-btn.active { background: rgba(255,165,100,0.12) !important; color:#ff6a2f !important; }
-
-  #hudHeader { font-size: clamp(18px, 6vw, 22px); margin-bottom: 8px; }
-
-  /* prompt placement so it doesn't overlap HUD */
-  #promptWrap { z-index: 1100; pointer-events: none; }
-  #promptBox { pointer-events: auto; margin-top: 68px; width: calc(100% - 40px); max-width: 560px; }
-
-  /* MINI WINDOWS: keep visible, pinned left-of-HUD (so HUD does not cover them).
-     Use the hud compact width variable to compute the offset. */
-  .miniWin {
-    position: fixed !important;
-    right: calc(12px + var(--hud-compact-width));
-    bottom: calc(var(--mini-base-start) + var(--mini-landing-pad));
-    width: var(--mini-width) !important;
-    height: auto !important;
-    aspect-ratio: 9 / 12;
-    border-radius: 10px !important;
-    transform: none !important;
-    opacity: 0.98 !important;
-    z-index: 1300 !important; /* higher than HUD so touch events reach them */
-    box-shadow: 0 8px 18px rgba(0,0,0,0.3) !important;
-  }
-
-  /* stagger stacked windows so they are readable (simple, reliable offsets) */
-  body .miniWin:nth-last-of-type(1) { bottom: calc(var(--mini-base-start) + var(--mini-landing-pad)); right: calc(12px + var(--hud-compact-width)); }
-  body .miniWin:nth-last-of-type(2) { bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + var(--mini-step)); right: calc(16px + var(--hud-compact-width)); transform: scale(0.98); opacity:0.95; }
-  body .miniWin:nth-last-of-type(3) { bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 2)); right: calc(20px + var(--hud-compact-width)); transform: scale(0.96); opacity:0.92; }
-  body .miniWin:nth-last-of-type(4) { bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 3)); right: calc(24px + var(--hud-compact-width)); transform: scale(0.94); opacity:0.90; }
-  /* Use JS repositioning for precise stacks if you have >4 windows */
-  body .miniWin:nth-last-of-type(n+5) { bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 4)); right: calc(28px + var(--hud-compact-width)); transform: scale(0.92); opacity:0.88; }
-
-  .miniWin .miniVideo { width: 100% !important; height: 100% !important; object-fit: cover !important; }
+  #hudShell { position: fixed; top:10px; right:10px; left:auto; z-index:1200; min-width:0 !important; width:var(--hud-compact-width); max-width:calc(100% - 20px); padding:10px 8px; display:block; border-radius:12px; background:rgba(0,0,0,0.02); border:1px solid rgba(255,255,255,0.03); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none; }
+  .hud-row{ display:flex; flex-direction:column; gap:8px; align-items:stretch; }
+  .hud-btn{ width:100%; box-sizing:border-box; font-size:clamp(13px,4.2vw,15px); padding:8px 10px; border-radius:10px; text-align:center; }
+  #hudHeader{ font-size:clamp(18px,6vw,22px); margin-bottom:8px; }
+  #promptBox{ margin-top:68px; width:calc(100% - 40px); max-width:560px; }
+  .miniWin{ position:fixed !important; right: calc(12px + var(--hud-compact-width)); bottom: calc(var(--mini-base-start) + var(--mini-landing-pad)); width:var(--mini-width) !important; height:auto !important; aspect-ratio:9/12; border-radius:10px !important; transform:none !important; opacity:0.98 !important; z-index:1300 !important; box-shadow:0 8px 18px rgba(0,0,0,0.3) !important; }
+  body .miniWin:nth-last-of-type(1){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad)); right: calc(12px + var(--hud-compact-width)); }
+  body .miniWin:nth-last-of-type(2){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + var(--mini-step)); right: calc(16px + var(--hud-compact-width)); transform:scale(0.98); opacity:0.95; }
+  body .miniWin:nth-last-of-type(3){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 2)); right: calc(20px + var(--hud-compact-width)); transform:scale(0.96); opacity:0.92; }
+  body .miniWin:nth-last-of-type(4){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 3)); right: calc(24px + var(--hud-compact-width)); transform:scale(0.94); opacity:0.90; }
 }
 
-/* extra-tight for very narrow devices */
-@media (max-width: 360px) {
-  :root { --hud-compact-width: 220px; }
-  #hudShell { padding: 8px; border-radius: 8px; top: 6px; }
-  .hud-btn { font-size: clamp(12px, 4.5vw, 14px); padding: 6px 8px; }
-  .miniWin { width: 140px !important; }
-}
+/* Global stacking offsets (applies on all screens) */
+body .miniWin:nth-last-of-type(1){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad)); right:10px; }
+body .miniWin:nth-last-of-type(2){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step))); right:14px; transform:scale(0.98); opacity:0.95; }
+body .miniWin:nth-last-of-type(3){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 2)); right:18px; transform:scale(0.96); opacity:0.92; }
+body .miniWin:nth-last-of-type(4){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 3)); right:22px; transform:scale(0.94); opacity:0.90; }
+body .miniWin:nth-last-of-type(n+5){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 4)); right:24px; transform:scale(0.92); opacity:0.88; }
 
-/* Global stacking offsets (applies on all screens)
-   This uses conservative nth-last-of-type offsets so the stack is moved down everywhere.
-   For exact control when many windows are present, use the JS repositioner below.
-*/
-body .miniWin:nth-last-of-type(1) {
-  bottom: calc(var(--mini-base-start) + var(--mini-landing-pad));
-  right: 10px;
-}
-body .miniWin:nth-last-of-type(2) {
-  bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + var(--mini-step));
-  right: 14px;
-  transform: scale(0.98);
-  opacity: 0.95;
-}
-body .miniWin:nth-last-of-type(3) {
-  bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 2));
-  right: 18px;
-  transform: scale(0.96);
-  opacity: 0.92;
-}
-body .miniWin:nth-last-of-type(4) {
-  bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 3));
-  right: 22px;
-  transform: scale(0.94);
-  opacity: 0.90;
-}
-body .miniWin:nth-last-of-type(n+5) {
-  /* approximate fallback for 5+ windows; JS repositioner below is recommended for exact stacking */
-  bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 4));
-  right: 24px;
-  transform: scale(0.92);
-  opacity: 0.88;
-}
-
-/* smooth landing animation when offsets change */
-.miniWin {
-  transition: bottom .28s cubic-bezier(.2,.9,.3,1), transform .18s ease, opacity .18s ease !important;
-  will-change: bottom, transform, opacity;
-}
-
-/* Ensure the video fills its window */
-.miniWin .miniVideo{
-  width:100% !important;
-  height:100% !important;
-  object-fit:cover !important;
+.miniWin .miniVideo{ width:100% !important; height:100% !important; object-fit:cover !important; }
+.miniWin{ transition: bottom .28s cubic-bezier(.2,.9,.3,1), transform .18s ease, opacity .18s ease; will-change: bottom, transform, opacity;
 }
 </style>
 </head>
@@ -394,16 +179,14 @@ body .miniWin:nth-last-of-type(n+5) {
 </div>
 
 <script>
-/* =========================================================
-Ticker, Camera, Controls, Voice — full v1.7 black glass
-========================================================= */
+/* Ticker */
 const ticker=document.getElementById('ticker');
 function addTicker(txt){
   const line=document.createElement('div');
   line.className='tline';
   line.textContent=txt;
   ticker.prepend(line);
-  if(ticker.children.length>80)ticker.removeChild(ticker.lastChild);
+  if(ticker.children.length>80) ticker.removeChild(ticker.lastChild);
 }
 ['index: v1.7 mode dynamic','retro4.4 black glass','rear camera default','multi-HUD active']
 .forEach((m,i)=>setTimeout(()=>addTicker(m),250*i));
@@ -413,36 +196,26 @@ let facing='environment';
 async function initStream(){
   if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
   try{
-    mediaStream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:facing}}, audio:false
-    });
+    mediaStream=await navigator.mediaDevices.getUserMedia({ video:{facingMode:{ideal:facing}}, audio:false });
     addTicker(`camera: ${facing==='user'?'front':'rear'} feed ready`);
     document.querySelectorAll('.miniVideo').forEach(v=>v.srcObject=mediaStream);
-  }catch(e){ addTicker('⚠ camera denied/unavailable'); }
+  }catch(e){
+    addTicker('⚠ camera denied/unavailable');
+  }
 }
 
-/* Repositioner: exact stacking for any number of miniWin elements.
-   Call repositionMiniWins() after spawning or removing windows.
-*/
+/* repositioner for exact stacking */
 function repositionMiniWins(landingPad = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mini-landing-pad')) || 50,
                             step = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mini-step')) || 30,
                             baseStart = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mini-base-start')) || 90) {
   const wins = Array.from(document.querySelectorAll('.miniWin'));
-  // compute right offset based on HUD compact width (uses CSS var if present)
   let hudCompact = getComputedStyle(document.documentElement).getPropertyValue('--hud-compact-width') || '';
-  let rightOffset = 10;
+  let rightOffset = 12;
   if (hudCompact && hudCompact.trim().endsWith('px')) {
-    rightOffset = parseInt(hudCompact);
-    // keep a small gap
-    rightOffset = rightOffset + 12;
-  } else {
-    // fallback small offset from right edge
-    rightOffset = 12;
+    rightOffset = parseInt(hudCompact) + 12;
   }
-
-  // Position newest window last in DOM on top; last element is newest
   for (let i = 0; i < wins.length; i++) {
-    const el = wins[wins.length - 1 - i]; // i=0 newest
+    const el = wins[wins.length - 1 - i]; // newest last
     const bottom = baseStart + landingPad + (i * step);
     el.style.position = 'fixed';
     el.style.right = rightOffset + 'px';
@@ -450,180 +223,165 @@ function repositionMiniWins(landingPad = parseInt(getComputedStyle(document.docu
     el.style.width = (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mini-width')) || 160) + 'px';
     el.style.transform = `scale(${Math.max(0.7, 1 - i * 0.02)})`;
     el.style.opacity = `${Math.max(0.5, 1 - i * 0.06)}`;
-    el.style.zIndex = 2000 - i; // newest sits on top visually
+    el.style.zIndex = 2000 - i;
   }
 }
 
-/* makeMiniWindow: create and return a mini window element.
-   After append, call repositionMiniWins() so the stack is positioned exactly.
-*/
-let winCount=0, spawnUsed=false;
-function makeMiniWindow({x=80,y=80}={}){
+/* create mini window */
+let winCount = 0, spawnUsed = false;
+function makeMiniWindow({x=80,y=80} = {}) {
   winCount++;
-  const el=document.createElement('div');
-  el.className='miniWin';
-  // start positioned using absolute coords for desktop fallback (left/top)
+  const el = document.createElement('div');
+  el.className = 'miniWin';
   el.style.left = x + 'px';
   el.style.top = y + 'px';
-  el.innerHTML=``
+
+  el.innerHTML = `
     <div class="miniBar">
       <div class="miniTitle">subject_${String(winCount).padStart(4,'0')}</div>
       <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
     </div>
-    <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>`;
+    <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>
+  `;
+
   document.body.appendChild(el);
+  const v = el.querySelector('.miniVideo');
+  if (mediaStream) v.srcObject = mediaStream;
 
-  const v=el.querySelector('.miniVideo');
-  if(mediaStream) v.srcObject=mediaStream;
-
-  // dragging logic (works on pointer and touch)
-  const bar=el.querySelector('.miniBar');
-  let dragging=false,sx=0,sy=0,sl=0,st=0;
+  const bar = el.querySelector('.miniBar');
+  let dragging=false, sx=0, sy=0, sl=0, st=0;
   function start(e){
     dragging=true;
-    const r=el.getBoundingClientRect(); sl=r.left; st=r.top;
-    // if fixed-positioned we convert to left/top coordinates to support dragging
-    if(getComputedStyle(el).position === 'fixed'){
-      // convert stored left/top to numbers
-      sl = r.left;
-      st = r.top;
-    }
-    sx=(e.touches?e.touches[0].clientX:e.clientX);
-    sy=(e.touches?e.touches[0].clientY:e.clientY);
-    document.addEventListener('pointermove',move);
-    document.addEventListener('pointerup',stop);
-    document.addEventListener('touchmove',move,{passive:false});
-    document.addEventListener('touchend',stop);
+    const r = el.getBoundingClientRect();
+    sl = r.left; st = r.top;
+    sx = (e.touches ? e.touches[0].clientX : e.clientX);
+    sy = (e.touches ? e.touches[0].clientY : e.clientY);
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', stop);
+    document.addEventListener('touchmove', move, { passive:false });
+    document.addEventListener('touchend', stop);
     bar.style.cursor = 'grabbing';
     el.style.zIndex = 9999;
   }
   function move(e){
-    if(!dragging)return;
-    const cx=(e.touches?e.touches[0].clientX:e.clientX);
-    const cy=(e.touches?e.touches[0].clientY:e.clientY);
-    // convert to fixed coords (right/bottom) would be complex; simpler: set position to fixed and set left/top
+    if(!dragging) return;
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
     el.style.position = 'fixed';
     const newLeft = (sl + (cx - sx));
     const newTop  = (st + (cy - sy));
     el.style.left = newLeft + 'px';
-    el.style.top = newTop + 'px';
-    // remove bottom/right auto offsets so manual drag persists
+    el.style.top  = newTop + 'px';
     el.style.bottom = 'auto';
     el.style.right = 'auto';
     e.preventDefault?.();
   }
   function stop(){
     dragging=false;
-    document.removeEventListener('pointermove',move);
-    document.removeEventListener('pointerup',stop);
-    document.removeEventListener('touchmove',move);
-    document.removeEventListener('touchend',stop);
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', stop);
+    document.removeEventListener('touchmove', move);
+    document.removeEventListener('touchend', stop);
     bar.style.cursor = 'grab';
-    // after drag stop we leave the window where user dragged it (do not re-stack immediately)
   }
-  bar.addEventListener('pointerdown',start);
-  bar.addEventListener('touchstart',start,{passive:false});
+  bar.addEventListener('pointerdown', start);
+  bar.addEventListener('touchstart', start, { passive:false });
 
-  // reposition the stacked windows to their landing pad positions
   repositionMiniWins();
   return el;
 }
 
-/* helper to remove all miniWins */
 function removeAllMiniWins(){
   document.querySelectorAll('.miniWin').forEach(n=>n.remove());
   winCount = 0;
   spawnUsed = false;
 }
 
-/* wire spawn/close buttons after DOM is ready (some handlers below assume they exist) */
+/* Wire UI after DOM ready */
 document.addEventListener('DOMContentLoaded', function(){
-  const btnSpawn5=document.getElementById('btnSpawn5');
-  const btnCloseAll=document.getElementById('btnCloseAll');
-  const btnReverseCam=document.getElementById('btnReverseCam');
-  const btnVoice=document.getElementById('btnVoice');
+  const btnSpawn5 = document.getElementById('btnSpawn5');
+  const btnCloseAll = document.getElementById('btnCloseAll');
+  const btnReverseCam = document.getElementById('btnReverseCam');
+  const btnVoice = document.getElementById('btnVoice');
 
-  btnSpawn5 && btnSpawn5.addEventListener('click',()=>{
-    if(spawnUsed) return addTicker('spawn blocked: already active');
-    spawnUsed=true;
-    const startX=60+Math.random()*40, startY=120+Math.random()*40;
-    for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*26,y:startY+i*18});
+  btnSpawn5 && btnSpawn5.addEventListener('click', () => {
+    if (spawnUsed) return addTicker('spawn blocked: already active');
+    spawnUsed = true;
+    const startX = 60 + Math.random()*40, startY = 120 + Math.random()*40;
+    for (let i=0; i<5; i++) makeMiniWindow({ x: startX + i*26, y: startY + i*18 });
     addTicker('spawned 5 windows');
   });
 
-  btnCloseAll && btnCloseAll.addEventListener('click',()=>{
+  btnCloseAll && btnCloseAll.addEventListener('click', () => {
     removeAllMiniWins();
     addTicker('all windows closed');
   });
 
-  btnReverseCam && btnReverseCam.addEventListener('click',async()=>{
-    facing=(facing==='user')?'environment':'user';
+  btnReverseCam && btnReverseCam.addEventListener('click', async () => {
+    facing = (facing === 'user') ? 'environment' : 'user';
     await initStream();
   });
 
-  btnVoice && btnVoice.addEventListener('click',()=>{
-    voiceOn=!voiceOn;
-    btnVoice.classList.toggle('active',voiceOn);
-    addTicker(`voice: ${voiceOn?'enabled':'disabled'}`);
-    if(voiceOn) speak('voice system online');
+  btnVoice && btnVoice.addEventListener('click', () => {
+    voiceOn = !voiceOn;
+    btnVoice.classList.toggle('active', voiceOn);
+    addTicker(`voice: ${voiceOn ? 'enabled' : 'disabled'}`);
+    if (voiceOn) speak('voice system online');
   });
 });
 
-/* remaining app logic (voices, input, startup) */
-let voiceOn=false,voicesReady=false;
-function primeVoices(){return new Promise(res=>{
+/* voices + input */
+let voiceOn=false, voicesReady=false;
+function primeVoices(){ return new Promise(res => {
   const tid=setInterval(()=>{
     const v=speechSynthesis.getVoices();
-    if(v&&v.length){clearInterval(tid);voicesReady=true;res();}
+    if (v && v.length){ clearInterval(tid); voicesReady=true; res(); }
   },100);
 });}
 async function speak(t){
-  if(!voiceOn||!('speechSynthesis'in window))return;
-  if(!voicesReady)await primeVoices();
-  const u=new SpeechSynthesisUtterance(t);
+  if(!voiceOn || !('speechSynthesis' in window)) return;
+  if(!voicesReady) await primeVoices();
+  const u = new SpeechSynthesisUtterance(t);
   u.lang='en-US'; u.rate=1.05; u.pitch=0.9; u.volume=0.85;
-  const v=speechSynthesis.getVoices();
-  u.voice=v.find(x=>/samantha/i.test(x.name))||v.find(x=>/google/i.test(x.name))||v[0];
+  const v = speechSynthesis.getVoices();
+  u.voice = v.find(x => /samantha/i.test(x.name)) || v.find(x => /google/i.test(x.name)) || v[0];
   speechSynthesis.speak(u);
 }
 
-const input=document.getElementById('input');
+const input = document.getElementById('input');
 function handleSubmit(v){
-  const t=(v||'').trim();
-  if(!t)return;
-  addTicker('> '+t);
-  input.value='';
-  if(voiceOn)setTimeout(()=>speak('okay'),500);
+  const t = (v||'').trim();
+  if (!t) return;
+  addTicker('> ' + t);
+  input.value = '';
+  if (voiceOn) setTimeout(()=>speak('okay'), 500);
 }
-input && input.addEventListener('keydown',e=>{
-  if(e.key==='Enter'){e.preventDefault();handleSubmit(input.value);}n});
+input && input.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); handleSubmit(input.value); }
+});
 
-/* startup: init camera and spawn a few mini windows for demo */
+/* startup */
 (async()=>{
   await initStream();
-  for(let i=0;i<5;i++) makeMiniWindow({x:80+i*22,y:80+i*18});
+  for (let i=0; i<5; i++) makeMiniWindow({ x:80 + i*22, y:80 + i*18 });
 })();
 </script>
 
 <script>
-/* =========================================================
-MODE > SHIFT — dynamic multi-panel version
-========================================================= */
+/* HUD switching */
 const huds=[...document.querySelectorAll('.hud-panel')];
 const hudIndex=document.getElementById('hudIndex');
 let currentHUD=0;
-function updateHUDLabel(){
-  hudIndex.textContent=`HUD ${currentHUD+1} / ${huds.length}`;
-}
+function updateHUDLabel(){ hudIndex.textContent=`HUD ${currentHUD+1} / ${huds.length}`; }
 function showHUD(i){
   huds[currentHUD].classList.remove('active');
-  currentHUD=(i+huds.length)%huds.length;
+  currentHUD=(i+huds.length) % huds.length;
   huds[currentHUD].classList.add('active');
   updateHUDLabel();
   addTicker(`HUD switched → ${currentHUD+1}`);
-  if(voiceOn&&typeof speak==='function')speak(`HUD ${currentHUD+1} active`);
+  if (voiceOn && typeof speak === 'function') speak(`HUD ${currentHUD+1} active`);
 }
-document.getElementById('hudHeader').addEventListener('click',()=>showHUD(currentHUD+1));
+document.getElementById('hudHeader') && document.getElementById('hudHeader').addEventListener('click', ()=> showHUD(currentHUD+1));
 updateHUDLabel();
 </script>
 
