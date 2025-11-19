@@ -1,5 +1,3 @@
-.Js nav 
-
 /* repo-nav-simple.js
    Lightweight, non-network nav sidebar widget.
    - No GitHub API calls (no rate limits)
