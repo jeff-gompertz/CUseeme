@@ -139,6 +139,82 @@ HUD Panels
   box-shadow: 0 12px 30px rgba(0,0,0,0.35) !important;
 }
 
+/* RESPONSIVE HUD for small screens
+   Paste this file into your repo (or paste the contents at the end of each page's <style>)
+   It overrides the HUD layout to be phone-friendly, stacks rows, and hides heavy mini windows.
+*/
+
+/* Small / tablet breakpoint */
+@media (max-width: 860px) {
+  /* make the HUD shell narrower and anchored with left/right insets */
+  #hudShell{
+    position:fixed;
+    top:12px;
+    right:12px;
+    left:12px;                 /* allow it to center horizontally on small screens */
+    z-index:1000;
+    min-width:0 !important;    /* override earlier min-width:320px; */
+    width:auto;
+    max-width:calc(100% - 24px);
+    padding:12px 10px;
+    display:block;             /* grid -> block so children flow naturally */
+    border-radius:12px;
+    background:rgba(0,0,0,0.02); /* subtle background on phones */
+    box-shadow:none;           /* reduce heavy shadows on phones */
+    -webkit-backdrop-filter:none;
+    backdrop-filter:none;
+  }
+
+  /* stack HUD rows vertically so each button gets full width */
+  .hud-row{
+    display:flex;
+    flex-direction:column;     /* vertical stacking on phone */
+    gap:10px;
+    align-items:stretch;
+  }
+
+  /* make buttons full-width and scaled down */
+  .hud-btn{
+    width:100%;
+    box-sizing:border-box;
+    font-size:clamp(14px, 4vw, 16px); /* responsive font sizing */
+    padding:8px 10px;
+    border-radius:10px;
+    justify-content:center;
+    text-align:center;
+  }
+
+  /* keep active style visible but less heavy on phones */
+  .hud-btn.active{
+    background:rgba(255,165,100,0.12) !important;
+    box-shadow:0 8px 18px rgba(0,0,0,0.28) !important;
+  }
+}
+
+/* Extra small: tighten further for narrow phones */
+@media (max-width: 420px) {
+  #hudShell{
+    top:8px;
+    padding:8px;
+    border-radius:10px;
+  }
+  .hud-btn{
+    font-size:clamp(13px, 4.5vw, 15px);
+    padding:8px;
+  }
+  /* collapse the HUD header label if it overlaps */
+  #hudHeader{ font-size:clamp(18px, 6vw, 22px); }
+}
+
+/* Hide or shrink heavy mini windows on phones (optional) */
+@media (max-width: 860px) {
+  .miniWin{
+    display:none !important; /* hide floating windows on phones */
+    /* Alternative: shrink instead of hide
+       width:160px; height:auto; opacity:0.95; transform:scale(0.85);
+    */
+  }
+}
 
 /* =========================================================
 Ticker
