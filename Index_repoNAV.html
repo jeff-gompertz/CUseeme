@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CUSeeMe v1.8 — Floating Feed (Live Black)</title>
+<style>
+html,body{
+  margin:0;padding:0;height:100%;
+  background:#000;
+  font-family:"VT323", monospace;
+  color:#0f0;
+  overflow:hidden;
+}
+
+/* MAIN CAMERA FEED */
+#camera{
+  position:fixed;inset:0;
+  object-fit:cover;
+  transform:scaleX(-1);
+  z-index:0;
+  filter:brightness(1.05) contrast(1.1);
+}
+
+/* FLOATING MINI FEED */
+#miniFeed{
+  position:absolute;
+  top:24px;right:24px;
+  width:240px;height:180px;
+  border-radius:10px;
+  overflow:hidden;
+  z-index:2;
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.15);
+  backdrop-filter:blur(4px);
+  cursor:grab;
+  transition:box-shadow .3s ease, transform .4s ease;
+} 
+#miniFeed video{
+  width:100%;height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
+  opacity:0.9;
+}
+#miniFeed:hover{
+  box-shadow:0 0 20px rgba(0,255,120,0.25);
+  transform:scale(1.04);
+}
+
+/* PROMPT LAYER */
+#promptWrap{
+  position:fixed;inset:0;display:flex;
+  align-items:center;justify-content:center;
+  z-index:3;pointer-events:none;
+}
+#promptBox{
+  pointer-events:auto;
+  background:rgba(0,255,100,0.06);
+  border:1px solid rgba(0,255,100,0.18);
+  border-radius:10px;
+  padding:.6rem 1rem;
+  font-size:1.2rem;
+  display:flex;align-items:center;gap:.4rem;
+  color:#0f0;
+}
+#input{
+  background:transparent;
+  border:none;outline:none;
+  color:#ffffff;
+  font-size:inherit;
+  width:14ch;
+}
+#input::placeholder{ color: rgba(255,255,255,0.6); }
+#caret{ width:.25ch;height:1.3em;background:#0f0; animation:blink 1s step-end infinite; }
+@keyframes blink{50%{opacity:0}}
+
+/* DICTATION BUTTON */
+#dictateBtn{
+  background:transparent;border:1px solid rgba(0,255,120,0.12);
+  color:#0f0;font-size:1.05rem;padding:6px 8px;border-radius:8px;cursor:pointer;margin-left:6px;
+}
+#dictateBtn.listening{ color:#ff0;border-color:rgba(255,12,110,0.9); box-shadow:0 0 18px rgba(255,12,110,0.35); transform:scale(1.03); }
+
+/* TICKER */
+#ticker{
+  position:fixed;left:14px;bottom:14px;width:40%;max-height:55%;display:flex;flex-direction:column-reverse;
+  overflow:hidden;z-index:3;font-size:1rem;line-height:1.2rem;color:#0f0;opacity:.9;
+}
+.tline{ opacity:.8;margin:0; animation:fadeIn 1s ease forwards; transition:opacity 45s linear; }
+@keyframes fadeIn{ from{opacity:0;transform:translateY(10px)} to{opacity:.8;transform:none} }
+
+/* TOGGLE BUTTONS (nav pill) */
+#hudToggle{ position:fixed;top:12px;right:12px;z-index:4;
+  background:rgba(0,255,80,0.1); border:1px solid rgba(0,255,120,0.2);
+  border-radius:6px; color:#0f0; font-size:12px; padding:6px 10px; cursor:pointer; backdrop-filter:blur(3px);
+}
+#hudToggle:hover{ background:rgba(0,255,120,0.25); }
+
+/* NAV toggle (simple-repo-nav uses hudToggle_nav id) */
+#hudToggle_nav{
+  position:fixed;top:48px;right:12px;z-index:4;
+  background:rgba(0,255,80,0.1); border:1px solid rgba(0,255,120,0.2);
+  border-radius:6px; color:#0f0; font-size:12px; padding:6px 10px; cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  user-select:none; -webkit-user-select:none; touch-action:manipulation;
+}
+#hudToggle_nav.holding{
+  background:linear-gradient(90deg, rgba(255,12,110,0.26), rgba(255,40,140,0.12));
+  box-shadow:0 0 64px rgba(255,12,110,0.95); transform:scale(1.06);
+}
+
+/* progress bar inside toggle */
+#hudToggle_nav .holdProgress{
+  position:absolute;left:0;top:0;height:100%;width:0%;border-radius:6px;
+  background:linear-gradient(90deg, rgba(255,12,110,0.28), rgba(255,60,160,0.16));
+  pointer-events:none; transition:width 0s linear; z-index:-1;
+}
+
+/* status bubble for repo nav */
+#repoStatus{
+  position:fixed;top:12px;right:120px;z-index:6;color:#b8ffb8;font-size:13px;padding:6px 8px;
+  background:rgba(0,0,0,0.35);border:1px solid rgba(0,255,120,0.06);border-radius:6px;pointer-events:none;opacity:.95;
+}
+
+/* Scoped defaults for repo-nav-simple if created in-page */
+#repoNav { z-index:5; }
+
+/* responsive */
+@media (max-width:640px){
+  #miniFeed{width:180px;height:140px}
+  #hudToggle_nav{ right:10px; top:64px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Camera -->
+<video id="camera" autoplay muted playsinline></video>
+
+<!-- Floating mini feed -->
+<div id="miniFeed">
+  <video id="miniVideo" autoplay muted playsinline></video>
+</div>
+
+<!-- Float toggle (keeps existing FLOAT control) -->
+<div id="hudToggle">⧉ FLOAT</div>
+
+<!-- NAV button contains a progress element (used by repo-nav-simple) -->
+<div id="hudToggle_nav" role="button" aria-pressed="false" aria-label="Hold to open navigation">
+  <div class="holdProgress" aria-hidden="true"></div>
+  ⧉ NAV
+</div>
+
+<!-- status -->
+<div id="repoStatus">nav: idle</div>
+
+<!-- Note: we DO NOT include the old RepoNav factory here.
+     The universal repo-nav-simple.js will be used instead and
+     will create its own panel/toggle when needed. -->
+
+<!-- Prompt / input -->
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" spellcheck="false" autocomplete="off" placeholder="type here…">
+    <button id="dictateBtn" type="button" aria-label="Start dictation" title="Start dictation">🎤</button>
+  </div>
+</div>
+
+<!-- Ticker -->
+<div id="ticker"></div>
+
+<script>
+/* TICKER */
+const ticker = document.getElementById('ticker');
+function addTickerLine(txt){
+  const el = document.createElement('div');
+  el.className = 'tline';
+  el.textContent = txt;
+  ticker.prepend(el);
+  if(ticker.children.length > 80) ticker.removeChild(ticker.lastChild);
+}
+['index: v1.8 floating','retro black glass','rear camera default','universal nav active']
+.forEach((m,i)=>setTimeout(()=>addTickerLine(m),200*i));
+
+/* CAMERA / MEDIA stream */
+let mediaStream = null;
+let facing = 'environment';
+async function initStream(){
+  if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream = null; }
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal: facing } }, audio:false });
+    addTickerLine(`camera: ${facing==='user'?'front':'rear'} feed ready`);
+    document.querySelectorAll('#miniVideo, .miniVideo').forEach(v => { try { v.srcObject = mediaStream; } catch(e){} });
+    const cam = document.getElementById('camera');
+    try { cam.srcObject = mediaStream; } catch(e){}
+  }catch(e){
+    addTickerLine('⚠ camera denied/unavailable');
+    console.warn(e);
+  }
+}
+
+/* MINI WINDOWS (float/spawn) */
+let winCount = 0, spawnUsed = false;
+function repositionMiniWins(landingPad = 75, step = 30, baseStart = 90){
+  const wins = Array.from(document.querySelectorAll('.miniWin'));
+  let rightOffset = 12;
+  for(let i=0;i<wins.length;i++){
+    const el = wins[wins.length - 1 - i];
+    const bottom = baseStart + landingPad + (i * step);
+    el.style.position = 'fixed';
+    el.style.right = rightOffset + 'px';
+    el.style.bottom = bottom + 'px';
+    el.style.removeProperty('top');
+    el.style.removeProperty('width');
+    el.style.transform = `scale(${Math.max(0.7, 1 - i * 0.02)})`;
+    el.style.opacity = `${Math.max(0.5, 1 - i * 0.06)}`;
+    el.style.zIndex = 2000 - i;
+  }
+}
+
+function makeMiniWindow({x=80} = {}){
+  winCount++;
+  const el = document.createElement('div');
+  el.className = 'miniWin';
+  el.style.left = x + 'px';
+  el.innerHTML = `
+    <div class="miniBar">
+      <div class="miniTitle">subject_${String(winCount).padStart(4,'0')}</div>
+      <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+    </div>
+    <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>
+  `;
+  document.body.appendChild(el);
+  const v = el.querySelector('.miniVideo');
+  if(mediaStream) v.srcObject = mediaStream;
+  const bar = el.querySelector('.miniBar');
+  let dragging=false, sx=0, sy=0, sl=0, st=0;
+  function start(e){
+    dragging=true;
+    const r = el.getBoundingClientRect();
+    sl = r.left; st = r.top;
+    sx = (e.touches ? e.touches[0].clientX : e.clientX);
+    sy = (e.touches ? e.touches[0].clientY : e.clientY);
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', stop);
+    document.addEventListener('touchmove', move, { passive:false });
+    document.addEventListener('touchend', stop);
+    bar.style.cursor = 'grabbing';
+    el.style.zIndex = 9999;
+  }
+  function move(e){
+    if(!dragging) return;
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+    el.style.position = 'fixed';
+    const newLeft = (sl + (cx - sx));
+    const newTop  = (st + (cy - sy));
+    el.style.left = newLeft + 'px';
+    el.style.top  = newTop + 'px';
+    el.style.bottom = 'auto'; el.style.right = 'auto';
+    e.preventDefault?.();
+  }
+  function stop(){
+    dragging=false;
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', stop);
+    document.removeEventListener('touchmove', move);
+    document.removeEventListener('touchend', stop);
+    bar.style.cursor = 'grab';
+    repositionMiniWins();
+  }
+  bar.addEventListener('pointerdown', start);
+  bar.addEventListener('touchstart', start, { passive:false });
+  repositionMiniWins();
+  return el;
+}
+
+function removeAllMiniWins(){
+  document.querySelectorAll('.miniWin').forEach(n=>n.remove());
+  winCount = 0; spawnUsed = false;
+}
+
+/* UI wiring after DOM */
+document.addEventListener('DOMContentLoaded', function(){
+  const btnSpawn5 = document.getElementById('btnSpawn5');
+  const btnCloseAll = document.getElementById('btnCloseAll');
+  const btnReverseCam = document.getElementById('btnReverseCam');
+  const btnVoice = document.getElementById('btnVoice');
+
+  // fallback HUD buttons if present on page (these might not exist on this new page)
+  if(btnSpawn5){
+    btnSpawn5.addEventListener('click', () => {
+      if (spawnUsed) return addTickerLine('spawn blocked: already active');
+      spawnUsed = true;
+      const startX = 60 + Math.random()*40;
+      for (let i=0; i<5; i++) makeMiniWindow({ x: Math.round(startX + i*26) });
+      addTickerLine('spawned 5 windows');
+    });
+  }
+
+  const floatToggle = document.getElementById('hudToggle');
+  if(floatToggle){
+    floatToggle.addEventListener('click', () => {
+      const mini = document.getElementById('miniFeed');
+      mini.style.display = (mini.style.display === 'none') ? 'block' : 'none';
+    });
+  }
+
+  const btnReverse = document.getElementById('btnReverseCam');
+  if(btnReverse){
+    btnReverse.addEventListener('click', async () => {
+      facing = (facing === 'user') ? 'environment' : 'user';
+      await initStream();
+    });
+  }
+
+  const btnVoiceLocal = document.getElementById('btnVoice');
+  if(btnVoiceLocal){
+    btnVoiceLocal.addEventListener('click', () => {
+      voiceOn = !voiceOn;
+      btnVoiceLocal.classList.toggle('active', voiceOn);
+      addTickerLine(`voice: ${voiceOn ? 'enabled' : 'disabled'}`);
+      if (voiceOn) speak('voice system online');
+    });
+  }
+});
+
+/* VOICE & INPUT */
+let voiceOn=false, voicesReady=false;
+function primeVoices(){ return new Promise(res => {
+  const tid=setInterval(()=>{
+    const v=speechSynthesis.getVoices();
+    if (v && v.length){ clearInterval(tid); voicesReady=true; res(); }
+  },100);
+});}
+async function speak(t){
+  if(!voiceOn || !('speechSynthesis' in window)) return;
+  if(!voicesReady) await primeVoices();
+  const u = new SpeechSynthesisUtterance(t);
+  u.lang='en-US'; u.rate=1.05; u.pitch=0.9; u.volume=0.85;
+  const v = speechSynthesis.getVoices();
+  u.voice = v.find(x => /samantha/i.test(x.name)) || v.find(x => /google/i.test(x.name)) || v[0];
+  speechSynthesis.speak(u);
+}
+
+/* INPUT handler */
+const input = document.getElementById('input');
+if (input){
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter'){ e.preventDefault(); const v = input.value.trim(); if(!v) return; addTickerLine('> '+v); input.value=''; if(voiceOn) setTimeout(()=>speak('okay'), 500); }
+  });
+}
+
+/* DICTATION (simple) */
+(function enableDictation(){
+  const inputEl = document.getElementById('input');
+  const btn = document.getElementById('dictateBtn');
+  if(!inputEl || !btn) return;
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  let recognition = null, listening = false;
+  function setListeningState(on){
+    listening = !!on;
+    btn.classList.toggle('listening', listening);
+    btn.textContent = listening ? '⏺️' : '🎤';
+  }
+  btn.addEventListener('click', async function(){
+    if(SpeechRecognition){
+      try{
+        if(!recognition){
+          recognition = new SpeechRecognition();
+          recognition.lang='en-US'; recognition.interimResults=false; recognition.maxAlternatives=1; recognition.continuous=false;
+          recognition.onstart = ()=> { setListeningState(true); addTickerLine('→ dictation: listening…'); };
+          recognition.onresult = ev => { const transcript = Array.from(ev.results).map(r=>r[0].transcript).join(' '); inputEl.value = (inputEl.value ? inputEl.value + ' ' : '') + transcript; addTickerLine('< dictation: '+transcript); };
+          recognition.onerror = err => { console.warn('SpeechRecognition error', err); addTickerLine('⚠ dictation error'); alert('Speech recognition error: ' + (err.error || err.message || 'unknown')); };
+          recognition.onend = ()=> setListeningState(false);
+        }
+        if(listening){ recognition.stop(); setListeningState(false); } else { recognition.start(); }
+      }catch(err){ console.warn('Recognition start/stop failed', err); setListeningState(false); }
+    } else {
+      // fallback: focus input for iOS keyboard dictation
+      try { inputEl.focus({ preventScroll:true }); } catch(e){ inputEl.focus(); }
+      addTickerLine('→ Focused input for keyboard dictation.');
+    }
+  });
+})();
+
+/* STARTUP */
+(async()=>{
+  await initStream();
+  // keep the miniFeed video populated
+  const mini = document.getElementById('miniVideo');
+  if (mediaStream && mini) mini.srcObject = mediaStream;
+  // create a few demo windows for layout (non-blocking)
+  for(let i=0;i<3;i++) makeMiniWindow({ x:80 + i*22 });
+})();
+</script>
+
+<!-- Inline links for the universal nav — correct syntax (no syntax errors) -->
+<script>
+  window.SIMPLE_REPO_NAV_LINKS = [
+    { title: '🏠 Index', href: 'index.html', target: '_self' },
+    { title: '🎛 Dynamic v1.7', href: 'CUseeme_v1.7_dynamic_restyleBLACK.html', target: '_self' },
+    { title: '📄 README', href: 'README.md', target: '_blank' }
+  ];
+</script>
+
+<!-- Universal repo nav loader (hosted on GitHub Pages) -->
+<script src="https://jeff-gompertz.github.io/CUseeme/repo-nav-simple.js"></script>
+
+</body>
+</html>
