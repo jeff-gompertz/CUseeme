@@ -229,7 +229,7 @@ function repositionMiniWins(landingPad = parseInt(getComputedStyle(document.docu
 
 /* create mini window */
 let winCount = 0, spawnUsed = false;
-function makeMiniWindow({x=80,y=80} = {}) {
+function makeMiniWindow({x=80,y=130} = {}) {
   winCount++;
   const el = document.createElement('div');
   el.className = 'miniWin';
@@ -363,7 +363,7 @@ input && input.addEventListener('keydown', e => {
 /* startup */
 (async()=>{
   await initStream();
-  for (let i=0; i<5; i++) makeMiniWindow({ x:80 + i*22, y:80 + i*18 });
+  for (let i=0; i<5; i++) makeMiniWindow({ x:80 + i*22, y:130 + i*18 });
 })();
 </script>
 
