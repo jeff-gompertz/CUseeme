@@ -539,7 +539,6 @@ var repoNavInstance = createRepoNav({ owner: 'jeff-gompertz', repo: 'CUseeme', b
 repoNavInstance.refresh = async function() {
     try {
         if (this.list) this.list.innerHTML = '<a href="https://jeff-gompertz.github.io/CUseeme/CUseeme_v1.7_dynamic_restyleBLACK.html" target="_self">📰 Spawn5</a>';
-        if (this.list) this.list.innerHTML = 'CUseeme_v1.7_dynamic_restyleBLACK.html" target="_self">📰 Spawn5</a>';
         if (this.statusEl) setRepoStatus('loaded');
     } catch (e) { console.warn('override refresh failed', e); }
 };
