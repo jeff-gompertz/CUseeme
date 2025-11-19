@@ -21,10 +21,10 @@
   --bg: #000000;
   --ticker: #ff3a2f;
 
-  /* miniWin stacking config (global) */
-  --mini-landing-pad: 150px; /* changed to 75px per request */
+  /* Single source-of-truth: change this to move the whole stack up/down */
+  --mini-landing-pad: 75px;    /* <-- change this value to move stack (75px lower) */
   --mini-step: 30px;
-  --mini-base-start: 190px;
+  --mini-base-start: 90px;
   --mini-width: 160px;
   --hud-compact-width: 260px;
 }
@@ -220,6 +220,7 @@ function repositionMiniWins(landingPad = parseInt(getComputedStyle(document.docu
     el.style.position = 'fixed';
     el.style.right = rightOffset + 'px';
     el.style.bottom = bottom + 'px';
+    el.style.removeProperty('top');
     el.style.removeProperty('width');
     el.style.transform = `scale(${Math.max(0.7, 1 - i * 0.02)})`;
     el.style.opacity = `${Math.max(0.5, 1 - i * 0.06)}`;
@@ -229,12 +230,12 @@ function repositionMiniWins(landingPad = parseInt(getComputedStyle(document.docu
 
 /* create mini window */
 let winCount = 0, spawnUsed = false;
-function makeMiniWindow({x=80,y=130} = {}) {
+function makeMiniWindow({x=80,y=undefined} = {}) {
   winCount++;
   const el = document.createElement('div');
   el.className = 'miniWin';
   el.style.left = x + 'px';
-  el.style.top = y + 'px';
+  // do NOT set top here; allow repositionMiniWins to control vertical placement
 
   el.innerHTML = `
     <div class="miniBar">
@@ -307,8 +308,9 @@ document.addEventListener('DOMContentLoaded', function(){
   btnSpawn5 && btnSpawn5.addEventListener('click', () => {
     if (spawnUsed) return addTicker('spawn blocked: already active');
     spawnUsed = true;
-    const startX = 60 + Math.random()*40, startY = 120 + Math.random()*40;
-    for (let i=0; i<5; i++) makeMiniWindow({ x: startX + i*26, y: startY + i*18 });
+    const startX = 60 + Math.random()*40;
+    // call makeMiniWindow without a y so it uses the landing-pad baseline
+    for (let i=0; i<5; i++) makeMiniWindow({ x: Math.round(startX + i*26) });
     addTicker('spawned 5 windows');
   });
 
@@ -363,7 +365,8 @@ input && input.addEventListener('keydown', e => {
 /* startup */
 (async()=>{
   await initStream();
-  for (let i=0; i<5; i++) makeMiniWindow({ x:80 + i*22, y:130 + i*18 });
+  // Spawn demo windows using only x; y/bottom computed to align with landing pad
+  for (let i=0; i<5; i++) makeMiniWindow({ x:80 + i*22 });
 })();
 </script>
 
