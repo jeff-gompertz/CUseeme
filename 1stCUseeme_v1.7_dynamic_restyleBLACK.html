@@ -115,7 +115,7 @@ html,body{
   .hud-btn{ width:100%; box-sizing:border-box; font-size:clamp(13px,4.2vw,15px); padding:8px 10px; border-radius:10px; text-align:center; }
   #hudHeader{ font-size:clamp(18px,6vw,22px); margin-bottom:8px; }
   #promptBox{ margin-top:68px; width:calc(100% - 40px); max-width:560px; }
-  .miniWin{ position:fixed !important; right: calc(12px + var(--hud-compact-width)); bottom: calc(var(--mini-base-start) + var(--mini-landing-pad)); width:var(--mini-width) !important; height:auto !important; aspect-ratio:9/12; border-radius:10px !important; transform:none !important; opacity:0.98 !important; z-index:1300 !important; box-shadow:0 8px 18px rgba(0,0,0,0.3) !important; }
+  .miniWin{ position:fixed !important; right: calc(12px + var(--hud-compact-width)); bottom: calc(var(--mini-base-start) + var(--mini-landing-pad)); width: 44vw; max-width: 380px; height:auto !important; aspect-ratio:9/12; border-radius:10px !important; transform:none !important; opacity:0.98 !important; z-index:1300 !important; box-shadow:0 8px 18px rgba(0,0,0,0.3) !important; }
   body .miniWin:nth-last-of-type(1){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad)); right: calc(12px + var(--hud-compact-width)); }
   body .miniWin:nth-last-of-type(2){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + var(--mini-step)); right: calc(16px + var(--hud-compact-width)); transform:scale(0.98); opacity:0.95; }
   body .miniWin:nth-last-of-type(3){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 2)); right: calc(20px + var(--hud-compact-width)); transform:scale(0.96); opacity:0.92; }
@@ -220,7 +220,7 @@ function repositionMiniWins(landingPad = parseInt(getComputedStyle(document.docu
     el.style.position = 'fixed';
     el.style.right = rightOffset + 'px';
     el.style.bottom = bottom + 'px';
-    el.style.width = (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mini-width')) || 160) + 'px';
+    el.style.removeProperty('width');
     el.style.transform = `scale(${Math.max(0.7, 1 - i * 0.02)})`;
     el.style.opacity = `${Math.max(0.5, 1 - i * 0.06)}`;
     el.style.zIndex = 2000 - i;
