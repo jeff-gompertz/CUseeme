@@ -376,14 +376,24 @@ const huds=[...document.querySelectorAll('.hud-panel')];
 const hudIndex=document.getElementById('hudIndex');
 let currentHUD=0;
 function updateHUDLabel(){ hudIndex.textContent=`HUD ${currentHUD+1} / ${huds.length}`; }
-function showHUD(i){
+
+/*  function showHUD(i){
   huds[currentHUD].classList.remove('active');
   currentHUD=(i+huds.length) % huds.length;
   huds[currentHUD].classList.add('active');
   updateHUDLabel();
   addTicker(`HUD switched → ${currentHUD+1}`);
   if (voiceOn && typeof speak === 'function') speak(`HUD ${currentHUD+1} active`);
+}*/
+
+  function showHUD(i){
+  currentHUD = (i + huds.length) % huds.length;
+  updateHUDLabel();
+  addTicker(`HUD switched → ${currentHUD+1}`);
+  if (voiceOn && typeof speak === 'function') speak(`HUD ${currentHUD+1} active`);
 }
+
+
 document.getElementById('hudHeader') && document.getElementById('hudHeader').addEventListener('click', ()=> showHUD(currentHUD+1));
 updateHUDLabel();
 </script>
