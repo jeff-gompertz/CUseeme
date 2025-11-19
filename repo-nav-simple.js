@@ -1,166 +1,207 @@
-(function () {
-  function safe(v, fallback) { return (typeof v === 'string' && v) ? v : fallback; }
+/* repo-nav-simple.js
+   Lightweight, non-network nav sidebar widget.
+   - No GitHub API calls (no rate limits)
+   - Holds its own toggle + hold-to-open behavior
+   - Simple API: simpleRepoNav.setLinks([...]); simpleRepoNav.open()/close()/toggle()
+*/
 
-  function injectStyles() {
-    if (document.head.querySelector('[data-repo-nav-styles]')) return;
-    const css = `
-      /* scoped repo nav styles */
-      #repoNav { position: fixed; top: 18px; right: 18px; z-index: 12050; display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
-      #repoNavBtn { background:#0b6d2b; color:#e9ffe9; border:none; padding:8px 10px; border-radius:8px; font-family:inherit; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.35); -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
-      #repoNavPanel { display:none; min-width:220px; padding:10px 12px; background:rgba(10,10,12,0.92); color:#bfffbf; border-radius:10px; border:1px solid rgba(0,160,60,0.10); box-shadow:0 12px 30px rgba(0,0,0,0.55); text-align:left; -webkit-touch-callout:none; user-select:none; }
-      #repoNavPanel .repoNavBtn { display:block; width:100%; text-align:left; color:inherit; background:transparent; border:none; padding:8px 6px; font-size:14px; font-family:inherit; cursor:pointer; -webkit-user-select:none; user-select:none; }
-      #repoNavPanel .repoNavBtn:hover { color:#fff; background:rgba(255,255,255,0.02); }
-      #repoNavPanel small { display:block; margin-top:6px; opacity:0.7; font-size:12px; }
-      /* keyboard focus */
-      #repoNavPanel .repoNavBtn:focus { outline:2px solid rgba(255,255,255,0.12); outline-offset:2px; }
+(function(){
+  const DEFAULT_LINKS = [
+    { title: '🏠 Index', href: './index.html', target: '_self' },
+    { title: '📰 Spawn5', href: './A/CUseeme_v1.7_dynamic_restyleBLACK.html', target: '_self' }
+  ];
 
-      /* Prevent selection/touch callouts and keep small hover styles */
-      #hudToggle_nav.holding { box-shadow: 0 0 36px rgba(255,12,110,0.9); transform: none; }
-      aside#repoNav .nav-item:hover, aside#repoNav .repoNavBtn:hover { background: rgba(0,255,120,0.04); }
-      aside#repoNav.open { transform: translateX(0) !important; }
-      /* Disable text selection / iOS touch callout on nav controls */
-      aside#repoNav, #hudToggle_nav, aside#repoNav * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
-      /* Keep focus styles accessible when keyboard/tabbing */
-      aside#repoNav button:focus { outline: 2px solid rgba(255,255,255,0.08); outline-offset: 2px; }
-    `;
-    const s = document.createElement('style');
-    s.setAttribute('data-repo-nav-styles', '1');
-    s.textContent = css;
-    document.head.appendChild(s);
-  }
+  // Ensure we only initialize once
+  if(window.simpleRepoNav) return;
 
-  function buildNav(links) {
-    if (!links || !links.length) return null;
-
-    // avoid duplicate injection
-    if (document.getElementById('repoNav')) return document.getElementById('repoNav');
-
-    const root = document.createElement('div');
-    root.id = 'repoNav';
-    root.setAttribute('aria-hidden', 'false');
-
-    const btn = document.createElement('button');
-    btn.id = 'repoNavBtn';
-    btn.type = 'button';
-    btn.title = 'Repository NAV';
-    btn.textContent = 'NAV';
-    btn.setAttribute('aria-expanded', 'false');
-
-    const panel = document.createElement('div');
-    panel.id = 'repoNavPanel';
-    panel.setAttribute('role', 'menu');
-    panel.setAttribute('aria-hidden', 'true');
-
-    // build buttons (not anchor tags)
-    links.forEach(link => {
-      const t = safe(link.title, '(link)');
-      const href = safe(link.href, '');
-      const target = safe(link.target, '_self');
-
-      const item = document.createElement('button');
-      item.type = 'button';
-      item.className = 'repoNavBtn';
-      item.innerHTML = t;
-      // store href as dataset to avoid making it an <a>
-      if (href) item.dataset.href = href;
-      if (target) item.dataset.target = target;
-
-      item.addEventListener('click', (e) => {
-        e.preventDefault();
-
-        // special-case buttons that should call existing on-page controls:
-        // if data-href looks like an element id (starts with '#') or looks like btnName
-        const hrefVal = item.dataset.href || '';  
-        if (hrefVal.startsWith('#')) {
-          const id = hrefVal.slice(1);
-          const existing = document.getElementById(id);
-          if (existing) { existing.click(); return; }
-        }
-
-        // as a heuristic: if href refers to an on-page button name (btnSpawn5 etc.), try to find it by id
-        if (/^btn/i.test(hrefVal)) {
-          const existing = document.getElementById(hrefVal);
-          if (existing) { existing.click(); return; }
-        }
-
-        // otherwise navigate programmatically so the browser treats it as a script nav (not a long-press anchor)
-        if (hrefVal) {
-          if (item.dataset.target === '_blank') {
-            window.open(hrefVal, '_blank', 'noopener');
-          } else {
-            window.location.href = hrefVal;
-          }
-        }
-      });
-
-      // block context menu on the button itself
-      item.addEventListener('contextmenu', (ev) => ev.preventDefault());
-
-      panel.appendChild(item);
-    });
-
-    const tip = document.createElement('small');
-    tip.textContent = 'Tip: tap a button to run';
-    panel.appendChild(tip);
-
-    root.appendChild(btn);
-    root.appendChild(panel);
-
-    // interactions
-    btn.addEventListener('click', (ev) => {
-      ev.preventDefault();
-      const showing = panel.style.display === 'block';
-      panel.style.display = showing ? 'none' : 'block';
-      panel.setAttribute('aria-hidden', String(!showing));
-      btn.setAttribute('aria-expanded', String(!showing));
-    });
-
-    // hide when clicking/tapping outside
-    document.addEventListener('pointerdown', (ev) => {
-      if (!root.contains(ev.target)) {
-        panel.style.display = 'none';
-        panel.setAttribute('aria-hidden', 'true');
-        btn.setAttribute('aria-expanded', 'false');
-      }
-    });
-
-    // Prevent system context menu on nav area
-    root.addEventListener('contextmenu', (ev) => ev.preventDefault());
-
-    return root;
-  }
-
-  // Wait until DOM ready if not already
-  function init() {
-    try {
-      const links = window.SIMPLE_REPO_NAV_LINKS || [];
-      if (!links || !links.length) return;
-
-      injectStyles();
-
-      // Build and append nav
-      const nav = buildNav(links);
-      if (nav) {
-        // prefer prepending so it's visually above most content
-        document.body.appendChild(nav);
-      }
-
-      // post-insert hardening: disable touchcallout etc (already handled in CSS but this helps)
-      const repoRoot = document.getElementById('repoNav');
-      if (repoRoot) {
-        repoRoot.style.webkitTouchCallout = 'none';
-        repoRoot.style.userSelect = 'none';
-        // ensure repositioning occurs if needed
-        setTimeout(() => { if (typeof window.repositionMiniWins === 'function') window.repositionMiniWins(); }, 80);
-      }
-    } catch (err) {
-      console.warn('repo-nav-simple init error', err);
+  // Helpers to create nodes
+  function createEl(tag, attrs={}, html=''){
+    const el = document.createElement(tag);
+    for(const k in attrs){
+      if(k === 'style') Object.assign(el.style, attrs[k]);
+      else if(k === 'class') el.className = attrs[k];
+      else el.setAttribute(k, attrs[k]);
     }
+    if(html) el.innerHTML = html;
+    return el;
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  // Create or reuse hud toggle button
+  function ensureToggle(){
+    let btn = document.getElementById('hudToggle_nav');
+    if(!btn){
+      btn = createEl('div', { id:'hudToggle_nav', role:'button', 'aria-pressed':'false', 'aria-label':'Hold to open navigation' });
+      btn.textContent = '⧉ NAV';
+      document.body.appendChild(btn);
+    }
+    // basic style if not styled by page
+    btn.style.position = btn.style.position || 'fixed';
+    btn.style.top = btn.style.top || '56px';
+    btn.style.right = btn.style.right || '12px';
+    btn.style.zIndex = btn.style.zIndex || 9999;
+    btn.style.padding = btn.style.padding || '6px 10px';
+    btn.style.borderRadius = btn.style.borderRadius || '6px';
+    btn.style.background = btn.style.background || 'rgba(0,255,80,0.08)';
+    btn.style.color = btn.style.color || '#0f0';
+    btn.style.cursor = btn.style.cursor || 'pointer';
+    btn.style.display = btn.style.display || 'inline-flex';
+    btn.style.alignItems = btn.style.alignItems || 'center';
+    btn.style.gap = btn.style.gap || '.5rem';
+    return btn;
   }
+
+  // Create or reuse repo panel
+  function ensurePanel(){
+    let aside = document.getElementById('repoNav');
+    if(!aside){
+      aside = createEl('aside', { id:'repoNav', 'aria-hidden':'true', class:'repo-nav' });
+      document.body.appendChild(aside);
+    }
+    // basic panel style if page doesn't have it
+    aside.style.position = aside.style.position || 'fixed';
+    aside.style.top = aside.style.top || '0';
+    aside.style.right = aside.style.right || '0';
+    aside.style.height = aside.style.height || '100%';
+    aside.style.width = aside.style.width || '320px';
+    aside.style.maxWidth = aside.style.maxWidth || '92%';
+    aside.style.background = aside.style.background || 'linear-gradient(180deg, rgba(0,0,0,0.95), rgba(0,0,0,0.85))';
+    aside.style.padding = aside.style.padding || '12px';
+    aside.style.boxSizing = 'border-box';
+    aside.style.transform = aside.style.transform || 'translateX(110%)';
+    aside.style.transition = aside.style.transition || 'transform .28s ease, opacity .2s';
+    aside.style.zIndex = aside.style.zIndex || 9998;
+    aside.style.overflow = 'auto';
+    // inner structure
+    if(!aside.querySelector('.repo-nav-inner')){
+      aside.innerHTML = '';
+      const wrapper = createEl('div', { class: 'repo-nav-inner' });
+      const header = createEl('div', { class: 'repo-nav-header', style: { display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px', borderBottom:'1px dashed rgba(0,255,120,0.06)', paddingBottom:'8px', marginBottom:'6px' }});
+      header.innerHTML = '<div><div style="font-weight:700">Repository navigation</div><div class="meta" id="repoMeta" style="font-size:11px;color:#7fffb0;opacity:.9">local</div></div>';
+      const ctrls = createEl('div', { class: 'repo-nav-controls' });
+      const refresh = createEl('button', { id:'repoRefresh', title:'Refresh' }, '⟳');
+      const close = createEl('button', { id:'repoClose', title:'Close' }, '✕');
+      ctrls.appendChild(refresh); ctrls.appendChild(close);
+      header.appendChild(ctrls);
+      const list = createEl('nav', { id:'repoList', class:'repo-list', role:'navigation' });
+      const footer = createEl('div', { style: { marginTop:'auto', fontSize:'12px', color:'#9ffea0', opacity:.9, paddingTop:'10px' } }, 'Tip: click a link to open.');
+      wrapper.appendChild(header); wrapper.appendChild(list); wrapper.appendChild(footer);
+      aside.appendChild(wrapper);
+      // wire close/refresh default
+      refresh.addEventListener('click', ()=> { renderLinks(currentLinks); setRepoStatus('loaded'); });
+      close.addEventListener('click', ()=> { simpleRepoNav.close(); });
+    }
+    return aside;
+  }
+
+  function setRepoStatus(msg){
+    const el = document.getElementById('repoStatus');
+    if(el) el.textContent = 'nav: ' + msg;
+  }
+
+  // core open/close
+  function openPanel(){
+    const p = ensurePanel();
+    p.setAttribute('aria-hidden', 'false');
+    p.style.transform = 'translateX(0)';
+    setRepoStatus('loaded');
+    simpleRepoNav._open = true;
+  }
+  function closePanel(){
+    const p = ensurePanel();
+    p.setAttribute('aria-hidden', 'true');
+    p.style.transform = 'translateX(110%)';
+    setRepoStatus('idle');
+    simpleRepoNav._open = false;
+  }
+  function togglePanel(){ simpleRepoNav._open ? simpleRepoNav.close() : simpleRepoNav.open(); }
+
+  // render links into panel list
+  function renderLinks(links){
+    const list = document.getElementById('repoList') || ensurePanel().querySelector('#repoList');
+    if(!list) return;
+    list.innerHTML = '';
+    if(!links || !links.length){
+      list.innerHTML = '<div style="opacity:.8">no links</div>';
+      return;
+    }
+    links.forEach(item => {
+      const a = createEl('a', { class:'nav-item', href: item.href || '#', target: item.target || '_blank' });
+      a.textContent = item.title || (item.href || 'link');
+      a.style.display = 'block';
+      a.style.padding = '6px 8px';
+      a.style.color = '#9ffea0';
+      a.style.textDecoration = 'none';
+      a.style.borderRadius = '6px';
+      a.addEventListener('click', (e) => {
+        // let default navigation happen; also close panel for better UX on mobile
+        setTimeout(()=> simpleRepoNav.close(), 220);
+      });
+      list.appendChild(a);
+    });
+  }
+
+  // hold-to-open wiring (pointer-first)
+  function wireHoldToggle(btn){
+    let holdTimer = null;
+    const HOLD_MS = 700;
+    const startHold = (ev) => {
+      if(holdTimer) clearTimeout(holdTimer);
+      btn.classList.add('holding');
+      holdTimer = setTimeout(()=> { openPanel(); btn.classList.remove('holding'); holdTimer = null; }, HOLD_MS);
+    };
+    const cancelHold = () => { if(holdTimer){ clearTimeout(holdTimer); holdTimer = null; } btn.classList.remove('holding'); };
+    btn.addEventListener('pointerdown', (e)=> { if(e.button !== 0) return; startHold(e); }, { passive: true });
+    ['pointerup','pointercancel','pointerleave','pointerout'].forEach(ev => btn.addEventListener(ev, cancelHold));
+    btn.addEventListener('click', (e) => {
+      // simple tap toggles
+      if(simpleRepoNav._open) closePanel(); else openPanel();
+    });
+    // keyboard support
+    btn.addEventListener('keydown', (e)=> { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPanel(); }});
+  }
+
+  // state
+  let currentLinks = DEFAULT_LINKS.slice();
+
+  // API object
+  const simpleRepoNav = {
+    _open: false,
+    setLinks(links){
+      if(!Array.isArray(links)) return;
+      currentLinks = links.slice();
+      renderLinks(currentLinks);
+    },
+    open: openPanel,
+    close: closePanel,
+    toggle: togglePanel,
+    getLinks(){ return currentLinks.slice(); }
+  };
+
+  // bootstrap: ensure toggle & panel and wire behaviors
+  const btn = ensureToggle();
+  ensurePanel();
+  wireHoldToggle(btn);
+  renderLinks(currentLinks);
+
+  // Expose on window
+  window.simpleRepoNav = simpleRepoNav;
+
+  // If a script tag sets window.SIMPLE_REPO_NAV_LINKS before this loaded, honor it
+  if(window.SIMPLE_REPO_NAV_LINKS && Array.isArray(window.SIMPLE_REPO_NAV_LINKS)){
+    simpleRepoNav.setLinks(window.SIMPLE_REPO_NAV_LINKS);
+  }
+
+  // Small CSS improvements injected for this widget (scoped global, safe)
+  (function injectCSS(){
+    if(document.getElementById('simple-repo-nav-style')) return;
+    const s = createEl('style', { id:'simple-repo-nav-style' });
+    s.textContent = `
+      #hudToggle_nav.holding { box-shadow: 0 0 36px rgba(255,12,110,0.9); transform: none; }
+      aside#repoNav a.nav-item:hover { background: rgba(0,255,120,0.04); }
+      aside#repoNav.open { transform: translateX(0) !important; }
+    `;
+    document.head.appendChild(s);
+  })();
+
 })();
+","message":"Restore original repo-nav-simple.js (first version)","owner":"jeff-gompertz","repo":"CUseeme"}
