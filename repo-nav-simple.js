@@ -12,7 +12,10 @@
     { title: '📰 a Half Half', href: 'a_half_half.html', target: '_self' },
     { title: '📰 Semantic Voice', href: '/CUseeme/A/A_semantic_voice.html', target: '_self' },
     { title: '📰 Floating Feed', href: 'cuseeme_modular_v1.2_floatingfeed.html', target: '_self' },
-    { title: '📰 MultiFilter', href: 's_6cards_video_wpmedia_multiFilter_LIVEchatgpt2.html', target: '_self' }
+    { title: '📰 MultiFilter', href: 's_6cards_video_wpmedia_multiFilter_LIVEchatgpt2.html', target: '_self' },
+    { title: '📰 Load Random', href: 'c_centerpush_loadrandom.html', target: '_self' }
+     
+     
   ];
   
   if (window.simpleRepoNav) return;
