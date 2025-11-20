@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Version B — Mic + Voiceback</title>
+
+<style>
+/* --------------------------------------------------
+   GLOBAL
+-------------------------------------------------- */
+:root{
+  --bg:#0b0c0e;          /* graphite */
+  --fg:#ffffff;
+  --accent:#ffa445;      /* warm orange */
+  --prompt-bg:rgba(255,255,255,0.08);
+  --ticker-fg:#ffffff;
+  --sys:#ffa445;
+  --user:#b0b6ff;
+  --note:#888;
+}
+
+html,body{
+  margin:0;
+  height:100%;
+  background:var(--bg);
+  color:var(--fg);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  overflow:hidden;
+}
+
+
+/* --------------------------------------------------
+   HEADER — fixed, frosted, full width
+-------------------------------------------------- */
+#navHeader{
+  position:fixed;
+  top:0; left:0; right:0;
+  height:48px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:0 14px;
+  z-index:1000;
+  background:rgba(255,255,255,0.06);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,255,255,0.1);
+}
+
+.navBtn{
+  font-size:26px;
+  cursor:pointer;
+  user-select:none;
+  padding:4px 8px;
+  transition:opacity .2s ease;
+}
+.navBtn:hover{
+  opacity:0.65;
+}
+
+
+/* --------------------------------------------------
+   PROMPT BUBBLE — centered
+-------------------------------------------------- */
+#promptBox{
+  position:absolute;
+  top:45vh;
+  left:50%;
+  transform:translateX(-50%);
+  width:80%;
+  max-width:480px;
+  background:var(--prompt-bg);
+  border:1px solid rgba(255,255,255,0.18);
+  backdrop-filter:blur(6px);
+  border-radius:16px;
+  padding:18px 22px;
+  font-size:24px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+#promptText{
+  flex:1;
+  color:var(--fg);
+  opacity:0.95;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-size:24px;
+}
+#micIcon{
+  font-size:22px;
+  opacity:0.85;
+}
+
+
+/* --------------------------------------------------
+   TICKER — lower left
+-------------------------------------------------- */
+#ticker{
+  position:fixed;
+  bottom:0;
+  left:0;
+  width:100%;
+  max-height:40%;
+  overflow:auto;
+  padding:14px 18px 28px;
+  box-sizing:border-box;
+  font-size:16px;
+  line-height:1.35;
+}
+.tline{ margin:4px 0; }
+.user { color:var(--user); }
+.sys  { color:var(--sys); }
+.note { color:var(--note); }
+
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="navHeader">
+  <div id="btnPrev" class="navBtn">⬅️</div>
+  <div style="font-size:15px; opacity:.75">mic-only mode</div>
+  <div id="btnNext" class="navBtn">➡️</div>
+</div>
+
+
+<!-- PROMPT DISPLAY -->
+<div id="promptBox">
+  <div id="promptText">…</div>
+  <div id="micIcon">🎤</div>
+</div>
+
+
+<!-- TICKER -->
+<div id="ticker"></div>
+
+
+<script>
+/* --------------------------------------------------
+   TICKER LOGGING
+-------------------------------------------------- */
+const ticker = document.getElementById("ticker");
+
+function addLine(text, cls="sys"){
+  const p = document.createElement("div");
+  p.className = "tline "+cls;
+  p.textContent = text;
+  ticker.appendChild(p);
+  ticker.scrollTop = ticker.scrollHeight;
+}
+
+
+/* --------------------------------------------------
+   SPEECH SYNTHESIS (English only)
+-------------------------------------------------- */
+let voicesReady = false;
+
+function waitForVoices(){
+  return new Promise(res=>{
+    const id=setInterval(()=>{
+      if(speechSynthesis.getVoices().length){
+        clearInterval(id);
+        voicesReady = true;
+        res();
+      }
+    },100);
+  });
+}
+
+async function speak(text){
+  if(!voicesReady) await waitForVoices();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang="en-US";
+  u.rate=1.05;
+  u.pitch=0.92;
+
+  const vs = speechSynthesis.getVoices();
+  u.voice =
+    vs.find(v=>/Samantha|Alex|Google US English/i.test(v.name))
+    || vs[0];
+
+  speechSynthesis.speak(u);
+}
+
+
+/* --------------------------------------------------
+   SEMANTIC ROUTER
+-------------------------------------------------- */
+function semanticReply(msg){
+  let t = msg.trim().toLowerCase();
+  addLine("> "+msg,"user");
+
+  // simple logic
+  if(t==="hello"){
+    const r = "Hello. I'm here.";
+    addLine("< "+r,"sys");
+    speak(r);
+    return;
+  }
+
+  if(t.includes("how are you")){
+    const r = "I'm functioning normally.";
+    addLine("< "+r,"sys");
+    speak(r);
+    return;
+  }
+
+  if(t.includes("time")){
+    const r = "The time is " + new Date().toLocaleTimeString();
+    addLine("< "+r,"sys");
+    speak(r);
+    return;
+  }
+
+  // default echo
+  const r = "You said: " + msg;
+  addLine("< "+r,"sys");
+  speak(r);
+}
+
+
+/* --------------------------------------------------
+   LIVE MICROPHONE INPUT
+-------------------------------------------------- */
+const promptText = document.getElementById("promptText");
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+
+if(!SR){
+  promptText.textContent = "Mic not supported here.";
+  addLine("Mic not supported.","note");
+} else {
+  rec = new SR();
+  rec.lang="en-US";
+  rec.continuous=true;
+  rec.interimResults=true;
+
+  let interim="";
+
+  rec.onresult = evt=>{
+    let final="";
+    for(let i=evt.resultIndex; i<evt.results.length; i++){
+      const txt = evt.results[i][0].transcript;
+      if(evt.results[i].isFinal) final+=txt;
+      else interim = txt;
+    }
+
+    if(interim){
+      promptText.textContent = interim;
+    }
+    if(final){
+      promptText.textContent = final;
+      semanticReply(final);
+      interim="";
+    }
+  };
+
+  rec.onerror = e=>{
+    addLine("mic error: "+e.error,"note");
+  };
+
+  // Start mic on first tap
+  window.addEventListener("touchstart", ()=>{
+    try{ rec.start(); }catch(e){}
+  }, {once:true});
+
+  window.addEventListener("mousedown", ()=>{
+    try{ rec.start(); }catch(e){}
+  }, {once:true});
+}
+
+
+/* --------------------------------------------------
+   NAV (just logs in this demo)
+-------------------------------------------------- */
+document.getElementById("btnPrev").onclick = ()=>{
+  addLine("⬅️ prev (no slideshow in this demo)","note");
+}
+document.getElementById("btnNext").onclick = ()=>{
+  addLine("➡️ next (no slideshow in this demo)","note");
+}
+
+addLine("Version B loaded — mic active.","note");
+</script>
+
+</body>
+</html>
