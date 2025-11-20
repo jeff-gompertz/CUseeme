@@ -7,11 +7,11 @@
 
 (function(){
   const DEFAULT_LINKS = [
-    { title: '📰 Spawn5', href: 'CUseeme_v1.7_dynamic_restyleBLACK.html', target: '_self' },
-    { title: '📰 Spawn5', href: 'CUseeme_v1.7_dynamic_restyleBLACK.html', target: '_self' },
-    { title: '📰 Spawn5', href: 'CUseeme_v1.7_dynamic_restyleBLACK.html', target: '_self' },
-    { title: '📰 Spawn5', href: 'CUseeme_v1.7_dynamic_restyleBLACK.html', target: '_self' },
-    { title: '📰 Spawn5', href: 'CUseeme/cuseeme_modular_v1.2_floatingfeed.html', target: '_self' },
+    { title: '📰 Spawn 5', href: 'CUseeme_v1.7_dynamic_restyleBLACK.html', target: '_self' },
+    { title: '📰 Spawn 5', href: 'CUseeme_v1.7_dynamic_restyleBLACK.html', target: '_self' },
+    { title: '📰 Spawn 5', href: 'CUseeme_v1.7_dynamic_restyleBLACK.html', target: '_self' },
+    { title: '📰 Semantic Voice', href: 'CUseeme/A/A_semantic_voice2.html', target: '_self' },
+    { title: '📰 Floating Feed', href: 'CUseeme/cuseeme_modular_v1.2_floatingfeed.html', target: '_self' }
     { title: '📰 MultiFilter', href: 'https://jeff-gompertz.github.io/CUseeme/s_6cards_video_wpmedia_multiFilter_LIVEchatgpt2.html', target: '_self' }
   ];
   
