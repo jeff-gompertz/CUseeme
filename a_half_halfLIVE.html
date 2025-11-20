@@ -98,13 +98,13 @@
 </div>
 
 <script>
-/* ========== Canvas ==========\ */
+/* ========== Canvas =========="
 const canvas = document.getElementById('c');
 const ctx     = canvas.getContext('2d');
 function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
 addEventListener('resize', resize); resize();
 
-/* ========== Parameters ==========\ */
+/* ========== Parameters =========="
 let MODE = 'tiles';        // rows | cols | tiles | luma
 let SIZE = 28;             // stripe/tile size
 let NOISE = 0.18;          // 0..1
@@ -116,7 +116,7 @@ let CENTER_OVERLAP=0, EDGE_PADDING=300, NUM_CARDS=8, ALPHA=0.35,
 
 let currentVideoA = null, currentVideoB = null, activeFade=null, cards=[], autoMode=false;
 
-/* ========== Video loading ==========\ */
+/* ========== Video loading =========="
 
 /* ========== Video loading (CORS-safe via proxy) ========== */
 async function loadRandomVideo(){
@@ -125,7 +125,7 @@ async function loadRandomVideo(){
   try{
     const r = await fetch(API);
     const d = await r.json();
-    const vids = d.filter(m => m.mime_type?.startsWith("video/") || /\.mp4$/i.test(m.source_url));
+    const vids = d.filter(m => m.mime_type?.startsWith("video/") || \.mp4$/i.test(m.source_url));
     if(!vids.length) return null;
     const m = vids[Math.floor(Math.random()*vids.length)];
 
@@ -153,9 +153,6 @@ async function loadRandomVideo(){
   }
 }
 
-
-
-  
 
 
 /* ========== Panels (center push) ========== */
@@ -413,10 +410,7 @@ function flash(){
 const readout = document.getElementById('readout');
 function updateHUD(){
   readout.textContent =
-`MODE:${MODE}  SIZE:${SIZE}  NOISE:${NOISE.toFixed(2)}  MIX_BIAS:${MIX_BIAS.toFixed(2)}  FEEDBACK:${FEEDBACK.toFixed(2)}
-CENTER_OVERLAP:${CENTER_OVERLAP.toFixed(1)}  EDGE_PADDING:${EDGE_PADDING.toFixed(1)}  NUM_CARDS:${NUM_CARDS}
-ALPHA:${ALPHA.toFixed(2)}  STAGGER_X:${STAGGER_X.toFixed(1)}  SPINE_SHIFT:${SPINE_SHIFT.toFixed(1)}
-DEPTH_RANGE:${DEPTH_RANGE.toFixed(2)}  VIDEO_SCALE:${VIDEO_SCALE.toFixed(2)}  AUTO:${autoMode?'ON':'OFF'}`;
+`MODE:${MODE}  SIZE:${SIZE}  NOISE:${NOISE.toFixed(2)}  MIX_BIAS:${MIX_BIAS.toFixed(2)}  FEEDBACK:${FEEDBACK.toFixed(2)}\nCENTER_OVERLAP:${CENTER_OVERLAP.toFixed(1)}  EDGE_PADDING:${EDGE_PADDING.toFixed(1)}  NUM_CARDS:${NUM_CARDS}\nALPHA:${ALPHA.toFixed(2)}  STAGGER_X:${STAGGER_X.toFixed(1)}  SPINE_SHIFT:${SPINE_SHIFT.toFixed(1)}\nDEPTH_RANGE:${DEPTH_RANGE.toFixed(2)}  VIDEO_SCALE:${VIDEO_SCALE.toFixed(2)}  AUTO:${autoMode?'ON':'OFF`} ;
 }
 
 /* ========== AUTO drift (optional – gentle) ========== */
