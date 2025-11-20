@@ -7,7 +7,7 @@
 
 (function(){
   const DEFAULT_LINKS = [
-    { title: '🏠 Index', href: 'index.html', target: '_self' },
+    { title: '🏠 index', href: 'index.html', target: '_self' },
     { title: '📰 Spawn5', href: 'CUseeme_v1.7_dynamic_restyleBLACK.html', target: '_self' }
   ];
 
