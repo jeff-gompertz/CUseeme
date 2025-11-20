@@ -22,9 +22,9 @@
   --ticker: #ff3a2f;
 
   /* Single source-of-truth: change this to move the whole stack up/down */
-  --mini-landing-pad: 320px;    /* <-- change this value to move stack (75px lower) */
+  --mini-landing-pad: 520px;    /* <-- change this value to move stack (75px lower) */
   --mini-step: 30px;
-  --mini-base-start: 90px;
+  --mini-base-start: 190px; /*90 original*/
   --mini-width: 260px;    /* 160 original */
   --hud-compact-width: 260px;
 }
@@ -110,7 +110,7 @@ html,body{
 
 /* Responsive - phone-only compact HUD (keeps miniWins visible) */
 @media (max-width: 320px) {
-  #hudShell { position: fixed; top:10px; right:10px; left:auto; z-index:1200; min-width:0 !important; width:var(--hud-compact-width); max-width:calc(100% - 20px); padding:10px 8px; display:block; border-radius:12px; background:rgba(0,0,0,0.02); border:1px solid rgba(255,255,255,0.03); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none; }
+  #hudShell { position: fixed; top:1300px; right:90px;/* 10original*/ left:auto; z-index:1200; min-width:0 !important; width:var(--hud-compact-width); max-width:calc(100% - 20px); padding:10px 8px; display:block; border-radius:12px; background:rgba(0,0,0,0.02); border:1px solid rgba(255,255,255,0.03); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none; 
   .hud-row{ display:flex; flex-direction:column; gap:8px; align-items:stretch; }
   .hud-btn{ width:100%; box-sizing:border-box; font-size:clamp(13px,4.2vw,15px); padding:8px 10px; border-radius:10px; text-align:center; }
   #hudHeader{ font-size:clamp(18px,6vw,22px); margin-bottom:8px; }
