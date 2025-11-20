@@ -52,6 +52,10 @@
 
   /* flash overlay */
   #flash{position:fixed;inset:0;background:rgba(255,255,255,0);pointer-events:none;z-index:5;transition:background .45s ease}
+
+  /* small card styles for visual debugging (not required) */
+  .miniWin{ position:fixed; right:12px; bottom:100px; width:160px; height:120px; background:rgba(255,255,255,0.02); border-radius:8px; overflow:hidden; z-index:50; display:none; }
+  .miniWin video{ width:100%;height:100%; object-fit:cover; transform:scaleX(-1);}
 </style>
 </head>
 <body>
@@ -77,7 +81,7 @@
   <div class="row"><label>MIX_BIAS (→B)</label><input id="mix" type="range" min="0" max="1" step="0.01" value="0.50"/><output id="mixOut">0.50</output></div>
   <div class="row"><label>FEEDBACK</label><input id="fb" type="range" min="0" max="0.9" step="0.01" value="0.10"/><output id="fbOut">0.10</output></div>
 
-  <!-- Layout / panel controls (your familiar set) -->
+  <!-- Layout / panel controls -->
   <div class="row"><label>CENTER_OVERLAP</label><input id="r1" type="range" min="0" max="400" value="0"/><output id="o1">0</output></div>
   <div class="row"><label>EDGE_PADDING</label><input id="r2" type="range" min="0" max="300" value="300"/><output id="o2">300</output></div>
   <div class="row"><label>NUM_CARDS</label><input id="r3" type="range" min="2" max="16" step="2" value="8"/><output id="o3">8</output></div>
@@ -92,19 +96,24 @@
     <button class="btn" id="autoHUD">AUTO</button>
     <button class="btn" id="resetHUD">RESET</button>
     <button class="btn" id="nextVideo">NEXT SOURCE</button>
+    <button class="btn" id="useCamera">CAM → A</button>
+    <button class="btn" id="useCameraB">CAM → B</button>
   </div>
 
   <div class="readout" id="readout"></div>
 </div>
 
+<!-- small optional visual camera window (hidden by default) -->
+<div class="miniWin" id="miniCam"><video id="miniCamVideo" autoplay muted playsinline></video></div>
+
 <script>
-/* ========== Canvas =========="
+/* ========== Canvas ==========\ */
 const canvas = document.getElementById('c');
 const ctx     = canvas.getContext('2d');
 function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
 addEventListener('resize', resize); resize();
 
-/* ========== Parameters =========="
+/* ========== Parameters ==========\ */
 let MODE = 'tiles';        // rows | cols | tiles | luma
 let SIZE = 28;             // stripe/tile size
 let NOISE = 0.18;          // 0..1
@@ -116,35 +125,44 @@ let CENTER_OVERLAP=0, EDGE_PADDING=300, NUM_CARDS=8, ALPHA=0.35,
 
 let currentVideoA = null, currentVideoB = null, activeFade=null, cards=[], autoMode=false;
 
-/* ========== Video loading =========="
-
-/* ========== Video loading (CORS-safe via proxy) ========== */
+/* ========== Video loading (proxy-first, reliable) ========== */
 async function loadRandomVideo(){
   const API = "https://art.jeffgompertz.site/wp-json/wp/v2/media?per_page=100";
-  const PROXY = "https://cors.isomorphic-git.org/";  // temporary CORS bypass
+  const PROXY = "https://cors.isomorphic-git.org/";  // reliable CORS bypass proxy (used on working page)
+
   try{
     const r = await fetch(API);
+    if(!r.ok){ console.warn('Media API returned', r.status, r.statusText); return null; }
     const d = await r.json();
-    const vids = d.filter(m => m.mime_type?.startsWith("video/") || \.mp4$/i.test(m.source_url));
-    if(!vids.length) return null;
+    if(!Array.isArray(d) || d.length === 0){ console.warn('Media API returned no items'); return null; }
+
+    // pick media items that look like videos
+    const vids = d.filter(m => (m && (m.mime_type?.startsWith && m.mime_type.startsWith('video'))) || /\.mp4$/i.test(String(m?.source_url || '')));
+    if(!vids.length){ console.warn('No video-like items found in WP media response'); return null; }
+
     const m = vids[Math.floor(Math.random()*vids.length)];
+    if(!m || !m.source_url){ console.warn('Selected media missing source_url', m && m.id); return null; }
 
     const v = document.createElement('video');
-    v.crossOrigin = "anonymous";              // critical
-    v.src = PROXY + m.source_url;             // load through proxy
+    v.crossOrigin = "anonymous";              // critical for canvas readback
+    v.src = PROXY + m.source_url;             // load through proxy to guarantee CORS (deterministic)
     v.loop = true; v.muted = true;
     v.playsInline = true; v.preload = 'auto';
     v.style.display = 'none';
     document.body.appendChild(v);
 
-    // wait for video to become playable
+    // wait for video to become playable or error / timeout
     await new Promise(res=>{
-      const ok=()=>res();
-      v.oncanplay = ok; v.onerror = ok;
+      let done=false;
+      const ok=()=>{ if(done) return; done=true; cleanup(); res(); };
+      const cleanup=()=>{ v.removeEventListener('canplay', ok); v.removeEventListener('error', ok); };
+      v.addEventListener('canplay', ok);
+      v.addEventListener('error', ok);
       setTimeout(ok,1500);
     });
 
     v.play().catch(()=>{});
+    console.log('Loaded proxied WP video', m.id, m.source_url);
     return v;
 
   }catch(e){
@@ -153,7 +171,66 @@ async function loadRandomVideo(){
   }
 }
 
+/* ========== Camera helpers ==========\ */
+let cameraStream = null;
+let cameraVideo  = null;
 
+async function startCamera(facing = 'environment'){
+  try{
+    stopCamera();
+    const constraints = { video: { facingMode: { ideal: facing } }, audio:false };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    cameraStream = stream;
+    if(!cameraVideo){
+      cameraVideo = document.createElement('video');
+      cameraVideo.autoplay = true;
+      cameraVideo.muted = true;
+      cameraVideo.playsInline = true;
+      cameraVideo.style.display = 'none';
+      document.body.appendChild(cameraVideo);
+    }
+    cameraVideo.srcObject = stream;
+    await new Promise((res) => {
+      let done = false;
+      const onCan = () => { if(done) return; done = true; cameraVideo.removeEventListener('canplay', onCan); res(); };
+      cameraVideo.addEventListener('canplay', onCan);
+      setTimeout(()=>{ if(!done) { done=true; cameraVideo.removeEventListener('canplay', onCan); res(); } }, 1500);
+    });
+    try { await cameraVideo.play(); } catch(e){}
+    const mini = document.getElementById('miniCam');
+    const mv = document.getElementById('miniCamVideo');
+    if(mini && mv){ mv.srcObject = cameraVideo.srcObject; mini.style.display = 'block'; }
+    return cameraVideo;
+  }catch(err){
+    console.warn('startCamera failed', err);
+    stopCamera();
+    return null;
+  }
+}
+
+function stopCamera(){
+  if(cameraVideo){
+    try{ cameraVideo.pause(); }catch(e){}
+    try{ cameraVideo.srcObject = null; }catch(e){}
+  }
+  if(cameraStream){
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  const mini = document.getElementById('miniCam');
+  if(mini) mini.style.display='none';
+}
+
+async function useCameraAsA(facing='environment'){
+  const v = await startCamera(facing);
+  if(v){ currentVideoA = v; flash(); return true; }
+  return false;
+}
+async function useCameraAsB(facing='environment'){
+  const v = await startCamera(facing);
+  if(v){ currentVideoB = v; flash(); return true; }
+  return false;
+}
 
 /* ========== Panels (center push) ========== */
 function initCards(){
@@ -164,7 +241,7 @@ function initCards(){
   for(let i=0;i<NUM_CARDS;i++){
     const side = i<perSide ? 'left' : 'right';
     const idx  = i%perSide;
-    const t    = perSide===1 ? 1 : idx/(perSide-1); // 0→edge,1→near-spine
+    const t    = perSide===1 ? 1 : idx/(perSide-1);
     const inward = (Math.random()-0.5)*STAGGER_X;
     const yOff   = (Math.random()-0.5)*40;
     let xBase;
@@ -201,20 +278,16 @@ function coverDraw(ctx, v, W, H, scale=1.0){
   ctx.drawImage(v, ox, oy, nw, nh);
 }
 
-/* Small downsample for per-pixel mixing, scaled back up to canvas. */
 const MIX_BASE_W = 640; // performance sweet spot
 function compositeFrame(){
   if(!currentVideoA || !currentVideoB) return;
 
-  // Decide mix buffer size (keep aspect)
   const W = canvas.width, H = canvas.height;
   const mW = Math.min(MIX_BASE_W, W);
   const mH = Math.round(H * (mW/W));
 
-  // Prepare offscreens
   [mixCan.width, mixCan.height, aCan.width, aCan.height, bCan.width, bCan.height] = [mW, mH, mW, mH, mW, mH];
 
-  // Draw sources scaled to cover
   aCtx.clearRect(0,0,mW,mH); bCtx.clearRect(0,0,mW,mH);
   coverDraw(aCtx, currentVideoA, mW, mH, VIDEO_SCALE);
   coverDraw(bCtx, currentVideoB, mW, mH, VIDEO_SCALE);
@@ -225,7 +298,6 @@ function compositeFrame(){
 
   const dataA = imgA.data, dataB = imgB.data, dst = out.data;
 
-  // Generate pattern map
   const tile = Math.max(1, Math.round(SIZE));
   const time = performance.now()*0.001;
   const noiseAmt = NOISE;
@@ -235,7 +307,6 @@ function compositeFrame(){
       let useB = false;
 
       if(MODE==='rows'){
-        // per scanline switch (with gentle time wobble)
         const stripe = Math.floor( (y + Math.sin(time*0.8)*2) / tile );
         useB = (stripe % 2) === 1;
       }else if(MODE==='cols'){
@@ -245,26 +316,22 @@ function compositeFrame(){
         const tx = Math.floor(x/tile), ty = Math.floor(y/tile);
         useB = ((tx + ty) % 2) === 1;
       }else if(MODE==='luma'){
-        // luma of A decides mixing (classic key)
         const iA = (y*mW + x)*4;
         const l = 0.299*dataA[iA] + 0.587*dataA[iA+1] + 0.114*dataA[iA+2];
-        useB = (l/255) < MIX_BIAS; // darker A lets B through
+        useB = (l/255) < MIX_BIAS;
       }
 
-      // noise perturbation: flip decision with probability
       if(noiseAmt>0){
-        const rnd = (Math.sin(x*12.9898 + y*78.233 + time*37.719)*43758.5453)%1; // cheap hash
+        const rnd = (Math.sin(x*12.9898 + y*78.233 + time*37.719)*43758.5453)%1;
         if(Math.abs(rnd) < noiseAmt*0.5) useB = !useB;
       }
 
-      // blend: either hard switch or a bias mix
       const i = (y*mW + x)*4;
       if(MODE==='luma'){
-        // luma mode: do continuous mix based on luma + bias
         const iA=i;
         const iB=i;
         const l = 0.299*dataA[iA] + 0.587*dataA[iA+1] + 0.114*dataA[iA+2];
-        const t = Math.min(1, Math.max(0, MIX_BIAS + (0.5 - l/255)*0.5)); // bias + counter-luma
+        const t = Math.min(1, Math.max(0, MIX_BIAS + (0.5 - l/255)*0.5));
         dst[i  ] = dataA[i]*(1-t) + dataB[i]*t;
         dst[i+1] = dataA[i+1]*(1-t) + dataB[i+1]*t;
         dst[i+2] = dataA[i+2]*(1-t) + dataB[i+2]*t;
@@ -279,10 +346,8 @@ function compositeFrame(){
     }
   }
 
-  // write mixed image
   mixCtx.putImageData(out, 0, 0);
 
-  // mild feedback: draw previous result back onto itself
   if(FEEDBACK>0){
     mixCtx.globalAlpha = FEEDBACK;
     mixCtx.drawImage(mixCan, 1, 0, mW, mH, 0, 0, mW, mH);
@@ -312,7 +377,6 @@ async function handleAdvance(e){
     sceneAdvancing=true;
     const v = await loadRandomVideo();
     if(v){
-      // Move current B to A, load new into B (keeps continuity)
       if(currentVideoB) currentVideoA = currentVideoB;
       currentVideoB = v;
       flash();
@@ -346,10 +410,20 @@ nextBtn.onclick = async () => {
   if(v){ if(currentVideoB) currentVideoA = currentVideoB; currentVideoB = v; flash(); }
 };
 
-/* familiar panel sliders */
-const sliders=[r1,r2,r3,r4,r5,r6,r7,r8];
-const outs=[o1,o2,o3,o4,o5,o6,o7,o8];
+/* familiar panel sliders — query elements explicitly */
+const sliders = [
+  document.getElementById('r1'), document.getElementById('r2'), document.getElementById('r3'),
+  document.getElementById('r4'), document.getElementById('r5'), document.getElementById('r6'),
+  document.getElementById('r7'), document.getElementById('r8')
+];
+const outs = [
+  document.getElementById('o1'), document.getElementById('o2'), document.getElementById('o3'),
+  document.getElementById('o4'), document.getElementById('o5'), document.getElementById('o6'),
+  document.getElementById('o7'), document.getElementById('o8')
+];
+
 for(let i=0;i<sliders.length;i++){
+  if(!sliders[i]) continue;
   sliders[i].oninput=()=>{
     outs[i].value=sliders[i].value;
     [CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,ALPHA,STAGGER_X,SPINE_SHIFT,DEPTH_RANGE,VIDEO_SCALE] =
@@ -362,6 +436,8 @@ for(let i=0;i<sliders.length;i++){
 const toggleBtn = document.getElementById('toggleHUD');
 const resetBtn  = document.getElementById('resetHUD');
 const autoBtn   = document.getElementById('autoHUD');
+const useCamBtn = document.getElementById('useCamera');
+const useCamBBtn= document.getElementById('useCameraB');
 let hudVisible = true;
 
 toggleBtn.addEventListener('click', () => {
@@ -378,27 +454,35 @@ autoBtn.addEventListener('click', ()=>{
   autoBtn.style.background = autoMode ? 'rgba(150,200,255,.25)' : 'rgba(255,255,255,.10)';
 });
 
+useCamBtn.addEventListener('click', async (ev)=>{
+  ev.currentTarget.disabled = true;
+  const ok = await useCameraAsA('environment');
+  ev.currentTarget.disabled = false;
+  if(!ok) console.warn('camera failed/denied');
+});
+useCamBBtn.addEventListener('click', async (ev)=>{
+  ev.currentTarget.disabled = true;
+  const ok = await useCameraAsB('environment');
+  ev.currentTarget.disabled = false;
+  if(!ok) console.warn('camera failed/denied');
+});
+
 function resetHUD(){
-  // flash HUD + screen
   hud.style.transition='background .25s';
   hud.style.background='rgba(255,255,255,0.35)';
   setTimeout(()=>hud.style.background='var(--hud-bg)', 220);
   flash();
 
-  // collage defaults
   MODE='tiles'; modeSel.value='tiles';
   SIZE=28; sizeR.value=28; sizeOut.value=28;
   NOISE=0.18; noiseR.value=0.18; noiseOut.value='0.18';
   MIX_BIAS=0.50; mixR.value=0.50; mixOut.value='0.50';
   FEEDBACK=0.10; fbR.value=0.10; fbOut.value='0.10';
 
-  // panel defaults you asked
   CENTER_OVERLAP=0; EDGE_PADDING=300; NUM_CARDS=8; ALPHA=0.35;
   STAGGER_X=20; SPINE_SHIFT=26; DEPTH_RANGE=0.76; VIDEO_SCALE=1.5;
-  [r1.value,r2.value,r3.value,r4.value,r5.value,r6.value,r7.value,r8.value] =
-    [CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,ALPHA,STAGGER_X,SPINE_SHIFT,DEPTH_RANGE,VIDEO_SCALE];
-  [o1.value,o2.value,o3.value,o4.value,o5.value,o6.value,o7.value,o8.value] =
-    [CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,ALPHA,STAGGER_X,SPINE_SHIFT,DEPTH_RANGE,VIDEO_SCALE];
+  const vals=[CENTER_OVERLAP,EDGE_PADDING,NUM_CARDS,ALPHA,STAGGER_X,SPINE_SHIFT,DEPTH_RANGE,VIDEO_SCALE];
+  for(let i=0;i<sliders.length;i++){ if(sliders[i]) sliders[i].value = vals[i]; if(outs[i]) outs[i].value = vals[i]; }
   initCards();
 }
 
@@ -410,10 +494,13 @@ function flash(){
 const readout = document.getElementById('readout');
 function updateHUD(){
   readout.textContent =
-`MODE:${MODE}  SIZE:${SIZE}  NOISE:${NOISE.toFixed(2)}  MIX_BIAS:${MIX_BIAS.toFixed(2)}  FEEDBACK:${FEEDBACK.toFixed(2)}\nCENTER_OVERLAP:${CENTER_OVERLAP.toFixed(1)}  EDGE_PADDING:${EDGE_PADDING.toFixed(1)}  NUM_CARDS:${NUM_CARDS}\nALPHA:${ALPHA.toFixed(2)}  STAGGER_X:${STAGGER_X.toFixed(1)}  SPINE_SHIFT:${SPINE_SHIFT.toFixed(1)}\nDEPTH_RANGE:${DEPTH_RANGE.toFixed(2)}  VIDEO_SCALE:${VIDEO_SCALE.toFixed(2)}  AUTO:${autoMode?'ON':'OFF`} ;
+`MODE:${MODE}  SIZE:${SIZE}  NOISE:${NOISE.toFixed(2)}  MIX_BIAS:${MIX_BIAS.toFixed(2)}  FEEDBACK:${FEEDBACK.toFixed(2)}
+CENTER_OVERLAP:${CENTER_OVERLAP.toFixed(1)}  EDGE_PADDING:${EDGE_PADDING.toFixed(1)}  NUM_CARDS:${NUM_CARDS}
+ALPHA:${ALPHA.toFixed(2)}  STAGGER_X:${STAGGER_X.toFixed(1)}  SPINE_SHIFT:${SPINE_SHIFT.toFixed(1)}
+DEPTH_RANGE:${DEPTH_RANGE.toFixed(2)}  VIDEO_SCALE:${VIDEO_SCALE.toFixed(2)}  AUTO:${autoMode?'ON':'OFF'}`;
 }
 
-/* ========== AUTO drift (optional – gentle) ========== */
+/* ========== AUTO drift configuration ========== */
 const autoMod = {
   SIZE:{base:28, range:16, speed:0.25},
   MIX :{base:0.50, range:0.3, speed:0.18},
@@ -432,18 +519,15 @@ function render(){
     NOISE = Math.max(0, Math.min(1, autoMod.NOISE.base + Math.sin(t*autoMod.NOISE.speed)*autoMod.NOISE.range));
     noiseR.value = NOISE; noiseOut.value = NOISE.toFixed(2);
     SPINE_SHIFT = autoMod.SPINE.base + Math.sin(t*autoMod.SPINE.speed)*autoMod.SPINE.range;
-    r6.value = SPINE_SHIFT; o6.value = SPINE_SHIFT.toFixed(1);
-    initCards(); // keep spine tight while drifting
+    if(document.getElementById('r6')){ document.getElementById('r6').value = SPINE_SHIFT; document.getElementById('o6').value = SPINE_SHIFT.toFixed(1); }
+    initCards();
   }
 
-  // Composite sources into offscreen
   compositeFrame();
 
-  // slight canvas trail to soften
   ctx.fillStyle = "rgba(0,0,0,0.06)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // draw panels with mixed image
   for(const p of cards) drawMixedIntoPanel(p, 1);
 
   updateHUD();
@@ -452,13 +536,26 @@ function render(){
 
 /* ========== Boot ========== */
 (async()=>{
+  // Start by loading two proxied remote videos as a sensible default.
+  // Camera can be attached by tapping HUD buttons.
   const a = await loadRandomVideo();
   const b = await loadRandomVideo();
-  if(!a || !b){ console.warn("⚠️ Couldn’t load two videos"); return; }
-  currentVideoA = a; currentVideoB = b;
+  if(!a && !b){ console.warn("⚠️ Couldn’t load remote videos"); }
+  currentVideoA = a || b || null;
+  currentVideoB = b || a || null;
   initCards();
   render();
 })();
 </script>
+
+<!-- Repo nav simple include and link list -->
+<script>
+  window.SIMPLE_REPO_NAV_LINKS = [
+    { title: '🏠 Index', href: 'index.html', target: '_self' },
+    { title: '🎛 Dynamic v1.7', href: 'CUseeme_v1.7_dynamic_restyleBLACK.html', target: '_self' }
+  ];
+</script>
+<script src="/CUseeme/repo-nav-simple.js"></script>
+
 </body>
 </html>
