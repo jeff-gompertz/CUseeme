@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CUSeeMe HUD Overlay Demo</title>
+  <link rel="stylesheet" href="css/hud_restyle_poc.css">  
+  <style>
+    :root {
+      --hud-glass: rgba(255, 225, 255, 0.45);
+      --hud-border-light: rgba(255, 255, 255, 0.65);
+      --hud-border-dark: rgba(0, 45, 90, 0.35);
+      --hud-shadow: 0 12px 45px rgba(0, 50, 90, 0.35);
+      --hud-text: #1b1d22;
+      --btn-bg: rgba(215, 235, 255, 0.35);
+      --btn-inset-light: rgba(255,255,255,0.8);
+      --btn-inset-dark: rgba(0,30,60,0.3);
+      --btn-glow: rgba(255,120,50,0.7);
+      --btn-glow-outer: rgba(255,150,80,0.35);
+      --bg: transparent;
+      --ticker: #ff3a2f;
+    }
+    html,body{
+      height:100%; margin:0; padding:0;
+      background:transparent;
+      font-family: "VT323", ui-monospace, Menlo, Consolas, monospace;
+      color:#222;
+      overflow:visible;
+    }
+    /* Video background styling */
+    #bgVideo {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      object-fit: cover;
+      z-index: -2;
+      pointer-events: none; /* ensures UI remains clickable */
+    }
+
+    /* Overlay content (HUD styles here or import via external CSS) */
+    /* ...your glass/Aqua HUD and ticker styles here... */
+    /* Copy HUD CSS from your original file as needed, or import as above */
+  </style>
+</head>
+<body>
+
+  <!-- Full-viewport video background -->
+  <video id="bgVideo" autoplay muted loop playsinline>
+    <source src="https://jeff-gompertz.github.io/CUseeme/media/VideoObject.mp4" type="video/mp4">
+    Your browser does not support HTML5 video.
+  </video>
+
+  <!-- HUD Overlay begins here (copied from your HUD/overlay file) -->
+  <!-- [L0] MAIN CAMERA -->
+  <video id="cameraMain" autoplay muted playsinline style="display:none"></video>
+
+  <!-- [L1] HUD WRAPPER -->
+  <div id="hudWrapper">
+    <div id="hudIndex">HUD 1 / 2</div>
+    <div id="hudShell">
+      <div id="hudHeader">Mode &gt; Shift</div>
+
+      <!-- HUD 1 -->
+      <div id="hud1" class="hud-panel active">
+        <div class="hud-row">
+          <button class="hud-btn" id="btnSpawn5">➕ Spawn 5</button>
+          <button class="hud-btn" id="btnReverseCam">🔁 Reverse Cam</button>
+        </div>
+        <div class="hud-row">
+          <button class="hud-btn" id="btnVoice">🔊 Voice</button>
+          <button class="hud-btn" id="btnCloseAll">✕ Close All</button>
+        </div>
+      </div>
+
+      <!-- HUD 2 -->
+      <div id="hud2" class="hud-panel">
+        <div class="hud-row">
+          <button class="hud-btn">📡 Stream Status</button>
+          <button class="hud-btn">🗺 Network Map</button>
+        </div>
+        <div class="hud-row">
+          <button class="hud-btn">🔧 Diagnostics</button>
+          <button class="hud-btn">↩ Return</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- [L3] TICKER -->
+  <div id="ticker"></div>
+
+  <!-- [L4] PROMPT -->
+  <div id="promptWrap">
+    <div id="promptBox">
+      <div id="caret"></div>
+      <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" />
+    </div>
+  </div>
+
+  <!-- HUD Scripts (copied from before) -->
+  <script>
+  // [copy both HUD overlay scripts here, exactly as in your sample]
+  // ... (your JS code for adding ticker messages, camera, miniwindows, etc.)
+  </script>
+  <script>
+  // ... (your MODE > SHIFT dynamic multi-panel JS)
+  </script>
+</body>
+</html>
