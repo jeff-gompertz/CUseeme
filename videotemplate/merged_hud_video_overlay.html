@@ -267,7 +267,7 @@
   btnSpawn5.addEventListener('click',()=>{
     if(spawnUsed)return addTicker('spawn blocked: already active');
     spawnUsed=true;
-    const startX=60+Math.random()*40, startY=120+Math.random()*40;
+    const startX=60+Math.random()*40, startY=320+Math.random()*40;
     for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*26,y:startY+i*18});
     addTicker('spawned 5 windows');
   });
@@ -320,7 +320,7 @@
   
   (async()=>{
     await initStream();
-    for(let i=0;i<5;i++) makeMiniWindow({x:80+i*22,y:80+i*18});
+    for(let i=0;i<5;i++) makeMiniWindow({x:80+i*22,y:300+i*18});
   })();
   </script>
   <script>
