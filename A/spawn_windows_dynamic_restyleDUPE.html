@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="stylesheet" href="css/hud_restyle_poc.css">  
 <title>CUSeeMe Modular v1.7 — Mode Shift Dynamic</title>
-
 <style>
 /* =========================================================
 CUSeeMe Retro4.4 — Aqua Glass HUD (Self-contained version)
@@ -32,83 +31,7 @@ html,body{
   overflow:visible;
 }
   
-/* =========================================================
-HUD — Aqua Glass shell (Retro4.4)
-=========================================================*/
-  
-/* =========================================================
-#hudShell{
-  position:fixed;
-  top:24px; right:32px;
-  z-index:1000;
-  display:grid;
-  gap:14px;
-  padding:28px 26px 26px;
-  min-width:320px;
-  background:var(--hud-glass);
-  border-radius:20px;
-  border:1px solid var(--hud-border-light);
-  box-shadow:
-    inset 0 1px 3px var(--hud-border-light),
-    inset 0 -1px 3px var(--hud-border-dark),
-    var(--hud-shadow);
-  backdrop-filter:blur(20px) saturate(1.25);
-  -webkit-backdrop-filter:blur(20px) saturate(1.25);
-  color:var(--hud-text);
-  text-align:center;
-  transition:transform .25s ease, box-shadow .25s ease;
-}
-#hudShell:hover{ transform:translateY(-1px); }
 
-#hudHeader{
-  display:block;
-  margin-bottom:10px;
-  font-size:24px;
-  color:rgba(20,30,45,0.8);
-  text-shadow:0 1px 0 rgba(255,255,255,0.6);
-  user-select:none;
-  cursor:pointer;
-}
-#hudIndex{
-  position:absolute;
-  top:6px; left:10px;
-  font-size:12px;
-  opacity:.55;
-}
-.hud-row{ display:flex; gap:12px; justify-content:space-between; }
-.hud-btn{
-  flex:1;
-  font-family:"VT323", monospace;
-  font-size:17px;
-  color:#132030;
-  background:var(--btn-bg);
-  border:none;
-  border-radius:10px;
-  box-shadow:
-    inset 1px 1px 2px var(--btn-inset-light),
-    inset -1px -2px 3px var(--btn-inset-dark),
-    0 3px 6px rgba(0,0,0,0.08);
-  padding:10px 12px;
-  cursor:pointer;
-  transition:all .22s ease;
-}
-.hud-btn:hover{
-  transform:translateY(-1px);
-  box-shadow:0 5px 12px rgba(0,0,0,0.15);
-}
-.hud-btn.active{
-  background:rgba(255,165,100,0.15);
-  color:#ff6a2f;
-  font-weight:600;
-  box-shadow:
-    inset 0 0 4px var(--btn-glow),
-    0 0 14px 3px var(--btn-glow-outer),
-    0 2px 8px rgba(0,0,0,0.2);
-} 
-=========================================================*/
-
-
-  
 /* =========================================================
 HUD Panels (hidden / active)
  ========================================================= */
@@ -123,17 +46,6 @@ HUD Panels (hidden / active)
   opacity: 0.8; /* dim instead of hide */
 }
 
-  
-  
-/*  .hud-panel{
-  position:relative; inset:0;
-  opacity:1; pointer-events:auto;
-  transition:opacity .3s ease;
-}
-.hud-panel.active{
-  opacity:1; pointer-events:auto;
-} */
- 
 
 /* =========================================================
 Ticker — bottom-left diagnostics
@@ -151,15 +63,7 @@ Ticker — bottom-left diagnostics
 /* =========================================================
 Mini windows — draggable camera windows
 ========================================================= */
-/* =========================================================
-Mini windows — draggable camera windows
-========================================================= */
-/* =========================================================
-Mini windows — draggable camera windows
-========================================================= */
-/* =========================================================
-Mini windows — draggable camera windows
-========================================================= */
+
 .miniWin{
   position:absolute;
   width:44vw; max-width:380px; aspect-ratio:9/12;
