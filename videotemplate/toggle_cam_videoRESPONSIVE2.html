@@ -268,7 +268,7 @@
     btnSpawn5.addEventListener('click',()=>{
       if(spawnUsed)return addTicker('spawn blocked: already active');
       spawnUsed=true;
-      let startX=170+Math.random()*40, startY=320+Math.random()*40;
+      let startX=170+Math.random()*40, startY=300+Math.random()*40;
       if(window.innerWidth < 700) startX = 20;
       for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*26, y:startY+i*18});
       addTicker('spawned 5 windows');
