@@ -4,39 +4,35 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Full-Bleed Video Test</title>
-  <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      background: black;
-    }
-    #bgVideo {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw;
-      height: 100vh;
-      object-fit: cover;
-      min-width: 100vw;
-      min-height: 100vh;
-      z-index: -1;
-      background: black;
-    }
-  </style>
+<link rel="stylesheet" href="fullbleed.css"> 
+  <!-- -->
 </head>
 <body>
+  <!-- Full-screen video background -->
   <video id="bgVideo" autoplay muted loop playsinline>
-    <source src="/CUseeme/media/VideoObject.mp4"
+    <source src="https://jeff-gompertz.github.io/CUseeme/media/VideoObject.mp4"
        type="video/mp4">
     Your browser does not support HTML5 video.
   </video>
 
+  <!-- Optional overlay content -->
+  <!--<div id="overlay">
+    <h1>CUSeeMe Full-Bleed Video Test</h1>
+  </div> -->
+
+  
 <script>
   // Set this to the URL or HTML file you want to go to next
-  var nextPage = "https://jeff-gompertz.github.io/CUseeme/videotemplate/toggle_cam_videoRESPONSIVE2.html";
-  // Listen for any click or touch
-  document.addEventListener("click", function() {window.location.href = nextPage;});
-  document.addEventListener("touchend", function() {window.location.href = nextPage;});
+  var nextPage = "https://jeff-gompertz.github.io/CUseeme/videotemplate/toggle_cam_video.html"; // Example: "slide2.html", "my-next-design.html", etc.
+
+  // Listen for any click or touch on the document
+  document.addEventListener("click", function() {
+    window.location.href = nextPage;
+  });
+
+  document.addEventListener("touchend", function() {
+    window.location.href = nextPage;
+  });
 </script>
 
 </body>
