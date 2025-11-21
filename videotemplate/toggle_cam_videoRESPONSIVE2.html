@@ -201,7 +201,7 @@
     }
 
     let winCount=0, spawnUsed=false;
-    function makeMiniWindow({x=150,y=300}={}){
+    function makeMiniWindow({x=150,y=200}={}){
       if(window.innerWidth < 700 && x > 20) x = 20;
       winCount++;
       const el=document.createElement('div');
