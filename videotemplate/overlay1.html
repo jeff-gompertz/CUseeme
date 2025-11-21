@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Full-Viewport Video Background Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+    /* Video background */
+    #bgVideo {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      object-fit: cover;
+      z-index: -2;
+      pointer-events: none; /* ensures interactions go "through" the video */
+    }
+    /* Optional overlay for content */
+    .overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      pointer-events: none; /* set to auto if overlay should capture clicks */
+    }
+    .overlay-content {
+      background: rgba(0,0,0,0.4);
+      color: #fff;
+      padding: 2rem 3rem;
+      border-radius: 1rem;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+      text-align: center;
+      pointer-events: auto; /* allows interaction with overlay content */
+    }
+    h1, h2 { margin: 0.5em 0; }
+    p { margin-top: 1em; }
+  </style>
+</head>
+<body>
+  <!-- Full-viewport video background -->
+  <video id="bgVideo" autoplay muted loop playsinline>
+    <source src="yourvideo.mp4" type="video/mp4">
+    Your browser does not support HTML5 video.
+  </video>
+
+  <!-- Overlay content (optional, remove if not needed) -->
+  <div class="overlay">
+    <div class="overlay-content">
+      <h1>Video Background Demo</h1>
+      <p>This overlay content sits above the video.<br>
+      You can add buttons, text, or anything you like here.</p>
+    </div>
+  </div>
+</body>
+</html>
