@@ -141,7 +141,7 @@
   <!-- === CHANGE ONLY THESE (top of file for easy reference!) === -->
   <!-- Set this to the file you want for background video (and card video unless you override in BG_VIDEO_FILENAME) -->
   <video id="bgVideo" autoplay muted loop playsinline>
-    <source src="VideoObject.mp4" type="video/mp4" />
+    <source src="/CUseeme/media/VideoObject.mp4" type="video/mp4" />
     Your browser does not support HTML5 video.
   </video>
   
@@ -153,7 +153,7 @@
     // false = use playback of background video from below ("VideoObject.mp4") in card windows
     const USE_LIVE_CAMERA = false; // <--- change to true or false!
     // If you change the video background file name, do it here:
-    const BG_VIDEO_FILENAME = "VideoObject.mp4"; // Change if needed
+    const BG_VIDEO_FILENAME = "/CUseeme/media/VideoObject.mp4"; // Change if needed
 
     const ticker=document.getElementById('ticker');
     function addTicker(txt){
