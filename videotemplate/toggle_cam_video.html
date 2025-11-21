@@ -215,7 +215,7 @@
   }
 
   let winCount=0, spawnUsed=false;
-  function makeMiniWindow({x=80,y=300}={}){ // Default y=300 now!
+  function makeMiniWindow({x=90,y=300}={}){ // Default y=300 now!
     winCount++;
     const el=document.createElement('div');
     el.className='miniWin';
@@ -282,7 +282,7 @@
   btnSpawn5.addEventListener('click',()=>{
     if(spawnUsed)return addTicker('spawn blocked: already active');
     spawnUsed=true;
-    const startX=60+Math.random()*40, startY=300+Math.random()*40;
+    const startX=90+Math.random()*40, startY=300+Math.random()*40;
     for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*26, y:startY+i*18});
     addTicker('spawned 5 windows');
   });
