@@ -3,23 +3,23 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Grid Canvas HUD Test Run</title>
+  <title>CUSeeMe HUD + Grid Field Live Windows</title>
   <style>
-    html,body{height:100%;margin:0;background:#202020;color:#fff;font-family:system-ui;}
-    #c {display:block; position:fixed; top:0; left:0; z-index:-1; width:100vw; height:100vh; pointer-events:none;}
-    #hudWrapper { position:fixed; top:18px; left:18px; z-index:10; }
-    .hud-row{ display:flex; gap:12px; margin-bottom:8px;}
-    .hud-btn{ background:#444; color:#fff; border:none; padding:8px 15px; border-radius:8px; font-size:16px; cursor:pointer;}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Roboto,Arial;background:#0b0b0b;color:#dfe6e9;}
+    /* Video background is hidden in this test. Canvas is the live background. */
+    #c {position:fixed;top:0;left:0;z-index:-2;width:100vw;height:100vh;display:block;}
+    #hudWrapper{position:fixed;top:18px;left:18px;z-index:10;}
+    .hud-row{display:flex;gap:12px;margin-bottom:8px;}
+    .hud-btn{background:#444;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:16px;cursor:pointer;}
     .miniWin{
-      position:absolute; width:320px; height:260px; background:rgba(40,60,80,0.75);
-      border-radius:18px; box-shadow: 0 10px 40px rgba(0,0,0,0.35);
-      border:2px solid #fff; overflow:hidden; min-width:220px; z-index:500;
-      left:80px; top:180px;
+      position:absolute;width:320px;height:240px;background:rgba(40,60,80,0.85);
+      border-radius:18px;box-shadow:0 10px 40px rgba(0,0,0,0.27);border:2px solid #fff;overflow:hidden;min-width:180px;z-index:500;
     }
-    .miniBar{ background:rgba(255,255,255,0.18); font-size:13px; padding:6px 15px;}
-    .miniInner{ width:100%; height:calc(100% - 32px);}
-    .miniVideo{
-      width:100%; height:100%; background:#000; object-fit:cover;
+    .miniBar{background:rgba(255,255,255,0.17);font-size:13px;padding:7px 17px;}
+    .miniInner{width:100%;height:calc(100% - 32px);}
+    .miniVideo{width:100%;height:100%;object-fit:cover;background:#000;}
+    @media (max-width: 700px) {
+      .miniWin {left: 3vw !important;max-width: 95vw !important;width: 95vw !important;}
     }
   </style>
 </head>
@@ -28,27 +28,45 @@
   <div id="hudWrapper">
     <div class="hud-row">
       <button class="hud-btn" id="btnSpawn5">Spawn 5 windows</button>
-      <button class="hud-btn" id="btnCloseAll">Close all</button>
+      <button class="hud-btn" id="btnReverseCam">Reverse Cam</button>
+    </div>
+    <div class="hud-row">
+      <button class="hud-btn" id="btnVoice">Voice</button>
+      <button class="hud-btn" id="btnCloseAll">Close All</button>
+    </div>
+  </div>
+  <div id="ticker" style="position:fixed;left:16px;bottom:14px;width:45vw;max-width:700px;color:#ff3a2f;font-size:18px;line-height:1.25;z-index:900;display:flex;flex-direction:column-reverse;overflow:hidden;max-height:50vh;"></div>
+  <div id="promptWrap" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:800;">
+    <div id="promptBox" style="pointer-events:auto;display:flex;gap:10px;align-items:center;padding:10px 16px;background:rgba(240,250,255,.55);border:1px solid rgba(255,255,255,.6);border-radius:12px;box-shadow:0 8px 24px rgba(0,30,60,.18);">
+      <div id="caret" style="width:.5ch; height:1.2em; background:#222; animation:blink 1s step-end infinite;"></div>
+      <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" style="background:transparent; border:none; outline:none; font:inherit; font-size:18px; color:#111; width:24ch;">
     </div>
   </div>
   <script>
-    // --- Your grid field canvas animation ---
-    const canvas = document.getElementById("c");
-    const ctx = canvas.getContext("2d");
+    // ---- GRID FIELD FULL (based on yours) ----
+    const c = document.getElementById('c');
+    const ctx = c.getContext('2d', { alpha: true });
+    let DPR = Math.max(1, window.devicePixelRatio || 1);
     function resize(){
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      DPR = Math.max(1, window.devicePixelRatio || 1);
+      c.width = Math.floor(window.innerWidth * DPR);
+      c.height = Math.floor(window.innerHeight * DPR);
+      c.style.width = window.innerWidth + 'px';
+      c.style.height = window.innerHeight + 'px';
+      ctx.setTransform(DPR,0,0,DPR,0,0);
     }
-    window.addEventListener("resize", resize); resize();
+    window.addEventListener('resize', resize); resize();
 
+    // Procedural grid effect (not full camera version for cross-platform)
     let t = 0;
     function drawGrid(){
-      ctx.fillStyle = "#222"; ctx.fillRect(0,0,canvas.width,canvas.height);
-      for(let y=0;y<canvas.height;y+=20){
-        for(let x=0;x<canvas.width;x+=20){
-          const r = 70 + Math.floor(25*Math.sin(t*0.01+y*0.08)+25*Math.cos(t*0.013+x*0.07));
+      ctx.fillStyle = "#111"; ctx.fillRect(0,0,c.width/DPR,c.height/DPR);
+      for(let y=0;y<c.height/DPR;y+=24){
+        for(let x=0;x<c.width/DPR;x+=24){
+          const v = 0.45 + 0.38 * Math.sin(x*0.085 + t*0.015) + 0.25*Math.cos(y*0.066 + t*0.013);
+          const r = 150 + Math.floor(60*v + 45*Math.sin(t/23+y*0.06));
           ctx.fillStyle = `rgb(${r},${r},${r})`;
-          ctx.fillRect(x,y,18,18);
+          ctx.fillRect(x,y,20,20);
         }
       }
       t+=1;
@@ -56,23 +74,36 @@
     }
     drawGrid();
 
-    // --- HUD Mini-window logic ---
-    const gridStream = canvas.captureStream(30); // Capture live canvas video stream
+    // Stream
+    const gridStream = c.captureStream(30);
 
+    // ---- HUD + Mini Windows ----
+    function addTicker(txt){
+      const ticker=document.getElementById('ticker');
+      const line=document.createElement('div');
+      line.className='tline';
+      line.textContent=txt;
+      ticker.prepend(line);
+      if(ticker.children.length>80)ticker.removeChild(ticker.lastChild);
+    }
+    ['Grid field active','HUD ready','Spawn grid windows to see live effect'].forEach((m,i)=>setTimeout(()=>addTicker(m),200*i));
+
+    let winCount=0, spawnUsed=false;
     function makeMiniWindow({x=80,y=180}={}) {
+      winCount++;
       const el=document.createElement('div');
       el.className='miniWin';
       el.style.left=x+'px';
       el.style.top=y+'px';
       el.innerHTML = `
-        <div class="miniBar">Grid Window</div>
+        <div class="miniBar">GridWindow_${String(winCount).padStart(2,'0')}</div>
         <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>`;
       document.body.appendChild(el);
       const v=el.querySelector('.miniVideo');
       v.srcObject = gridStream;
       v.play();
 
-      // Drag logic (optional)
+      // Drag logic
       const bar = el.querySelector('.miniBar');
       let dragging=false,sx=0,sy=0,sl=0,st=0;
       bar.addEventListener('pointerdown',function(e){
@@ -95,12 +126,37 @@
       return el;
     }
 
-    // HUD button wiring
+    // Button handlers
     document.getElementById("btnSpawn5").onclick = function(){
-      for(let i=0;i<5;i++) makeMiniWindow({x:80+i*40, y:180+i*32});
+      if(spawnUsed) return addTicker("spawn blocked: already active");
+      spawnUsed = true;
+      let startX=70+Math.random()*50, startY=250+Math.random()*40;
+      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*36, y:startY+i*24});
+      addTicker("spawned 5 grid windows");
     };
     document.getElementById("btnCloseAll").onclick = function(){
       document.querySelectorAll('.miniWin').forEach(n=>n.remove());
+      winCount=0; spawnUsed=false; addTicker("all windows closed");
+    };
+
+    // Ticker input
+    const input=document.getElementById('input');
+    function handleSubmit(v){
+      const t=(v||'').trim();
+      if(!t)return;
+      addTicker('> '+t);
+      input.value='';
+    }
+    input.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();handleSubmit(input.value);}
+    });
+
+    // Voice/button stubs (disabled for live test)
+    document.getElementById("btnReverseCam").onclick = function(){
+      addTicker("Reverse cam (stub)");
+    };
+    document.getElementById("btnVoice").onclick = function(){
+      addTicker("Voice feature (stub)");
     };
 
     // Initial test run: spawn one window at page load
