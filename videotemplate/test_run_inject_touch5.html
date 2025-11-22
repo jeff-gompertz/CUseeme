@@ -1,1 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>HUD WireFrame Black Background</title>
+  <style>
+    html,body {
+      height: 100%; margin: 0;
+      background: #000 !important;
+      font-family: "VT323", ui-monospace, Menlo, Consolas, monospace;
+      color: #efe; overflow: hidden;
+    }
+    #bgVideo {display:none;}
+    #gridCanvas {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      z-index: -1; pointer-events: none;
+      background: #000 !important;
+    }
+    .diagnosticHUD {
+      position: fixed; top: 13px; left: 15px; z-index: 1200;
+      background: rgba(10,10,10,0.98); color: #eee;
+      font-size: 18px; padding: 12px 22px; border-radius: 6px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.04); border: 1px solid #222;
+      min-width: 210px; max-width: 400px; pointer-events: none;
+      user-select: none; opacity: .98;
+    }
+    .diagnosticLine {margin:3px 0;letter-spacing:0;}
+    .timestamp {font-size:15px;font-family:monospace;color:#888;}
+    .statusOK {color: #36C924;}
+    .miniWin {
+      position: absolute; width: 66vw; max-width: 380px; aspect-ratio: 9/12;
+      background: rgba(10,10,10,0.91); border: 1px solid #393939;
+      border-radius: 13px; box-shadow: 0 14px 44px rgba(0,0,0,0.18);
+      overflow: hidden; z-index: 500;
+    }
+    .miniBar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding:6px 13px; height:23px; background: rgba(15,15,17,0.15);
+      font-size: 13px; color: #eee; user-select: none;
+    }
+    .miniInner {position: relative; width: 100%; height: calc(100% - 23px);}
+    .miniVideo {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; background: #000 !important;
+    }
+    .miniDiag {
+      position: absolute; top: 7px; right: 7px; z-index: 1500;
+      background: rgba(6,6,6,0.97); color: #eee; padding: 3px 10px;
+      font-size: 13px; border-radius: 5px; border: 1px solid #333;
+      box-shadow: 0 2px 7px rgba(0,0,0,0.08);
+      display:flex;align-items:center;gap:7px;user-select:none;pointer-events:auto;opacity:.95;
+    }
+    .miniClose {font-size:15px;color:#900;cursor:pointer;padding:2px 4px;margin-left:6px;}
+    .miniClose:hover{background:#1a1a1a;color:red;border-radius:3px;}
+    .miniLive {font-weight:600;font-size:12px;color:#45f16e;}
+    #diagnosticControl {
+      position: fixed; top: 15px; right: 18px; z-index: 1300;
+    }
+    #diagnosticControl select {
+      font-size: 17px; padding: 5px 13px; border-radius: 5px; border: 1px solid #222;
+      background:#151515; color:#fff;
+    }
+    @media (max-width:700px){
+      .diagnosticHUD{ width: 91vw; min-width: 6vw; left:2vw;}
+      #diagnosticControl{ right:5vw;}
+    }
+    #hudWrapper{position:fixed;top:45px;left:18px;z-index:100;}
+    .hud-row{display:flex;gap:12px;margin-bottom:6px;}
+    .hud-btn{flex:1;font-family:"VT323",monospace;font-size:17px;color:#132030;background:rgba(215,235,255,0.25);border:none;border-radius:10px;box-shadow:0 3px 6px rgba(0,0,0,0.08);padding:10px 12px;cursor:pointer;transition:all .22s;}
+    .hud-btn.active {background: #ffd6a0 !important; color: #e32 !important;}
+  </style>
+</head>
+<body>
+  <canvas id="gridCanvas"></canvas>
+  <!-- Diagnostic overlay (HUD) -->
+  <div class="diagnosticHUD">
+    <div class="diagnosticLine">FPS: <span id="diagFPS">--</span></div>
+    <div class="diagnosticLine">Grid: <span id="diagSize">--</span></div>
+    <div class="diagnosticLine">Mode: <span id="diagMode">--</span></div>
+    <div class="diagnosticLine timestamp" id="diagStamp"></div>
+    <div class="diagnosticLine statusOK" id="diagStatus">READY</div>
+  </div>
+  <!-- Diagnostic dropdown control (grid mode) -->
+  <div id="diagnosticControl">
+    <select id="modeSelect" title="Mode">
+      <option value="abstract">Abstract Grid</option>
+      <option value="wire">Wireframe</option>
+      <option value="mesh">Mesh</option>
+      <option value="particles">Particles</option>
+    </select>
+  </div>
+  <div id="hudWrapper">
+    <div class="hud-row">
+      <button class="hud-btn" id="btnSpawn5">➕ Spawn 5</button>
+      <button class="hud-btn" id="btnCloseAll">✕ Close All</button>
+    </div>
+  </div>
+  <script>
+    // ----- GRID FIELD CANVAS -----
+    const gridCanvas = document.getElementById('gridCanvas');
+    const gridCtx = gridCanvas.getContext('2d');
+    let DPR = Math.max(1, window.devicePixelRatio || 1);
+    let gridSize = 48, gridMode = "abstract";
+    function resizeGrid(){
+      DPR = Math.max(1, window.devicePixelRatio || 1);
+      gridCanvas.width = Math.floor(window.innerWidth * DPR);
+      gridCanvas.height = Math.floor(window.innerHeight * DPR);
+      gridCanvas.style.width = window.innerWidth + 'px';
+      gridCanvas.style.height = window.innerHeight + 'px';
+      gridCtx.setTransform(DPR,0,0,DPR,0,0);
+    }
+    window.addEventListener('resize', resizeGrid); resizeGrid();
+    let frame = 0;
+    function drawGridField(){
+      gridCtx.clearRect(0,0,gridCanvas.width/DPR,gridCanvas.height/DPR);
+      if(gridMode=="abstract" || gridMode=="wire") {
+        for(let y=0;y<gridCanvas.height/DPR;y+=gridSize){
+          for(let x=0;x<gridCanvas.width/DPR;x+=gridSize){
+            gridCtx.strokeStyle="#ddd";
+            gridCtx.lineWidth=gridMode=="wire"?2:1;
+            gridCtx.strokeRect(x,y,gridSize,gridSize);
+          }
+        }
+      }
+      if(gridMode=="mesh") {
+        for(let y=0;y<gridCanvas.height/DPR;y+=gridSize){
+          for(let x=0;x<gridCanvas.width/DPR;x+=gridSize){
+            const r = 160 + Math.floor(35*Math.sin((x+y)/120+frame*0.03));
+            gridCtx.fillStyle=`rgb(${r},${r},${r})`;
+            gridCtx.fillRect(x,y,gridSize-2,gridSize-2);
+          }
+        }
+      }
+      if(gridMode=="particles") {
+        for(let y=0;y<gridCanvas.height/DPR;y+=gridSize) {
+          for(let x=0;x<gridCanvas.width/DPR;x+=gridSize) {
+            gridCtx.beginPath();
+            gridCtx.arc(x+gridSize*0.5,y+gridSize*0.5,gridSize*0.25,0,Math.PI*2);
+            gridCtx.fillStyle="#ececec";
+            gridCtx.globalAlpha=0.88+0.12*Math.sin(frame/8+x/222-y/88);
+            gridCtx.fill();
+            gridCtx.globalAlpha=1.0;
+          }
+        }
+      }
+      frame++;
+      requestAnimationFrame(drawGridField);
+    }
+    drawGridField();
 
+    // --- Diagnostics overlay update ---
+    const diagFPS = document.getElementById('diagFPS');
+    const diagSize = document.getElementById('diagSize');
+    const diagMode = document.getElementById('diagMode');
+    const diagStamp = document.getElementById('diagStamp');
+    const diagStatus = document.getElementById('diagStatus');
+    // update FPS and timestamp
+    let frames=0, fpsVal=0, lastFPS=performance.now();
+    function tickerDiagnostics(){
+      frames++; let now=performance.now();
+      if(now-lastFPS>1000) {
+        fpsVal=frames; frames=0; lastFPS=now; diagFPS.textContent=fpsVal;
+      }
+      diagSize.textContent=gridSize;
+      diagMode.textContent=gridMode;
+      const d=new Date();
+      diagStamp.textContent = d.toLocaleTimeString('en-US',{hour12:false})+"."+String(d.getMilliseconds()).padStart(3,"0");
+      requestAnimationFrame(tickerDiagnostics);
+    }
+    tickerDiagnostics();
+
+    // Update grid mode from dropdown
+    document.getElementById('modeSelect').addEventListener('change',e=>{
+      gridMode=e.target.value;
+      diagStatus.textContent='Switched mode: '+gridMode.toUpperCase();
+    });
+
+    // --- HUD/Mini window logic + overlays ---
+    let winCount=0, spawnUsed=false;
+    function makeMiniWindow({x=150,y=300}={}){
+      if(window.innerWidth < 700 && x > 20) x = 20;
+      winCount++;
+      const el=document.createElement('div');
+      el.className = 'miniWin';
+      el.style.left=x+'px'; el.style.top=y+'px';
+      el.innerHTML=`
+        <div class="miniBar">
+          <div class="miniTitle">canvas_${String(winCount).padStart(4,'0')}</div>
+        </div>
+        <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video>
+          <div class="miniDiag" id="diagWrap${winCount}">
+            <span>ID: #${winCount}</span>
+            <span class="miniLive">LIVE</span>
+            <span class="miniClose" title="Close" onclick="this.closest('.miniWin').remove()">✕</span>
+          </div>
+        </div>`;
+      document.body.appendChild(el);
+      const v=el.querySelector('.miniVideo');
+      v.srcObject = gridCanvas.captureStream(30); v.play();
+      // Drag logic
+      const bar = el.querySelector('.miniBar');
+      let dragging=false,sx=0,sy=0,sl=0,st=0;
+      function start(e){
+        dragging=true;
+        const r=el.getBoundingClientRect(); sl=r.left; st=r.top;
+        sx=(e.touches?e.touches[0].clientX:e.clientX);
+        sy=(e.touches?e.touches[0].clientY:e.clientY);
+        document.addEventListener('pointermove',move);
+        document.addEventListener('pointerup',stop);
+        document.addEventListener('touchmove',move,{passive:false});
+        document.addEventListener('touchend',stop);
+      }
+      function move(e){
+        if(!dragging)return;
+        const cx=(e.touches?e.touches[0].clientX:e.clientX);
+        const cy=(e.touches?e.touches[0].clientY:e.clientY);
+        el.style.left=(sl+(cx-sx))+'px'; el.style.top=(st+(cy-sy))+'px';
+        e.preventDefault?.();
+      }
+      function stop(){
+        dragging=false;
+        document.removeEventListener('pointermove',move);
+        document.removeEventListener('pointerup',stop);
+        document.removeEventListener('touchmove',move);
+        document.removeEventListener('touchend',stop);
+      }
+      bar.addEventListener('pointerdown',start);
+      bar.addEventListener('touchstart',start,{passive:false});
+      return el;
+    }
+    const btnSpawn5=document.getElementById('btnSpawn5');
+    const btnCloseAll=document.getElementById('btnCloseAll');
+    btnSpawn5.addEventListener('click',()=>{
+      if(spawnUsed)return;
+      spawnUsed=true;
+      let startX=170+Math.random()*40,startY=300+Math.random()*40;
+      if(window.innerWidth < 700) startX=20;
+      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*26,y:startY+i*18});
+    });
+    btnCloseAll.addEventListener('click',()=>{
+      document.querySelectorAll('.miniWin').forEach(n=>n.remove());
+      winCount=0; spawnUsed=false;
+    });
+
+    // Optionally, spawn windows at load
+    (()=>{
+      let startX = 100, startY = 170;
+      if(window.innerWidth < 700) startX = 20;
+      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*22, y:startY+i*18});
+    })();
+  </script>
+</body>
+</html>
