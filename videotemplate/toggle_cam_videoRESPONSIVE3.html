@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CUSeeMe Modular v1.7 — HUD Toggle Demo (Mobile Clean)</title>
+  <style>
+    html,body{
+      height:100%; margin:0;
+      background: #000 !important;
+      font-family: "VT323", ui-monospace, Menlo, Consolas, monospace;
+      color:#222;
+      overflow:visible;
+    }
+    #bgVideo {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      object-fit: cover;
+      z-index: 0;
+      pointer-events: none;
+      background: #000;
+    }
+    /* ...rest unchanged... */
+  </style>
+</head>
+<body>
+  <!-- Fullscreen Video Background -->
+  <video id="bgVideo" autoplay muted loop playsinline>
+    <source src="/CUseeme/media/VideoObject.mp4" type="video/mp4" />
+    Your browser does not support HTML5 video.
+  </video>
+  <video id="cameraMain" autoplay muted playsinline style="display:none"></video>
+  <!-- HUD/Windows/UI... -->
+  <!-- ...unchanged... -->
+
+  <script>
+    // ...all your initialization code as posted...
+
+    // Do NOT auto-redirect!
+    // If you need to go to next page, use a dedicated button:
+    /*
+    const navBtn = document.createElement("button");
+    navBtn.textContent = "Go to next page";
+    navBtn.style.position = "fixed";
+    navBtn.style.bottom = "40px";
+    navBtn.style.right = "40px";
+    navBtn.style.zIndex = "1000";
+    navBtn.style.padding = "16px 32px";
+    navBtn.onclick = () => window.location.href = "https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch.html";
+    document.body.appendChild(navBtn);
+    */
+
+    // Remove global click/touch navigation!
+  </script>
+</body>
+</html>
