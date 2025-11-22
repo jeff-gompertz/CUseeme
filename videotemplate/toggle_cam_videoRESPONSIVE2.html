@@ -26,13 +26,22 @@
       color:#222;
       overflow:visible;
     }
-    #bgVideo {
+ /*   #bgVideo {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
       object-fit: cover;
       z-index: -2;
       pointer-events: none;
-    }
+    } */
+
+    #bgVideo {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  object-fit: cover;
+  z-index: 0; /* <-- key fix */
+  pointer-events: none;
+  background: #000; /* ensures black before video shows */
+}
     #hudIndex{
       position:absolute;
       top:6px; left:10px;
