@@ -9,7 +9,7 @@
       height: 100%;
       margin: 0;
       padding: 0;
-      background: #000 !important;   /* <==== THIS IS THE FIX */
+      background: #000 !important;   /* black background behind video, visible before loading */
       font-family: "Segoe UI", Arial, sans-serif;
     }
     /* Video background */
@@ -18,31 +18,18 @@
       top: 0; left: 0;
       width: 100vw; height: 100vh;
       object-fit: cover;
-      z-index: -2;
-      pointer-events: none; /* ensures interactions go "through" the video */
+      z-index: 0; /* <-- was -2, should be 0 or lower than other content */
+      pointer-events: none;
+      background: #000; /* for browsers that support this, vid not loaded */
+      /* OPTIONAL: Fade in when loaded */
+      opacity: 1;
+      transition: opacity 0.4s;
     }
-    /* Optional overlay for content */
-   /* .overlay {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1;
-      pointer-events: none; /* set to auto if overlay should capture clicks */
+    /* If you have overlays/content, ensure their z-index is above 0 */
+    .overlay, #hudWrapper, #ticker {
+      z-index: 5;
+      position: relative;
     }
-   /* .overlay-content {
-      background: #OOO; 
-      color: #fff;
-      padding: 2rem 3rem;
-      border-radius: 1rem;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.25);
-      text-align: center;
-      pointer-events: auto;
-    } */
-  /*  h1, h2 { margin: 0.5em 0; }
-    p { margin-top: 1em; }*/
   </style>
 </head>
 <body>
@@ -52,13 +39,18 @@
     Your browser does not support HTML5 video.
   </video>
   
+  <!-- Example overlay (optional) -->
+  <div class="overlay"></div>
+  
 <script>
-  // Set this to the URL or HTML file you want to go to next
+  // Optionally, fade in the video once metadata/first frame loaded
+  document.getElementById('bgVideo').addEventListener('loadeddata', function() {
+    this.style.opacity = '1';
+  });
+  // Example: page navigation on click
   var nextPage = "https://jeff-gompertz.github.io/CUseeme/videotemplate/toggle_cam_videoRESPONSIVE2.html";
-  // Listen for any click or touch
   document.addEventListener("click", function() {window.location.href = nextPage;});
   document.addEventListener("touchend", function() {window.location.href = nextPage;});
 </script>
-
 </body>
 </html>
