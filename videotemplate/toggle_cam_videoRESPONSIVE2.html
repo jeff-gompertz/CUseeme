@@ -16,32 +16,24 @@
       --btn-inset-dark: rgba(0,30,60,0.3);
       --btn-glow: rgba(255,120,50,0.7);
       --btn-glow-outer: rgba(255,150,80,0.35);
-      --background: #000 !important;   /* <==== THIS IS THE FIX */
+      --background: transparent /* #000 !important;   /* <==== THIS IS THE FIX */
       --ticker: #ff3a2f;
     }
-    html,body{
+  html,body{
       height:100%; margin:0;
-      background: #000 !important;   /* <==== THIS IS THE FIX */
+      background: transparent /* #000 !important;   /* <==== THIS IS THE FIX */
       font-family: "VT323", ui-monospace, Menlo, Consolas, monospace;
       color:#222;
-      overflow:visible;
+      overflow:visible;*/
     }
- /*   #bgVideo {
+  #bgVideo {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
       object-fit: cover;
       z-index: -2;
       pointer-events: none;
-    } */
+    } 
 
-    #bgVideo {
-  position: fixed;
-  top: 0; left: 0; width: 100vw; height: 100vh;
-  object-fit: cover;
-  z-index: 0; /* <-- key fix */
-  pointer-events: none;
-  background: #000; /* ensures black before video shows */
-}
     #hudIndex{
       position:absolute;
       top:6px; left:10px;
