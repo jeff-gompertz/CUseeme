@@ -554,6 +554,42 @@ window.addEventListener('touchstart', ()=> { if(!cameraMain.srcObject) startCame
 
 <script src="/CUseeme/js/longpress-hud.js"></script>
 
+  <script>
+(function(){
+  // small diagnostic: write results to debugTicker and console
+  function log(msg){
+    try{
+      const dbgEl = document.getElementById('debugTicker') || document.getElementById('ticker');
+      if(dbgEl){
+        const d = document.createElement('div');
+        d.className = 'tline';
+        d.textContent = msg;
+        dbgEl.prepend(d);
+        // keep the list reasonable
+        while(dbgEl.children.length > 140) dbgEl.removeChild(dbgEl.lastChild);
+      }
+    }catch(e){}
+    try{ console.log('LONGPRESS-DBG:', msg); }catch(e){}
+  }
+
+  log('DBG CHECK — starting');
+
+  log('longpress-nav present? ' + (typeof window.makeLongPressNav !== 'undefined'));
+  log('longpress-hud script tag present? ' + (!!document.querySelector('script[src*="longpress-hud"]')));
+  log('hud-longpress styles injected? ' + (!!document.getElementById('hud-longpress-styles')));
+  const btn = document.getElementById('advanceBtn');
+  log('advanceBtn found? ' + !!btn);
+  if(btn){
+    log('advanceBtn classes: ' + (btn.className || '<none>'));
+    log('advanceBtn data-longpress-url: ' + (btn.getAttribute('data-longpress-url') || '<none>'));
+    log('hud-holdProgress present? ' + !!btn.querySelector('.hud-holdProgress'));
+  }
+  // Also print if the longpress-hud IIFE threw early (presence of global var unlikely),
+  log('document readyState: ' + document.readyState);
+  log('DBG CHECK — done');
+})();
+</script>
+
   
 </body>
 </html>
