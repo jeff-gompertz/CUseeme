@@ -155,7 +155,11 @@
         overlay.style.inset = '0';
         overlay.style.width = '100%';
         overlay.style.height = '100%';
-        element.style.position = element.style.position || 'relative';
+        // Only set position if not already positioned
+        const computedPosition = window.getComputedStyle(element).position;
+        if (computedPosition === 'static') {
+          element.style.position = 'relative';
+        }
         element.appendChild(overlay);
       }
     }
@@ -253,7 +257,18 @@
 
       // Navigate if URL is provided
       if (config.url) {
-        window.location.href = config.url;
+        // Validate URL uses safe protocol (http/https) to prevent javascript: URLs
+        try {
+          const url = new URL(config.url, window.location.origin);
+          if (url.protocol === 'http:' || url.protocol === 'https:') {
+            window.location.href = config.url;
+          }
+        } catch (e) {
+          // Fallback to relative URL if URL parsing fails
+          if (!/^javascript:/i.test(config.url)) {
+            window.location.href = config.url;
+          }
+        }
       }
     }
 
@@ -350,8 +365,8 @@
       const options = { url };
       if (duration) {
         const parsedDuration = parseInt(duration, 10);
-        // Validate duration is a positive number
-        if (!isNaN(parsedDuration) && parsedDuration > 0) {
+        // Validate duration is a positive number with reasonable upper bound
+        if (!isNaN(parsedDuration) && parsedDuration > 0 && parsedDuration <= 10000) {
           options.holdDuration = parsedDuration;
         }
       }
