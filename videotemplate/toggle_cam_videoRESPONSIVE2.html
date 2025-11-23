@@ -347,6 +347,19 @@
     document.getElementById('hudHeader').addEventListener('click',()=>showHUD(currentHUD + 1));
     updateHUDLabel();
 
+         <script>
+  // Set this to the URL or HTML file you want to go to next
+  var nextPage = "https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch6.html"; // Example: "slide2.html", "my-next-design.html", etc.
+
+  // Listen for any click or touch on the document
+  document.addEventListener("click", function() {
+    window.location.href = nextPage;
+  });
+
+  document.addEventListener("touchend", function() {
+    window.location.href = nextPage;
+  });
+</script>
 
     
   </script>
