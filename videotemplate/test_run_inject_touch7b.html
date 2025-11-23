@@ -33,8 +33,27 @@
     /* debug ticker style override for visibility */
     #debugTicker { position: fixed; right: 12px; top: 12px; z-index: 100000; max-width: 360px; max-height: 45vh; overflow:auto; font-family: monospace; font-size:12px; color:#ffd; pointer-events:none; }
     #debugTicker .tline { margin: 2px 0; opacity: 0.9; }
-  </style>
+   /* START: advance button visibility */
+#advanceBtn,
+.advance-hud-btn {
+  position: relative;
+  z-index: 1200;               /* higher than HUD windows */
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  background: rgba(255,255,255,0.95);
+  color: #072126;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-family: "VT323", monospace;
+  font-size: 15px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+/* END: advance button visibility / touch fixes */
+</style>
 </head>
+  
 <body>
   <!-- Background video (kept) -->
   <video id="bgVideo" autoplay muted loop playsinline>
@@ -48,16 +67,24 @@
   <video id="cameraMain" autoplay muted playsinline style="display:none"></video>
 
   <!-- HUD / Controls -->
-  <div id="hudWrapper">
-    <div class="source-toggle-row">
-      <label><b>Source:</b>
-        <select id="sourceSelect">
-          <option value="grid">Scan Raster (default)</option>
-          <option value="camera">Live Camera (raw)</option>
-          <option value="video">Background Video</option>
-        </select>
-      </label>
-    </div>
+   <div class="source-toggle-row">
+  <label style="display:flex;align-items:center;gap:8px;">
+    <b>Source:</b>
+    <select id="sourceSelect" aria-label="Choose source"
+            style="min-width:160px;padding:6px;border-radius:8px;background:#ffffffcc;border:1px solid rgba(0,0,0,0.06);">
+      <option value="grid">Scan Raster (default)</option>
+      <option value="camera">Live Camera (raw)</option>
+      <option value="video">Background Video</option>
+    </select>
+  </label>
+
+  <!-- Advance button: put it here so it sits next to the Source select and camera control -->
+  <button id="advanceBtn" class="hud-btn"
+          data-longpress-url="https://jeff-gompertz.github.io/CUseeme/"
+          aria-label="Hold to advance">
+    Hold to advance
+  </button>
+</div>
 
     <div id="hudShell">
       <div id="hudHeader">Visual Source Demo</div>
@@ -527,6 +554,6 @@ window.addEventListener('touchstart', ()=> { if(!cameraMain.srcObject) startCame
 
 <script src="/CUseeme/js/longpress-hud.js"></script>
 
-<button id="advanceBtn" data-longpress-url="https://jeff-gompertz.github.io/CUseeme/">Hold to advance</button>  
+  
 </body>
 </html>
