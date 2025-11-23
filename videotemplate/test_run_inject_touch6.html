@@ -120,7 +120,7 @@
       line.textContent=txt; ticker.prepend(line);
       if(ticker.children.length>80)ticker.removeChild(ticker.lastChild);
     }
-    ['HUD ready','TouchDesigner XY mesh field','Drag windows to test'].forEach((m,i)=>setTimeout(()=>addTicker(m),300*i));
+    ['HUD ready','XY mesh field','Drag windows to test'].forEach((m,i)=>setTimeout(()=>addTicker(m),300*i));
     
     // --- Spawn windows, each streams grid field ---
     const gridStream = gridCanvas.captureStream(30);
