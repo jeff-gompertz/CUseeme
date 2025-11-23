@@ -3,6 +3,8 @@
    - Waits for DOMContentLoaded, so it works wherever the <script> is placed.
    - Prefers centralized makeLongPressNav (ring disabled) and falls back to inline handler.
    - Writes simple debug messages to #debugTicker if present.
+   - Adjustments: progress z-index and button overflow so progress is visible;
+     pointerdown uses passive:false so preventDefault works reliably when needed.
 */
 (function longpressHudModule(){
   const BUTTON_ID = 'advanceBtn';
@@ -26,13 +28,21 @@
     const s = document.createElement('style');
     s.id = 'hud-longpress-styles';
     s.textContent = `
+/* Ensure the button clips the progress and text remains readable */
+#${BUTTON_ID} { position: relative; overflow: hidden; }
+
+/* Holding visual */
 #${BUTTON_ID}.holding { transform: scale(1.02); box-shadow: 0 10px 28px rgba(255,12,110,0.12) !important; }
+
+/* Progress bar overlay (grows left->right) */
 #${BUTTON_ID} .hud-holdProgress {
   position:absolute; left:0; top:0; height:100%; width:0%; border-radius:inherit;
   background: linear-gradient(90deg, rgba(255,12,110,0.28), rgba(255,60,160,0.16));
-  pointer-events:none; z-index: -1; transition: width 0s linear;
+  pointer-events:none; z-index: 0; transition: width 0s linear;
 }
-#${BUTTON_ID}.holding .hud-holdProgress { z-index: 0; }
+
+/* Keep progress under the label visually but above the button background */
+#${BUTTON_ID} .hud-label, #${BUTTON_ID} .hud-content { position: relative; z-index: 1; }
 `;
     document.head.appendChild(s);
   }
@@ -43,6 +53,17 @@
       progress = document.createElement('div');
       progress.className = 'hud-holdProgress';
       btn.insertBefore(progress, btn.firstChild);
+    }
+    // Ensure there's a wrapper span for text so we can keep it above the progress.
+    if(!btn.querySelector('.hud-content')){
+      const wrap = document.createElement('span');
+      wrap.className = 'hud-content';
+      // Move existing text nodes into the wrapper
+      while(btn.childNodes.length > 1){ // leave the progress we just inserted as first child
+        const node = btn.childNodes[1];
+        wrap.appendChild(node);
+      }
+      btn.appendChild(wrap);
     }
     return progress;
   }
@@ -64,7 +85,7 @@
       el.classList.add('holding');
       progressEl.style.transition = 'width ' + holdMs + 'ms linear';
       setTimeout(()=> { progressEl.style.width = '100%'; }, 10);
-    }, { passive: true });
+    }, { passive: false });
 
     el.addEventListener('pointermove', (e) => {
       if(!startT) return;
