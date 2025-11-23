@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe — WebGL RGB Scan Raster (Injected)</title>
+<meta name="color-scheme" content="dark">
+<style>
+  :root { --hud-bg: transparent; --ticker: #ff3a2f; }
+  html,body{height:100%;margin:0;background:transparent;font-family:system-ui,Inter,Roboto,Arial;color:#222}
+  #bgVideo{position:fixed;inset:0;width:100vw;height:100vh;object-fit:cover;z-index:-3}
+  canvas#gridCanvas{position:fixed;inset:0;width:100vw;height:100vh;z-index:-2;display:block;background:#000}
+  #hudWrapper{position:fixed;top:12px;left:18px;z-index:100}
+  .hud-row{display:flex;gap:12px;justify-content:space-between}
+  .hud-btn{flex:1;font-size:14px;color:#132030;background:rgba(215,235,255,0.35);border:none;border-radius:10px;padding:10px;cursor:pointer}
+  .miniWin{position:absolute;width:66vw;max-width:380px;aspect-ratio:9/12;background:rgba(210,240,255,0.25);border:1px solid rgba(255,255,255,0.55);border-radius:16px;backdrop-filter:blur(12px);box-shadow:0 18px 40px rgba(0,0,0,0.25);overflow:hidden;cursor:grab;z-index:500}
+  .miniBar{display:flex;align-items:center;justify-content:space-between;padding:4px 10px;height:26px;background:rgba(255,255,255,0.18);font-size:12px;color:#222;user-select:none}
+  .miniInner{position:relative;width:100%;height:calc(100% - 26px)}
+  .miniVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:black}
+  #ticker{position:fixed;left:16px;bottom:14px;z-index:900;width:45vw;max-width:700px;max-height:50vh;display:flex;flex-direction:column-reverse;overflow:hidden;color:var(--ticker);font-size:18px;line-height:1.25}
+  .tline{opacity:.95;margin:0;animation:fadeIn .6s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  #debugTicker{position:fixed;right:12px;top:12px;z-index:100000;max-width:360px;max-height:45vh;overflow:auto;font-family:monospace;font-size:12px;color:#ffd;pointer-events:none}
+  #debugTicker .tline{margin:2px 0;opacity:0.95}
+  #scanUI{margin-top:10px;font-size:12px;color:#132030}
+  #scanUI label{display:inline-block;min-width:120px}
+  #scanUI input[type=range]{width:140px}
+  @media (max-width:700px){.miniWin{left:4vw!important;right:auto!important;max-width:90vw!important;width:90vw!important}}
+</style>
+</head>
+<body>
+  <!-- Background video (kept) -->
+  <video id="bgVideo" autoplay muted loop playsinline>
+    <source src="/CUseeme/media/VideoObject.mp4" type="video/mp4" />
+  </video>
+
+  <!-- WebGL canvas -->
+  <canvas id="gridCanvas"></canvas>
+
+  <!-- Hidden camera element -->
+  <video id="cameraMain" autoplay muted playsinline style="display:none"></video>
+
+  <!-- HUD / Controls -->
+  <div id="hudWrapper">
+    <div class="source-toggle-row">
+      <label><b>Source:</b>
+        <select id="sourceSelect">
+          <option value="camera" selected>Live Camera</option>
+          <option value="video">Background Video</option>
+          <option value="none">None (noise)</option>
+        </select>
+      </label>
+    </div>
+
+    <div id="hudShell">
+      <div id="hudHeader">Visual Source — WebGL RGB Scan</div>
+
+      <div class="hud-row" style="margin-top:8px">
+        <button class="hud-btn" id="btnSpawn5">➕ Spawn 5</button>
+        <button class="hud-btn" id="btnReverseCam">🔁 Reverse Cam</button>
+      </div>
+
+      <div id="scanUI">
+        <div style="margin-top:8px;font-weight:600">Scan Controls</div>
+        <div><label>Direction</label><select id="dir"><option value="rtl">Right → Left</option><option value="ltr">Left → Right</option></select></div>
+        <div><label>Stripe width</label><input id="stripe" type="range" min="1" max="160" value="6"><output id="stripe_out">6</output></div>
+        <div><label>Speed (px/s)</label><input id="speed" type="range" min="1" max="240" value="60"><output id="speed_out">60</output></div>
+        <div><label>Jitter</label><input id="jitter" type="range" min="0" max="1" step="0.01" value="0.04"><output id="jitter_out">0.04</output></div>
+        <div><label>Alpha</label><input id="blend" type="range" min="0" max="1" step="0.01" value="1"><output id="blend_out">1.00</output></div>
+
+        <div style="margin-top:8px;font-weight:600">RGB Split</div>
+        <div><label>Split px</label><input id="split" type="range" min="0" max="32" value="6"><output id="split_out">6</output></div>
+        <div><label>Intensity</label><input id="proc_int" type="range" min="0" max="1" step="0.01" value="1"><output id="proc_int_out">1.00</output></div>
+        <div><label>Sample res</label><select id="sampleRes"><option value="64">64</option><option value="128" selected>128</option><option value="256">256</option></select></div>
+
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button id="btn_clear" class="hud-btn">Clear</button>
+          <button id="btn_pause" class="hud-btn">Pause</button>
+          <button id="btn_reset" class="hud-btn">Reset Scan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="ticker"></div>
+  <div id="debugTicker" aria-hidden="false"></div>
+
+<script>
+/*
+WebGL RGB-split scan injection
+- Replaces CPU getImageData path with GPU shader processing.
+- Uses ping-pong FBO accumulation to preserve previous scans.
+- Renders stripes each frame by writing to accumulation framebuffer where stripe region is.
+- Mini windows use gridCanvas.captureStream to show processed output.
+- Defensive logging to debugTicker.
+*/
+
+const canvas = document.getElementById('gridCanvas');
+let gl = null;
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+
+function resizeCanvas(){
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width = Math.floor(window.innerWidth * DPR);
+  canvas.height = Math.floor(window.innerHeight * DPR);
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+}
+window.addEventListener('resize', ()=>{ resizeCanvas(); initGL(true); });
+resizeCanvas();
+
+// elements
+const bgVideo = document.getElementById('bgVideo');
+const cameraMain = document.getElementById('cameraMain');
+const sourceSelect = document.getElementById('sourceSelect');
+
+const stripeEl = document.getElementById('stripe'), stripeOut = document.getElementById('stripe_out');
+const speedEl = document.getElementById('speed'), speedOut = document.getElementById('speed_out');
+const jitterEl = document.getElementById('jitter'), jitterOut = document.getElementById('jitter_out');
+const blendEl = document.getElementById('blend'), blendOut = document.getElementById('blend_out');
+const splitEl = document.getElementById('split'), splitOut = document.getElementById('split_out');
+const procIntEl = document.getElementById('proc_int'), procIntOut = document.getElementById('proc_int_out');
+const sampleResSel = document.getElementById('sampleRes');
+const dirSel = document.getElementById('dir');
+
+stripeEl.oninput = ()=> stripeOut.value = stripeEl.value;
+speedEl.oninput = ()=> speedOut.value = speedEl.value;
+jitterEl.oninput = ()=> jitterOut.value = Number(jitterEl.value).toFixed(2);
+blendEl.oninput = ()=> blendOut.value = Number(blendEl.value).toFixed(2);
+splitEl.oninput = ()=> splitOut.value = splitEl.value;
+procIntEl.oninput = ()=> procIntOut.value = Number(procIntEl.value).toFixed(2);
+sampleResSel.onchange = ()=> initGL(true);
+
+// debug ticker
+const debugTicker = document.getElementById('debugTicker');
+function logDbg(msg){
+  const ts = new Date().toLocaleTimeString();
+  console.log('[webgl-scan]', ts, msg);
+  const el = document.createElement('div');
+  el.className = 'tline';
+  el.textContent = ts + ' — ' + msg;
+  debugTicker.prepend(el);
+  while(debugTicker.children.length > 80) debugTicker.removeChild(debugTicker.lastChild);
+}
+
+// start camera on first gesture
+let mediaStream = null;
+async function startCamera(){
+  try{
+    if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; cameraMain.srcObject=null; }
+    mediaStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:'environment' } }, audio:false });
+    cameraMain.srcObject = mediaStream;
+    await cameraMain.play().catch(()=>{});
+    logDbg('camera started');
+  }catch(e){
+    logDbg('camera start failed: ' + (e && e.message));
+  }
+}
+window.addEventListener('pointerdown', ()=> { if(!cameraMain.srcObject) startCamera().catch(()=>{}); }, { once:true });
+window.addEventListener('touchstart', ()=> { if(!cameraMain.srcObject) startCamera().catch(()=>{}); }, { once:true });
+
+// --- WebGL utilities ---
+function createGL(){
+  gl = canvas.getContext('webgl', { antialias:false, premultipliedAlpha:false }) || canvas.getContext('experimental-webgl', { antialias:false, premultipliedAlpha:false });
+  if(!gl){ alert('WebGL not supported'); return false; }
+  gl.disable(gl.DEPTH_TEST);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  return true;
+}
+function compile(src, type){
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
+    logDbg('Shader compile error:' + gl.getShaderInfoLog(s));
+    gl.deleteShader(s);
+    return null;
+  }
+  return s;
+}
+function link(vs, fs){
+  const p = gl.createProgram();
+  gl.attachShader(p, vs);
+  gl.attachShader(p, fs);
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p, gl.LINK_STATUS)){
+    logDbg('Program link error:' + gl.getProgramInfoLog(p));
+    gl.deleteProgram(p);
+    return null;
+  }
+  return p;
+}
+
+// fullscreen quad
+let quadBuf = null;
+function makeQuad(){
+  const verts = new Float32Array([
+    -1,-1, 0,0,
+     1,-1, 1,0,
+    -1, 1, 0,1,
+     1, 1, 1,1
+  ]);
+  quadBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+}
+
+// --- Shaders ---
+// Stripe shader: reads u_video (source texture) and u_prev (accumulation), writes updated accumulation: where fragment inside stripe -> sample video with pixelation + RGB split; else copy prev.
+const stripeVS = `
+attribute vec2 a_pos;
+attribute vec2 a_uv;
+varying vec2 v_uv;
+void main(){ v_uv = a_uv; gl_Position = vec4(a_pos,0.0,1.0); }
+`;
+const stripeFS = `
+precision mediump float;
+varying vec2 v_uv;
+uniform sampler2D u_video;
+uniform sampler2D u_prev;
+uniform float u_stripeCenter; // 0..1
+uniform float u_stripeHalf;   // 0..1 halfwidth
+uniform float u_sampleRes;
+uniform float u_splitPx;
+uniform float u_intensity;
+uniform float u_alpha;
+void main(){
+  vec4 prev = texture2D(u_prev, v_uv);
+  float fx = v_uv.x;
+  float d = abs(fx - u_stripeCenter);
+  d = min(d, 1.0 - d);
+  if(d > u_stripeHalf){
+    gl_FragColor = prev;
+    return;
+  }
+  // pixelate coord
+  float step = 1.0 / u_sampleRes;
+  float su = floor(u_stripeCenter * u_sampleRes + 0.5) * step;
+  float splitNorm = u_splitPx / u_sampleRes;
+  vec2 rc = vec2(clamp(su + splitNorm, 0.0, 1.0), v_uv.y);
+  vec2 gc = vec2(clamp(su, 0.0, 1.0), v_uv.y);
+  vec2 bc = vec2(clamp(su - splitNorm, 0.0, 1.0), v_uv.y);
+  vec3 rcol = texture2D(u_video, rc).rgb;
+  vec3 gcol = texture2D(u_video, gc).rgb;
+  vec3 bcol = texture2D(u_video, bc).rgb;
+  vec3 combined = vec3(rcol.r, gcol.g, bcol.b);
+  vec3 orig = texture2D(u_video, vec2(su, v_uv.y)).rgb;
+  vec3 outc = mix(orig, combined, u_intensity);
+  vec3 final = mix(prev.rgb, outc, u_alpha);
+  gl_FragColor = vec4(final, 1.0);
+}
+`;
+
+// Blit shader
+const blitVS = stripeVS;
+const blitFS = `
+precision mediump float;
+varying vec2 v_uv;
+uniform sampler2D u_tex;
+void main(){ gl_FragColor = texture2D(u_tex, v_uv); }
+`;
+
+// --- GL resources ---
+let progStripe = null, progBlit = null;
+let attrib = {};
+let videoTex = null;
+let pingTex = null, pongTex = null;
+let fbo = null;
+let pingIsA = true;
+
+function initGL(force=false){
+  try{
+    if(!gl && !createGL()) return;
+    // cleanup existing if forced
+    if(force){
+      if(progStripe) gl.deleteProgram(progStripe);
+      if(progBlit) gl.deleteProgram(progBlit);
+      if(videoTex) gl.deleteTexture(videoTex);
+      if(pingTex) gl.deleteTexture(pingTex);
+      if(pongTex) gl.deleteTexture(pongTex);
+      if(fbo) gl.deleteFramebuffer(fbo);
+      if(quadBuf) { gl.deleteBuffer(quadBuf); quadBuf = null; }
+    }
+    // compile programs
+    if(!progStripe){
+      const vs = compile(stripeVS, gl.VERTEX_SHADER);
+      const fs = compile(stripeFS, gl.FRAGMENT_SHADER);
+      progStripe = link(vs, fs);
+    }
+    if(!progBlit){
+      const vs2 = compile(blitVS, gl.VERTEX_SHADER);
+      const fs2 = compile(blitFS, gl.FRAGMENT_SHADER);
+      progBlit = link(vs2, fs2);
+    }
+    makeQuad();
+
+    // attrib/uniform locations
+    attrib.stripe_a_pos = gl.getAttribLocation(progStripe, 'a_pos');
+    attrib.stripe_a_uv  = gl.getAttribLocation(progStripe, 'a_uv');
+    attrib.u_video = gl.getUniformLocation(progStripe, 'u_video');
+    attrib.u_prev  = gl.getUniformLocation(progStripe, 'u_prev');
+    attrib.u_stripeCenter = gl.getUniformLocation(progStripe, 'u_stripeCenter');
+    attrib.u_stripeHalf   = gl.getUniformLocation(progStripe, 'u_stripeHalf');
+    attrib.u_sampleRes    = gl.getUniformLocation(progStripe, 'u_sampleRes');
+    attrib.u_splitPx      = gl.getUniformLocation(progStripe, 'u_splitPx');
+    attrib.u_intensity    = gl.getUniformLocation(progStripe, 'u_intensity');
+    attrib.u_alpha        = gl.getUniformLocation(progStripe, 'u_alpha');
+
+    attrib.blit_a_pos = gl.getAttribLocation(progBlit, 'a_pos');
+    attrib.blit_a_uv  = gl.getAttribLocation(progBlit, 'a_uv');
+    attrib.u_tex = gl.getUniformLocation(progBlit, 'u_tex');
+
+    // video texture
+    if(!videoTex) videoTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, videoTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    // ensure something in the texture
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1,1,0,gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,0,255]));
+
+    // ping/pong accumulation textures sized at canvas.device pixels
+    const w = canvas.width, h = canvas.height;
+    function makeTex(old){
+      if(old) gl.deleteTexture(old);
+      const t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      return t;
+    }
+    pingTex = makeTex(pingTex);
+    pongTex = makeTex(pongTex);
+
+    // framebuffer
+    if(!fbo) fbo = gl.createFramebuffer();
+    // clear pingTex initially
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, pingTex, 0);
+    gl.viewport(0,0,w,h);
+    gl.clearColor(0,0,0,0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    pingIsA = true;
+    logDbg('WebGL initialized: ' + w + 'x' + h);
+  }catch(e){
+    logDbg('initGL error: ' + (e && e.message));
+  }
+}
+
+// upload video to texture
+function updateVideoTexture(sourceEl){
+  if(!gl || !videoTex) return;
+  gl.bindTexture(gl.TEXTURE_2D, videoTex);
+  try {
+    if(sourceEl && sourceEl.readyState >= 2){
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceEl);
+    }
+  } catch(e){
+    // log but continue; cross-origin video might throw
+    logDbg('texImage2D error: ' + (e && e.message));
+  }
+}
+
+// render stripe into target (ping/pong)
+function renderStripeToTarget(targetTex, prevTex, stripeCenterNorm, stripeHalfNorm, sampleRes, splitPx, intensity, alpha){
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, targetTex, 0);
+  gl.viewport(0,0,canvas.width, canvas.height);
+
+  gl.useProgram(progStripe);
+  // bind quad
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  gl.enableVertexAttribArray(attrib.stripe_a_pos);
+  gl.vertexAttribPointer(attrib.stripe_a_pos, 2, gl.FLOAT, false, 16, 0);
+  gl.enableVertexAttribArray(attrib.stripe_a_uv);
+  gl.vertexAttribPointer(attrib.stripe_a_uv, 2, gl.FLOAT, false, 16, 8);
+
+  // textures
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, videoTex);
+  gl.uniform1i(attrib.u_video, 0);
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, prevTex);
+  gl.uniform1i(attrib.u_prev, 1);
+
+  // uniforms
+  gl.uniform1f(attrib.u_stripeCenter, stripeCenterNorm);
+  gl.uniform1f(attrib.u_stripeHalf, stripeHalfNorm);
+  gl.uniform1f(attrib.u_sampleRes, sampleRes);
+  gl.uniform1f(attrib.u_splitPx, splitPx);
+  gl.uniform1f(attrib.u_intensity, intensity);
+  gl.uniform1f(attrib.u_alpha, alpha);
+
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  gl.useProgram(null);
+}
+
+// blit accumulation to screen
+function blitAccumToScreen(tex){
+  gl.viewport(0,0,canvas.width, canvas.height);
+  gl.useProgram(progBlit);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  gl.enableVertexAttribArray(attrib.blit_a_pos);
+  gl.vertexAttribPointer(attrib.blit_a_pos, 2, gl.FLOAT, false, 16, 0);
+  gl.enableVertexAttribArray(attrib.blit_a_uv);
+  gl.vertexAttribPointer(attrib.blit_a_uv, 2, gl.FLOAT, false, 16, 8);
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.uniform1i(attrib.u_tex, 0);
+
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  gl.useProgram(null);
+}
+
+// swap ping/pong
+function swap(){ pingIsA = !pingIsA; }
+
+initGL(true);
+
+// scan state and loop
+let scanX = 0;
+let lastTime = performance.now();
+let paused = false;
+document.getElementById('btn_pause').addEventListener('click', ()=>{ paused = !paused; document.getElementById('btn_pause').textContent = paused ? 'Resume' : 'Pause'; });
+document.getElementById('btn_clear').addEventListener('click', ()=> {
+  if(!gl) return;
+  // clear both accum textures
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, pingTex, 0);
+  gl.viewport(0,0,canvas.width, canvas.height); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, pongTex, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+});
+document.getElementById('btn_reset').addEventListener('click', ()=> { resetScan(true); });
+
+function resetScan(clearAccum){
+  if(!gl) return;
+  if(clearAccum){
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, pingTex, 0);
+    gl.viewport(0,0,canvas.width, canvas.height); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, pongTex, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  const cssW = canvas.width / DPR;
+  scanX = cssW + 2;
+  pingIsA = true;
+}
+resetScan(true);
+
+// update video source per user's selection
+function getSourceElement(){
+  const s = sourceSelect.value;
+  if(s === 'camera') return cameraMain;
+  if(s === 'video') return bgVideo;
+  return null;
+}
+
+async function updateVideoFrame(){
+  const srcEl = getSourceElement();
+  if(srcEl){
+    updateVideoTexture(srcEl);
+  } else {
+    // no source - supply noise texture by updating videoTex with a tiny canvas
+    const tmp = document.createElement('canvas'); tmp.width = 64; tmp.height = 64;
+    const tctx = tmp.getContext('2d');
+    const t = performance.now()*0.0006;
+    const g = tctx.createLinearGradient(0,0,64,64);
+    g.addColorStop(0, `hsl(${(t*360)%360} 80% 40%)`);
+    g.addColorStop(1, `hsl(${(t*360+120)%360} 80% 20%)`);
+    tctx.fillStyle = g; tctx.fillRect(0,0,64,64);
+    gl.bindTexture(gl.TEXTURE_2D, videoTex);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,tmp);
+  }
+}
+
+// main render loop
+function frame(now){
+  const dt = Math.min(64, now - lastTime)/1000;
+  lastTime = now;
+  if(gl && !paused){
+    const cssW = canvas.width / DPR;
+    const stripeW = Math.max(1, parseInt(stripeEl.value,10));
+    const speed = parseFloat(speedEl.value);
+    const jitter = parseFloat(jitterEl.value);
+    const dir = dirSel.value;
+    const blend = parseFloat(blendEl.value);
+    const splitPx = parseFloat(splitEl.value);
+    const intensity = parseFloat(procIntEl.value);
+    const sampleRes = parseInt(sampleResSel.value,10);
+
+    const dirFactor = (dir === 'rtl') ? -1 : 1;
+    scanX += speed * dt * dirFactor;
+    if(dirFactor < 0 && scanX < -stripeW - 8) scanX = cssW + 8;
+    if(dirFactor > 0 && scanX > cssW + stripeW + 8) scanX = -8;
+
+    // normalized center and half
+    const normCenter = Math.max(0, Math.min(1, ((scanX % cssW) + cssW) % cssW / cssW));
+    const halfNorm = (stripeW / cssW) * 0.5;
+    const jitterVal = (Math.random()*2 -1) * jitter * (1.0 / sampleRes);
+    const srcU = Math.max(0, Math.min(1, normCenter + jitterVal));
+
+    // update video texture (camera/bg/noise)
+    updateVideoFrame();
+
+    // render stripe: read prev, write target
+    const prevTex = pingIsA ? pingTex : pongTex;
+    const targetTex = pingIsA ? pongTex : pingTex;
+    renderStripeToTarget(targetTex, prevTex, srcU, halfNorm, sampleRes, splitPx, intensity, blend);
+    swap();
+
+    // blit to screen
+    const current = pingIsA ? pingTex : pongTex;
+    blitAccumToScreen(current);
+  } else if(gl){
+    // paused: still blit current tex
+    const current = pingIsA ? pingTex : pongTex;
+    blitAccumToScreen(current);
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// mini-window spawning & captureStream
+function getActiveSourceStream(){
+  try{ return canvas.captureStream ? canvas.captureStream(30) : null; } catch(e){ logDbg('captureStream error: ' + e.message); return null; }
+}
+
+let winCount = 0, spawnUsed = false;
+function makeMiniWindow({x=150,y=300} = {}){
+  if(window.innerWidth < 700 && x > 20) x = 20;
+  winCount++;
+  const el = document.createElement('div');
+  el.className = 'miniWin';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.innerHTML = `<div class="miniBar"><div class="miniTitle">window_${String(winCount).padStart(4,'0')}</div><div class="miniBtns"></div></div><div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>`;
+  document.body.appendChild(el);
+  const v = el.querySelector('.miniVideo');
+  v.srcObject = getActiveSourceStream();
+  v.play().catch(()=>{});
+  // drag
+  const bar = el.querySelector('.miniBar');
+  let dragging=false,sx=0,sy=0,sl=0,st=0;
+  function start(e){ dragging=true; const r=el.getBoundingClientRect(); sl=r.left; st=r.top; sx=(e.touches?e.touches[0].clientX:e.clientX); sy=(e.touches?e.touches[0].clientY:e.clientY); document.addEventListener('pointermove',move); document.addEventListener('pointerup',stop); document.addEventListener('touchmove',move,{passive:false}); document.addEventListener('touchend',stop); }
+  function move(e){ if(!dragging) return; const cx=(e.touches?e.touches[0].clientX:e.clientX), cy=(e.touches?e.touches[0].clientY:e.clientY); el.style.left=(sl+(cx-sx))+'px'; el.style.top=(st+(cy-sy))+'px'; e.preventDefault?.(); }
+  function stop(){ dragging=false; document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',stop); document.removeEventListener('touchmove',move); document.removeEventListener('touchend',stop); }
+  bar.addEventListener('pointerdown', start);
+  bar.addEventListener('touchstart', start, { passive:false });
+  return el;
+}
+
+document.getElementById('btnSpawn5').addEventListener('click', ()=>{
+  if(spawnUsed) return addTicker('spawn blocked: already active');
+  spawnUsed = true;
+  let startX = 170 + Math.random()*40, startY = 300 + Math.random()*40;
+  if(window.innerWidth < 700) startX = 20;
+  for(let i=0;i<5;i++) makeMiniWindow({ x: startX + i*26, y: startY + i*18 });
+  addTicker('spawned 5 windows');
+});
+document.getElementById('btnCloseAll')?.addEventListener('click', ()=>{
+  document.querySelectorAll('.miniWin').forEach(n=>n.remove());
+  winCount = 0; spawnUsed = false;
+  addTicker('all windows closed');
+});
+
+document.getElementById('btnReverseCam')?.addEventListener('click', async ()=>{
+  facing = (facing === 'user') ? 'environment' : 'user';
+  await startCamera();
+});
+
+// small ticker (left) for user messages
+const ticker = document.getElementById('ticker');
+function addTicker(txt){
+  const line = document.createElement('div'); line.className='tline'; line.textContent = txt; ticker.prepend(line);
+  if(ticker.children.length>80) ticker.removeChild(ticker.lastChild);
+}
+
+// voice, input removed (as requested)
+// initial spawn for demo
+(function initialSpawn(){
+  let startX = 100, startY = 170;
+  if(window.innerWidth < 700) startX = 20;
+  for(let i=0;i<5;i++) makeMiniWindow({ x: startX + i*22, y: startY + i*18 });
+})();
+
+logDbg('WebGL scan initialized (prototype).');
+</script>
+</body>
+</html>
