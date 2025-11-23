@@ -261,11 +261,8 @@
     function onPointerDown(e) {
       if (destroyed) return;
       
-      // Get position relative to viewport
-      const x = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : undefined);
-      const y = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : undefined);
-      
-      start(x, y);
+      // Pointer events have clientX/clientY for all input types (mouse, touch, pen)
+      start(e.clientX, e.clientY);
     }
 
     function onPointerMove(e) {
@@ -273,12 +270,10 @@
       
       // Check if pointer moved too far from element
       const rect = element.getBoundingClientRect();
-      const x = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : undefined);
-      const y = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : undefined);
       const tolerance = config.moveTolerancePx;
       
-      if (x < rect.left - tolerance || x > rect.right + tolerance || 
-          y < rect.top - tolerance || y > rect.bottom + tolerance) {
+      if (e.clientX < rect.left - tolerance || e.clientX > rect.right + tolerance || 
+          e.clientY < rect.top - tolerance || e.clientY > rect.bottom + tolerance) {
         cancel();
       }
     }
@@ -314,16 +309,11 @@
     }
 
     // Attach event listeners
+    // Use pointer events only - they handle mouse, touch, and pen input
     element.addEventListener('pointerdown', onPointerDown);
-    element.addEventListener('touchstart', onPointerDown, { passive: true });
-    
     document.addEventListener('pointermove', onPointerMove);
-    document.addEventListener('touchmove', onPointerMove, { passive: true });
-    
     document.addEventListener('pointerup', onPointerUp);
     document.addEventListener('pointercancel', onPointerCancel);
-    document.addEventListener('touchend', onPointerUp);
-    document.addEventListener('touchcancel', onPointerCancel);
 
     element.addEventListener('keydown', onKeyDown);
     element.addEventListener('keyup', onKeyUp);
@@ -337,13 +327,9 @@
         cancel();
         
         element.removeEventListener('pointerdown', onPointerDown);
-        element.removeEventListener('touchstart', onPointerDown);
         document.removeEventListener('pointermove', onPointerMove);
-        document.removeEventListener('touchmove', onPointerMove);
         document.removeEventListener('pointerup', onPointerUp);
         document.removeEventListener('pointercancel', onPointerCancel);
-        document.removeEventListener('touchend', onPointerUp);
-        document.removeEventListener('touchcancel', onPointerCancel);
         element.removeEventListener('keydown', onKeyDown);
         element.removeEventListener('keyup', onKeyUp);
       },
@@ -363,7 +349,11 @@
       
       const options = { url };
       if (duration) {
-        options.holdDuration = parseInt(duration, 10);
+        const parsedDuration = parseInt(duration, 10);
+        // Validate duration is a positive number
+        if (!isNaN(parsedDuration) && parsedDuration > 0) {
+          options.holdDuration = parsedDuration;
+        }
       }
       
       makeLongPressNav(element, options);
