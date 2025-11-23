@@ -70,6 +70,9 @@
           <button class="hud-btn" id="btnVoice">🔊 Voice</button>
           <button class="hud-btn" id="btnCloseAll">✕ Close All</button>
         </div>
+        <div class="hud-row">
+          <button class="hud-btn" id="advanceBtn" data-longpress-url="https://jeff-gompertz.github.io/CUseeme/">⏭ Advance</button>
+        </div>
 
         <!-- Scan UI -->
         <div id="scanUI">
@@ -524,5 +527,9 @@ window.addEventListener('touchstart', ()=> { if(!cameraMain.srcObject) startCame
   logDbg('Guarded processVCanvas installed. If you see "getImageData failed..." messages the likely cause is cross-origin taint.');
 })();
 </script>
+
+<!-- Long-press navigation helper for HUD advance button -->
+<!-- Note: Remove any global full-page click navigation listeners that may bypass the long-press behavior -->
+<script src="../js/longpress-nav.js"></script>
 </body>
 </html>
