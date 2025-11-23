@@ -70,6 +70,9 @@
           <button class="hud-btn" id="btnVoice">🔊 Voice</button>
           <button class="hud-btn" id="btnCloseAll">✕ Close All</button>
         </div>
+        <div class="hud-row">
+          <button class="hud-btn" id="advanceBtn" data-longpress-url="https://jeff-gompertz.github.io/CUseeme/">➡️ Advance (hold)</button>
+        </div>
 
         <!-- Scan UI -->
         <div id="scanUI">
@@ -99,6 +102,11 @@
 
   <!-- Debug ticker (ensures visibility on mobile without opening devtools) -->
   <div id="debugTicker" aria-hidden="false"></div>
+
+<!-- Long-press navigation helper - auto-attaches to elements with data-longpress-url 
+     NOTE: Ensure no global document click handlers interfere with long-press behavior.
+     This page currently has no conflicting handlers. -->
+<script src="../js/longpress-nav.js"></script>
 
 <script>
 /* Integrated scan painter (CPU) + debug instrumentation (no input box).
