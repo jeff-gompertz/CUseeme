@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CUSeeMe Modular v1.7 — HUD Toggle Demo (Advanced Grid Field Inject)</title>
+  <style>
+    :root {
+      --hud-glass: rgba(255, 225, 255, 0.45);
+      --hud-border-light: rgba(255, 255, 255, 0.65);
+      --hud-border-dark: rgba(0, 45, 90, 0.35);
+      --hud-shadow: 0 12px 45px rgba(0, 50, 90, 0.35);
+      --hud-text: #1b1d22;
+      --btn-bg: rgba(215, 235, 255, 0.35);
+      --btn-inset-light: rgba(255,255,255,0.8);
+      --btn-inset-dark: rgba(0,30,60,0.3);
+      --btn-glow: rgba(255,120,50,0.7);
+      --btn-glow-outer: rgba(255,150,80,0.35);
+      --bg: transparent;
+      --ticker: #ff3a2f;
+    }
+    html,body{
+      height:100%; margin:0;
+      background: transparent;
+      font-family: "VT323", ui-monospace, Menlo, Consolas, monospace;
+      color:#222;
+      overflow:visible;
+    }
+    #bgVideo {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      object-fit: cover; z-index: -3; pointer-events: none;
+    }
+    #gridCanvas {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      z-index: -2; pointer-events: none;
+    }
+    #ui{position:fixed; right:12px; top:12px; z-index:2000; pointer-events:auto;}
+    #hudIndex{
+      position:absolute; top:6px; left:10px; font-size:12px; opacity:.55;
+    }
+    .hud-row{ display:flex; gap:12px; justify-content:space-between; }
+    .hud-btn{
+      flex:1; font-family:"VT323", monospace; font-size:17px;
+      color:#132030; background:var(--btn-bg); border:none; border-radius:10px;
+      box-shadow:inset 1px 1px 2px var(--btn-inset-light),
+        inset -1px -2px 3px var(--btn-inset-dark), 0 3px 6px rgba(0,0,0,0.08);
+      padding:10px 12px; cursor:pointer; transition:all .22s ease;
+    }
+    .miniWin{
+      position:absolute;
+      width:66vw; max-width:380px; aspect-ratio:9/12;
+      background:rgba(210,240,255,0.25);
+      border:1px solid rgba(255,255,255,0.55);
+      border-radius:16px;
+      backdrop-filter:blur(12px);
+      box-shadow:
+        inset 0 1px 2px rgba(255,255,255,0.6),
+        0 18px 40px rgba(0,0,0,0.25);
+      overflow:hidden; cursor:grab; z-index:500;
+    }
+    .miniWin:active{ cursor:grabbing; }
+    .miniBar{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:4px 10px; height:26px;
+      background:rgba(255,255,255,0.18);
+      font-size:12px; color:#222; user-select:none;
+    }
+    .miniInner{ position:relative; width:100%; height:calc(100% - 26px);}
+    .miniVideo{
+      position:absolute; inset:0; width:100%; height:100%;
+      object-fit:cover; background:black;
+    }
+    #ticker{
+      position:fixed; left:16px; bottom:14px; z-index:900;
+      width:45vw; max-width:700px; max-height:50vh;
+      display:flex; flex-direction:column-reverse; overflow:hidden;
+      color:var(--ticker); font-size:18px; line-height:1.25;
+    }
+    .tline{ opacity:.95; margin:0; animation:fadeIn .6s ease; }
+    @keyframes fadeIn{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
+    #promptWrap{
+      position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+      pointer-events:none; z-index:800;
+    }
+    #promptBox{
+      pointer-events:auto; display:flex; gap:10px; align-items:center;
+      padding:10px 16px;
+      background:rgba(240,250,255,.55);
+      border:1px solid rgba(255,255,255,.6); border-radius:12px;
+      box-shadow:0 8px 24px rgba(0,30,60,.18);
+    }
+    #input{
+      background:transparent; border:none; outline:none;
+      font:inherit; font-size:18px; color:#111;
+      width:24ch;
+    }
+    #caret{ width:.5ch; height:1.2em; background:#222; animation:blink 1s step-end infinite; }
+    @keyframes blink{ 50%{opacity:0} }
+    @media (max-width: 700px) {
+      .miniWin {
+        left: 4vw !important;
+        right: auto !important;
+        max-width: 90vw !important;
+        width: 90vw !important;
+      }
+      #ui { right:4vw !important; max-width:90vw;}
+    }
+  </style>
+</head>
+<body>
+  <video id="bgVideo" autoplay muted loop playsinline>
+    <source src="/CUseeme/media/VideoObject.mp4" type="video/mp4" />
+    Your browser does not support HTML5 video.
+  </video>
+  <!-- Advanced Grid Field canvas -->
+  <canvas id="gridCanvas"></canvas>
+  
+  <!-- Field Controls/UI (can hide/remove) -->
+  <div id="ui">
+    <div class="panel" style="backdrop-filter:blur(4px);border-radius:12px;background:rgba(255,255,255,0.08);margin-top:8px;">
+      <div style="font-weight:700;margin-bottom:8px">Grid Field — Axis-Aligned (XY)</div>
+      <div class="row"><label>Mode</label>
+        <select id="mode">
+          <option value="gridParticles">Grid Particles</option>
+          <option value="gridMesh">Grid Mesh (displacement)</option>
+          <option value="textrain">Text Rain (grid)</option>
+        </select>
+      </div>
+      <div class="row"><label>Grid resolution</label><input id="mesh_res" type="range" min="8" max="160" step="2" value="48"></div>
+      <div class="row"><label>Vector source</label>
+        <select id="vector_source">
+          <option value="gradient">Brightness Gradient</option>
+          <option value="motion">Temporal Motion (delta)</option>
+        </select>
+      </div>
+      <div class="row"><label>Axis policy</label>
+        <select id="axis_policy">
+          <option value="dominant">Dominant-only (no diagonals)</option>
+          <option value="both">Both (x & y)</option>
+          <option value="horizontal">Horizontal-only</option>
+          <option value="vertical">Vertical-only</option>
+        </select>
+      </div>
+      <div class="row"><label>Video influence</label><input id="vid_influence" type="range" min="0" max="3" step="0.05" value="1.0"></div>
+      <div class="row"><label>Camera blend</label><input id="vid_blend" type="checkbox"></div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button id="btn_clear">Clear</button>
+        <button id="btn_freeze">Pause</button>
+        <button id="btn_reset">Reset</button>
+      </div>
+      <div class="small">Base visuals are neutral/grayscale; camera injects color only where influence > 0. Grid vectors are axis-aligned per the Axis Policy — this avoids slanted/seaweed motion.</div>
+    </div>
+  </div>
+
+  <!-- HUD/HUD controls and mini window spawn -->
+  <div id="hudWrapper">
+    <div id="hudIndex">1 of 1</div>
+    <div id="hudShell">
+      <div id="hudHeader">TouchDesigner/Field Grid Canvas</div>
+      <div id="hud1" class="hud-panel active">
+        <div class="hud-row">
+          <button class="hud-btn" id="btnSpawn5">➕ Spawn 5</button>
+          <button class="hud-btn" id="btnReverseCam">🔁 Reverse Cam</button>
+        </div>
+        <div class="hud-row">
+          <button class="hud-btn" id="btnVoice">🔊 Voice</button>
+          <button class="hud-btn" id="btnCloseAll">✕ Close All</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="ticker"></div>
+  <div id="promptWrap">
+    <div id="promptBox">
+      <div id="caret"></div>
+      <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" />
+    </div>
+  </div>
+  <script>
+    // ==== ADVANCED GRID FIELD CODE (from TouchDesigner-style file) ====
+    // (Almost direct copy of your grid field! Only canvas ID updated to "gridCanvas")
+    const canvas = document.getElementById('gridCanvas');
+    const ctx = canvas.getContext('2d', { alpha: true });
+    let DPR = Math.max(1, window.devicePixelRatio || 1);
+    function resize(){
+      DPR = Math.max(1, window.devicePixelRatio || 1);
+      canvas.width = Math.floor(window.innerWidth * DPR);
+      canvas.height = Math.floor(window.innerHeight * DPR);
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      ctx.setTransform(DPR,0,0,DPR,0,0);
+    }
+    window.addEventListener('resize', resize); resize();
+
+    const video = document.createElement('video');
+    video.setAttribute('playsinline', '');
+    video.setAttribute('muted', '');
+    video.setAttribute('autoplay', '');
+    video.style.display = "none";
+    document.body.appendChild(video);
+    const vCanvas = document.createElement('canvas');
+    const vCtx = vCanvas.getContext('2d');
+
+    let gridW = parseInt(document.getElementById('mesh_res').value, 10);
+    let gridH = 0;
+    function updateGridSize(){
+      gridW = Math.max(8, Math.min(160, parseInt(document.getElementById('mesh_res').value, 10)));
+      const aspect = canvas.width / canvas.height;
+      gridH = Math.max(6, Math.round(gridW / aspect));
+      vCanvas.width = gridW;
+      vCanvas.height = gridH;
+    }
+    updateGridSize();
+
+    async function startCamera(){
+      try{
+        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        video.srcObject = s;
+        await video.play();
+        updateGridSize();
+        addTicker('camera started');
+      }catch(e){ addTicker('camera start failed'); }
+    }
+
+    let lum = null, gx = null, gy = null, lumPrev = null;
+
+    function computeField(){
+      // fallback procedural grid when camera unavailable
+      if(!video || video.readyState < 2){
+        const w = vCanvas.width, h = vCanvas.height;
+        lum = new Float32Array(w*h);
+        gx = new Float32Array(w*h);
+        gy = new Float32Array(w*h);
+        const t = performance.now() * 0.0004;
+        for(let y=0;y<h;y++){
+          for(let x=0;x<w;x++){
+            const i = y*w + x;
+            const v = 0.5 + 0.25 * Math.sin(x*0.08 + t) + 0.15*Math.cos(y*0.06 + t*0.7);
+            lum[i] = v;
+          }
+        }
+        // compute gradients
+        for(let y=0;y<h;y++){
+          for(let x=0;x<w;x++){
+            const i = y*w + x;
+            const l = lum[i];
+            const lR = (x+1<w) ? lum[y*w + (x+1)] : l;
+            const lL = (x-1>=0)? lum[y*w + (x-1)] : l;
+            const lD = (y+1<h)? lum[(y+1)*w + x] : l;
+            const lU = (y-1>=0)? lum[(y-1)*w + x] : l;
+            gx[i] = (lR - lL) * 0.5;
+            gy[i] = (lD - lU) * 0.5;
+          }
+        }
+        lumPrev = lum.slice();
+        return;
+      }
+      // camera sampling
+      try{
+        vCtx.drawImage(video, 0, 0, vCanvas.width, vCanvas.height);
+        const w = vCanvas.width, h = vCanvas.height;
+        const img = vCtx.getImageData(0,0,w,h).data;
+        lum = new Float32Array(w*h);
+        gx  = new Float32Array(w*h);
+        gy  = new Float32Array(w*h);
+
+        for(let y=0;y<h;y++){
+          for(let x=0;x<w;x++){
+            const i = y*w + x;
+            const di = i*4;
+            const r = img[di], g = img[di+1], b = img[di+2];
+            const L = (0.2126*r + 0.7152*g + 0.0722*b) / 255;
+            lum[i] = L;
+          }
+        }
+        const source = document.getElementById('vector_source').value;
+        if(source === 'gradient'){
+          for(let y=0;y<h;y++){
+            for(let x=0;x<w;x++){
+              const i = y*w + x;
+              const l = lum[i];
+              const lR = (x+1<w) ? lum[y*w + (x+1)] : l;
+              const lL = (x-1>=0)? lum[y*w + (x-1)] : l;
+              const lD = (y+1<h)? lum[(y+1)*w + x] : l;
+              const lU = (y-1>=0)? lum[(y-1)*w + x] : l;
+              gx[i] = (lR - lL) * 0.5;
+              gy[i] = (lD - lU) * 0.5;
+            }
+          }
+        } else {
+          if(!lumPrev || lumPrev.length !== lum.length) lumPrev = lum.slice();
+          const delta = new Float32Array(w*h);
+          for(let i=0;i<w*h;i++) delta[i] = lum[i] - lumPrev[i];
+          for(let y=0;y<h;y++){
+            for(let x=0;x<w;x++){
+              const i = y*w + x;
+              const dR = (x+1<w) ? delta[y*w + (x+1)] : delta[i];
+              const dL = (x-1>=0)? delta[y*w + (x-1)] : delta[i];
+              const dD = (y+1<h)? delta[(y+1)*w + x] : delta[i];
+              const dU = (y-1>=0)? delta[y*w + x] : delta[i];
+              gx[i] = (dR - dL) * 0.5;
+              gy[i] = (dD - dU) * 0.5;
+            }
+          }
+          lumPrev.set(lum);
+        }
+        // smoothing
+        const smooth = 1;
+        const w4 = w, h4 = h;
+        const gx2 = gx.slice(), gy2 = gy.slice();
+        for(let y=0;y<h4;y++){
+          for(let x=0;x<w4;x++){
+            let sx=0, sy=0, c=0;
+            for(let oy=-smooth; oy<=smooth; oy++){
+              for(let ox=-smooth; ox<=smooth; ox++){
+                const nx = x+ox, ny=y+oy;
+                if(nx>=0 && ny>=0 && nx<w4 && ny<h4){
+                  const ii = ny*w4 + nx;
+                  sx += gx2[ii]; sy += gy2[ii]; c++;
+                }
+              }
+            }
+            const idx = y*w4 + x;
+            gx[idx] = sx / c;
+            gy[idx] = sy / c;
+          }
+        }
+      }catch(e){}
+    }
+
+    let params = { count: 1200, speed: 1.6, decay: 0.92 };
+    const particles = [];
+    function makeParticle(){
+      return {
+        x: Math.random() * (canvas.width / DPR),
+        y: Math.random() * (canvas.height / DPR),
+        vx: 0, vy: 0, size: 1 + Math.random()*2
+      };
+    }
+    function resetParticles(n){
+      particles.length = 0;
+      for(let i=0;i<n;i++) particles.push(makeParticle());
+    }
+    resetParticles(params.count);
+
+    function sampleGrid(px, py){
+      if(!gx || !gy) return { vx:0, vy:0, lum:0.5, color: [180,180,180] };
+      const w = vCanvas.width, h = vCanvas.height;
+      const sx = Math.floor((px / (canvas.width / DPR)) * w);
+      const sy = Math.floor((py / (canvas.height / DPR)) * h);
+      const x = Math.max(0, Math.min(w-1, sx));
+      const y = Math.max(0, Math.min(h-1, sy));
+      const i = y*w + x;
+      let sxVal = gx[i], syVal = gy[i];
+      const lumVal = lum ? lum[i] : 0.5;
+      let col = [180,180,180];
+      if(video && video.readyState >= 2){
+        try{ const di = i*4; const img = vCtx.getImageData(x, y, 1, 1).data; col = [img[0], img[1], img[2]]; }catch(e){}
+      }
+      return { vx: sxVal, vy: syVal, lum: lumVal, color: col };
+    }
+    function applyAxisPolicy(vx, vy){
+      const policy = document.getElementById('axis_policy').value;
+      if(policy === 'horizontal') return [vx, 0];
+      if(policy === 'vertical') return [0, vy];
+      if(policy === 'dominant'){ if(Math.abs(vx) >= Math.abs(vy)) return [vx, 0]; return [0, vy]; }
+      return [vx, vy];
+    }
+    function stepParticles(dt){
+      const w = canvas.width / DPR, h = canvas.height / DPR;
+      const influence = parseFloat(document.getElementById('vid_influence').value);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(8,8,8,0.12)';
+      ctx.fillRect(0,0,w,h);
+      ctx.globalCompositeOperation = 'lighter';
+      for(const p of particles){
+        const s = sampleGrid(p.x, p.y);
+        let vx = s.vx * influence * 140;
+        let vy = s.vy * influence * 140;
+        [vx, vy] = applyAxisPolicy(vx, vy);
+        const lerpT = 0.72;
+        p.vx = p.vx * (1 - lerpT) + vx * lerpT;
+        p.vy = p.vy * (1 - lerpT) + vy * lerpT;
+        p.x += p.vx * dt * params.speed * 60;
+        p.y += p.vy * dt * params.speed * 60;
+        if(p.x < -50) p.x = w + 50;
+        if(p.y < -50) p.y = h + 50;
+        if(p.x > w + 50) p.x = -50;
+        if(p.y > h + 50) p.y = -50;
+        const lumSample = s.lum;
+        const baseTone = Math.floor(200 - lumSample * 40);
+        const colorT = influence > 0.05 ? s.color : [baseTone, baseTone, baseTone];
+        const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 10 + p.size*1.6);
+        grd.addColorStop(0, `rgba(${colorT[0]},${colorT[1]},${colorT[2]},0.14)`);
+        grd.addColorStop(0.2, `rgba(${colorT[0]},${colorT[1]},${colorT[2]},0.06)`);
+        grd.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(p.x, p.y, 8 + p.size, 0, Math.PI*2); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+        ctx.lineWidth = 0.7; ctx.beginPath(); ctx.arc(p.x, p.y, 1.4 + p.size*0.4, 0, Math.PI*2); ctx.stroke();
+        ctx.globalCompositeOperation = 'lighter';
+      }
+    }
+    function drawGridMesh(){
+      const w = vCanvas.width, h = vCanvas.height;
+      const cellW = (canvas.width / DPR) / w;
+      const cellH = (canvas.height / DPR) / h;
+      const influence = parseFloat(document.getElementById('vid_influence').value);
+      const axisPolicy = document.getElementById('axis_policy').value;
+      if(document.getElementById('vid_blend').checked && video && video.readyState >= 2){
+        ctx.save(); ctx.globalAlpha = 0.12;
+        try{ ctx.drawImage(video, 0, 0, canvas.width / DPR, canvas.height / DPR); }catch(e){}
+        ctx.restore();
+      } else {
+        ctx.clearRect(0,0,canvas.width / DPR, canvas.height / DPR);
+      }
+      for(let y=0;y<h;y++){
+        for(let x=0;x<w;x++){
+          const i = y*w + x;
+          const dx = gx && gx[i] ? gx[i] : 0;
+          const dy = gy && gy[i] ? gy[i] : 0;
+          let sx = dx * influence * 60;
+          let sy = dy * influence * 60;
+          if(axisPolicy === 'horizontal') sy = 0;
+          if(axisPolicy === 'vertical') sx = 0;
+          if(axisPolicy === 'dominant'){ if(Math.abs(sx) >= Math.abs(sy)) sy = 0; else sx = 0;}
+          const cx = x*cellW + cellW*0.5 + sx;
+          const cy = y*cellH + cellH*0.5 + sy;
+          const lumVal = lum ? lum[i] : 0.5;
+          let fillColor = `hsl(${Math.floor(200 + lumVal*40)} 6% ${Math.floor(20 + lumVal*40)}%)`;
+          if(video && video.readyState >= 2 && influence > 0.05){
+            try{
+              const img = vCtx.getImageData(x, y, 1, 1).data;
+              const r = img[0], g = img[1], b = img[2];
+              fillColor = `rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(b)})`;
+            }catch(e){}
+          }
+          ctx.fillStyle = fillColor;
+          const wq = Math.max(1, cellW * 0.95);
+          const hq = Math.max(1, cellH * 0.95);
+          ctx.fillRect(cx - wq*0.5, cy - hq*0.5, wq, hq);
+        }
+      }
+    }
+    let columns = [];
+    function initTextRain(){
+      const cols = Math.max(8, Math.floor(canvas.width / Math.max(12, Math.round(canvas.width/60))));
+      columns = [];
+      for(let i=0;i<cols;i++){
+        columns.push({ x: (i+0.5) * (canvas.width/cols), y: -Math.random()*300, speed: 1 + Math.random()*4, char: String.fromCharCode(33 + Math.floor(Math.random()*80)) });
+      }
+    }
+    function stepTextRain(dt){
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(0,0,0,0.08)';
+      ctx.fillRect(0,0,canvas.width / DPR, canvas.height / DPR);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = 'rgba(200,220,200,0.95)';
+      ctx.font = Math.max(10, Math.round(canvas.width/48)) + 'px monospace';
+      for(let i=0;i<columns.length;i++){
+        const col = columns[i];
+        const sample = sampleGrid(col.x, col.y);
+        const influence = parseFloat(document.getElementById('vid_influence').value);
+        col.speed += (sample.lum - 0.5) * influence * 2 * dt; col.y += col.speed;
+        if(Math.random() < 0.03) col.char = String.fromCharCode(33 + Math.floor(Math.random()*80));
+        ctx.fillText(col.char, col.x, col.y);
+        if(col.y > (canvas.height / DPR) + 40) { col.y = -Math.random()*200; col.speed = 1 + Math.random()*4; }
+      }
+    }
+    let last = performance.now(); let paused = false;
+    function tick(now){
+      const dt = Math.min(50, now - last) / 1000;
+      last = now;
+      if(!paused){
+        updateGridSize();
+        computeField();
+        const mode = document.getElementById('mode').value;
+        if(mode === 'gridParticles') stepParticles(dt);
+        else if(mode === 'gridMesh') drawGridMesh();
+        else if(mode === 'textrain') stepTextRain(dt);
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    document.getElementById('mesh_res').addEventListener('input', ()=> updateGridSize());
+    document.getElementById('btn_clear').addEventListener('click', ()=> ctx.clearRect(0,0,canvas.width,canvas.height));
+    document.getElementById('btn_freeze').addEventListener('click', (e)=>{ paused = !paused; e.target.textContent = paused ? 'Resume' : 'Pause'; });
+    document.getElementById('btn_reset').addEventListener('click', ()=> resetParticles(params.count));
+    window.addEventListener('resize', initTextRain);
+    window.addEventListener('keydown', (e)=>{
+      if(e.key === ' ') { paused = !paused; document.getElementById('btn_freeze').textContent = paused ? 'Resume' : 'Pause'; }
+      if(e.key === '1') document.getElementById('mode').value = 'gridParticles';
+      if(e.key === '2') document.getElementById('mode').value = 'gridMesh';
+      if(e.key === '3') document.getElementById('mode').value = 'textrain';
+      if(e.key === 'r') resetParticles(params.count);
+    });
+    initTextRain();
+    if(window.innerWidth < 700) params.count = Math.min(params.count, 900);
+
+    // User gesture triggers camera enable
+    function ensureCamera(){ if(!video.srcObject) startCamera().catch(()=>{}); }
+    window.addEventListener('pointerdown', ensureCamera, { once:true });
+    window.addEventListener('touchstart', ensureCamera, { once:true });
+
+    // ==== INJECT LIVE GRID FIELD OUTPUT INTO SPAWN WINDOWS ====
+    const gridStream = canvas.captureStream(30);
+
+    let winCount=0, spawnUsed=false;
+    function makeMiniWindow({x=150,y=300}={}){
+      if(window.innerWidth < 700 && x > 20) x = 20;
+      winCount++;
+      const el=document.createElement('div');
+      el.className='miniWin';
+      el.style.left=x+'px';
+      el.style.top=y+'px';
+      el.innerHTML=`
+        <div class="miniBar">
+          <div class="miniTitle">canvas_${String(winCount).padStart(4,'0')}</div>
+          <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+        </div>
+        <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>`;
+      document.body.appendChild(el);
+      const v=el.querySelector('.miniVideo');
+      v.srcObject = gridStream;
+      v.play();
+
+      // Drag logic
+      const bar=el.querySelector('.miniBar');
+      let dragging=false,sx=0,sy=0,sl=0,st=0;
+      function start(e){
+        dragging=true;
+        const r=el.getBoundingClientRect(); sl=r.left; st=r.top;
+        sx=(e.touches?e.touches[0].clientX:e.clientX);
+        sy=(e.touches?e.touches[0].clientY:e.clientY);
+        document.addEventListener('pointermove',move);
+        document.addEventListener('pointerup',stop);
+        document.addEventListener('touchmove',move,{passive:false});
+        document.addEventListener('touchend',stop);
+      }
+      function move(e){
+        if(!dragging)return;
+        const cx=(e.touches?e.touches[0].clientX:e.clientX);
+        const cy=(e.touches?e.touches[0].clientY:e.clientY);
+        el.style.left=(sl+(cx-sx))+'px'; el.style.top=(st+(cy-sy))+'px';
+        e.preventDefault?.();
+      }
+      function stop(){
+        dragging=false;
+        document.removeEventListener('pointermove',move);
+        document.removeEventListener('pointerup',stop);
+        document.removeEventListener('touchmove',move);
+        document.removeEventListener('touchend',stop);
+      }
+      bar.addEventListener('pointerdown',start);
+      bar.addEventListener('touchstart',start,{passive:false});
+      return el;
+    }
+    const ticker=document.getElementById('ticker');
+    function addTicker(txt){
+      const line=document.createElement('div');
+      line.className='tline';
+      line.textContent=txt; ticker.prepend(line);
+      if(ticker.children.length>80)ticker.removeChild(ticker.lastChild);
+    }
+    ['HUD ready','Live grid field','Drag mini windows'].forEach((m,i)=>setTimeout(()=>addTicker(m),250*i));
+
+    const btnSpawn5=document.getElementById('btnSpawn5');
+    const btnCloseAll=document.getElementById('btnCloseAll');
+    btnSpawn5.addEventListener('click',()=>{
+      if(spawnUsed)return addTicker('spawn blocked: already active');
+      spawnUsed=true;
+      let startX=170+Math.random()*40, startY=300+Math.random()*40;
+      if(window.innerWidth < 700) startX = 20;
+      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*26, y:startY+i*18});
+      addTicker('spawned 5 live windows');
+    });
+
+    btnCloseAll.addEventListener('click',()=>{
+      document.querySelectorAll('.miniWin').forEach(n=>n.remove());
+      winCount=0; spawnUsed=false;
+      addTicker('all windows closed');
+    });
+
+    document.getElementById('btnReverseCam').addEventListener('click',()=>{
+      addTicker('Reverse cam (UI only, see controls on right)');
+    });
+    document.getElementById('btnVoice').addEventListener('click',()=>{
+      addTicker('Voice UI activated (stub)');
+    });
+
+    const input=document.getElementById('input');
+    function handleSubmit(v){
+      const t=(v||'').trim();
+      if(!t)return;
+      addTicker('> '+t);
+      input.value='';
+    }
+    input.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();handleSubmit(input.value);}
+    });
+
+    // Initial spawn
+    (async()=>{
+      let startX = 100, startY = 170;
+      if(window.innerWidth < 700) startX = 20;
+      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*22, y:startY+i*18});
+    })();
+
+    // HUD panel switch (single panel mode preserved)
+    const huds = [...document.querySelectorAll('.hud-panel')];
+    const hudIndex = document.getElementById('hudIndex');
+    let currentHUD = 0;
+    function updateHUDLabel(){
+      hudIndex.textContent = `HUD ${currentHUD + 1} / ${huds.length}`;
+    }
+    function showHUD(i){
+      huds[currentHUD].classList.remove('active');
+      currentHUD = (i + huds.length) % huds.length;
+      huds[currentHUD].classList.add('active');
+      updateHUDLabel();
+      addTicker(`HUD switched → ${currentHUD + 1}`);
+    }
+    document.getElementById('hudHeader').addEventListener('click',()=>showHUD(currentHUD + 1));
+    updateHUDLabel();
+  </script>
+
+
+
+
+  
+</body>
+
+  
+</html>
