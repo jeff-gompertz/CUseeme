@@ -1,21 +1,28 @@
 /* longpress-hud.js
-   Attach HUD-styled hold-to-navigate behavior to #advanceBtn.
-   Place this file at /js/longpress-hud.js and include it AFTER longpress-nav.js.
+   Robust attach for HUD-styled hold-to-navigate behavior on #advanceBtn.
+   - Waits for DOMContentLoaded, so it works wherever the <script> is placed.
+   - Prefers centralized makeLongPressNav (ring disabled) and falls back to inline handler.
+   - Writes simple debug messages to #debugTicker if present.
 */
-(function attachHudStyleLongPress(){
+(function longpressHudModule(){
   const BUTTON_ID = 'advanceBtn';
   const HOLD_MS = 1400;
   const MOVE_TOLERANCE = 12;
 
-  const btn = document.getElementById(BUTTON_ID);
-  if(!btn){ console.warn('longpress-hud: button not found:', BUTTON_ID); return; }
+  function dbg(msg){
+    try {
+      console.log('longpress-hud:', msg);
+      const dbgEl = document.getElementById('debugTicker');
+      if(dbgEl){
+        const d = document.createElement('div'); d.className = 'tline'; d.textContent = msg;
+        dbgEl.prepend(d);
+        while(dbgEl.children.length > 120) dbgEl.removeChild(dbgEl.lastChild);
+      }
+    } catch(e){}
+  }
 
-  // Ensure relative positioning so progress overlay fits
-  const cs = window.getComputedStyle(btn);
-  if(cs.position === 'static' || !cs.position) btn.style.position = 'relative';
-
-  // Inject HUD-like CSS once
-  if(!document.getElementById('hud-longpress-styles')){
+  function ensureStyles(){
+    if(document.getElementById('hud-longpress-styles')) return;
     const s = document.createElement('style');
     s.id = 'hud-longpress-styles';
     s.textContent = `
@@ -30,40 +37,25 @@
     document.head.appendChild(s);
   }
 
-  // Create progress element if missing
-  let progress = btn.querySelector('.hud-holdProgress');
-  if(!progress){
-    progress = document.createElement('div');
-    progress.className = 'hud-holdProgress';
-    btn.insertBefore(progress, btn.firstChild);
-  }
-
-  // Target URL resolution
-  const TARGET_URL = btn.getAttribute('data-longpress-url') || window.nextPage || '/';
-
-  // Prefer centralized helper if available — but disable its ring (ring:false)
-  if(window.makeLongPressNav){
-    try {
-      window.makeLongPressNav(btn, { url: TARGET_URL, holdDuration: HOLD_MS, moveTolerance: MOVE_TOLERANCE, ring: false });
-      attachVisualHandlers(btn, progress, HOLD_MS, MOVE_TOLERANCE);
-      console.log('longpress-hud: attached via makeLongPressNav');
-      return;
-    } catch(e){
-      console.warn('longpress-hud: makeLongPressNav attach failed — falling back', e);
+  function createProgressIfMissing(btn){
+    let progress = btn.querySelector('.hud-holdProgress');
+    if(!progress){
+      progress = document.createElement('div');
+      progress.className = 'hud-holdProgress';
+      btn.insertBefore(progress, btn.firstChild);
     }
+    return progress;
   }
 
-  // Fallback inline if helper not available
-  fallbackLongPress(btn, progress, TARGET_URL, HOLD_MS, MOVE_TOLERANCE);
-
-  // -- helpers --
   function attachVisualHandlers(el, progressEl, holdMs, moveTol){
     let startX=0, startY=0, startT=0;
     function resetVisual(){
-      progressEl.style.transition = 'width 160ms linear';
-      progressEl.style.width = '0%';
-      el.classList.remove('holding');
-      startT = 0;
+      try{
+        progressEl.style.transition = 'width 160ms linear';
+        progressEl.style.width = '0%';
+        el.classList.remove('holding');
+        startT = 0;
+      }catch(e){}
     }
 
     el.addEventListener('pointerdown', (e) => {
@@ -83,7 +75,7 @@
     el.addEventListener('pointerup', () => { resetVisual(); });
     el.addEventListener('pointercancel', () => { resetVisual(); });
 
-    // keyboard (Space/Enter)
+    // keyboard
     let keyHeld=false;
     el.addEventListener('keydown', function(e){
       if(e.code==='Space' || e.key===' ' || e.key==='Enter'){
@@ -170,6 +162,41 @@
         e.preventDefault();
       }
     });
+  }
+
+  function attachOnce(){
+    const btn = document.getElementById(BUTTON_ID);
+    if(!btn){
+      dbg('advanceBtn not found in DOM yet.');
+      return;
+    }
+    ensureStyles();
+    const progress = createProgressIfMissing(btn);
+    const target = btn.getAttribute('data-longpress-url') || window.nextPage || '/';
+    // Prefer centralized helper if available (disable its ring)
+    if(window.makeLongPressNav){
+      try{
+        window.makeLongPressNav(btn, { url: target, holdDuration: HOLD_MS, moveTolerance: MOVE_TOLERANCE, ring: false });
+        attachVisualHandlers(btn, progress, HOLD_MS, MOVE_TOLERANCE);
+        dbg('attached via makeLongPressNav to #' + BUTTON_ID);
+        return;
+      }catch(e){
+        dbg('makeLongPressNav attach failed: ' + (e && e.message));
+      }
+    }
+    // fallback
+    fallbackLongPress(btn, progress, target, HOLD_MS, MOVE_TOLERANCE);
+    dbg('attached fallback longpress to #' + BUTTON_ID);
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function onDom(){
+      document.removeEventListener('DOMContentLoaded', onDom);
+      attachOnce();
+    });
+  } else {
+    // DOM already ready
+    setTimeout(attachOnce, 0);
   }
 
 })();
