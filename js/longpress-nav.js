@@ -17,6 +17,8 @@
     vibrateOnStart: true,
     vibrateOnComplete: true,
     vibratePattern: [10],
+    vibrateCompletePattern: [20, 10, 20],
+    moveTolerancePx: 50,
     url: null,
     onStart: null,
     onProgress: null,
@@ -240,7 +242,7 @@
       }
 
       if (config.vibrateOnComplete) {
-        vibrate([20, 10, 20]);
+        vibrate(config.vibrateCompletePattern);
       }
 
       removeOverlay();
@@ -273,9 +275,10 @@
       const rect = element.getBoundingClientRect();
       const x = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : undefined);
       const y = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : undefined);
+      const tolerance = config.moveTolerancePx;
       
-      if (x < rect.left - 50 || x > rect.right + 50 || 
-          y < rect.top - 50 || y > rect.bottom + 50) {
+      if (x < rect.left - tolerance || x > rect.right + tolerance || 
+          y < rect.top - tolerance || y > rect.bottom + tolerance) {
         cancel();
       }
     }
@@ -365,13 +368,6 @@
       
       makeLongPressNav(element, options);
     });
-
-    // Fallback: auto-attach to #advanceBtn if it exists and has no data-longpress-url
-    const advanceBtn = document.getElementById('advanceBtn');
-    if (advanceBtn && !advanceBtn.hasAttribute('data-longpress-url')) {
-      const url = window.nextPage || 'https://jeff-gompertz.github.io/CUseeme/';
-      makeLongPressNav(advanceBtn, { url });
-    }
   }
 
   // Initialize on DOMContentLoaded
