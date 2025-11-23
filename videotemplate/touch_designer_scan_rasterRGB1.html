@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Scan‑Raster — Processed Camera (RGB / CMYK Abstract)</title>
+<meta name="color-scheme" content="dark">
+<style>
+  :root{
+    --bg:#000;
+    --ui-bg: rgba(255,255,255,0.03);
+    --txt:#dfffe6;
+    --accent:#00ffe1;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Roboto,Arial;}
+  canvas{display:block;width:100vw;height:100vh;background:#000}
+  #ui{position:fixed; right:14px; top:12px; z-index:2000; display:flex; flex-direction:column; gap:8px; pointer-events:auto;}
+  .panel{background:var(--ui-bg);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.04);padding:10px 12px;border-radius:10px;font-size:13px;color:var(--txt);max-width:420px;}
+  .row{display:flex; gap:8px; align-items:center; margin:6px 0;}
+  label{font-size:12px;color:rgba(255,255,255,0.9); min-width:110px;}
+  input[type="range"]{width:150px;}
+  select{background:transparent;color:var(--txt);border:1px solid rgba(255,255,255,0.06);padding:6px;border-radius:6px;}
+  button{background:transparent;color:var(--txt);border:1px solid rgba(255,255,255,0.06);padding:6px 8px;border-radius:8px;cursor:pointer;}
+  #hint{position:fixed; left:14px; top:12px; color:rgba(255,255,255,0.12); font-size:12px; z-index:2000;}
+  .small{font-size:12px;color:rgba(255,255,255,0.72)}
+  @media (max-width:640px){ .panel{font-size:12px;padding:8px} input[type="range"]{width:120px} }
+</style>
+</head>
+<body>
+
+<video id="cam" autoplay playsinline muted style="display:none"></video>
+<canvas id="c"></canvas>
+
+<div id="hint">tap/click to start camera • scan paints right→left (wrap) • camera is processed (RGB/CMYK/etc)</div>
+
+<div id="ui" aria-hidden="false">
+  <div class="panel">
+    <div style="font-weight:700;margin-bottom:6px">Scan Raster — Processed Camera</div>
+
+    <div class="row"><label>Direction</label>
+      <select id="dir">
+        <option value="rtl" selected>Right → Left</option>
+        <option value="ltr">Left → Right</option>
+      </select>
+    </div>
+
+    <div class="row"><label>Stripe width (px)</label><input id="stripe" type="range" min="1" max="120" step="1" value="4"><output id="stripe_out">4</output></div>
+    <div class="row"><label>Scan speed</label><input id="speed" type="range" min="0.5" max="120" step="0.5" value="18"><output id="speed_out">18</output></div>
+    <div class="row"><label>Sample jitter</label><input id="jitter" type="range" min="0" max="1" step="0.01" value="0.06"><output id="jitter_out">0.06</output></div>
+    <div class="row"><label>Video blend</label><input id="blend" type="range" min="0" max="1" step="0.01" value="1"><output id="blend_out">1.00</output></div>
+
+    <div style="height:8px"></div>
+    <div style="font-weight:600;margin-bottom:6px">Camera Processing</div>
+
+    <div class="row"><label>Mode</label>
+      <select id="colorMode">
+        <option value="none">None (raw)</option>
+        <option value="rgbSplit">RGB Split (channel offsets)</option>
+        <option value="posterize">Posterize (levels)</option>
+        <option value="cmyk">CMYK‑like (subtractive abstract)</option>
+        <option value="hueshift">Hue Shift</option>
+      </select>
+    </div>
+
+    <div class="row"><label>RGB split px</label><input id="split" type="range" min="0" max="20" step="1" value="6"><output id="split_out">6</output></div>
+    <div class="row"><label>Posterize levels</label><input id="poster" type="range" min="2" max="32" step="1" value="6"><output id="poster_out">6</output></div>
+    <div class="row"><label>Hue shift (deg)</label><input id="hshift" type="range" min="0" max="360" step="1" value="28"><output id="hshift_out">28</output></div>
+    <div class="row"><label>Process intensity</label><input id="proc_int" type="range" min="0" max="1" step="0.01" value="1"><output id="proc_int_out">1.00</output></div>
+
+    <div style="height:8px"></div>
+    <div style="display:flex;gap:8px">
+      <button id="btn_clear">Clear</button>
+      <button id="btn_pause">Pause</button>
+      <button id="btn_reset">Reset Scan</button>
+    </div>
+
+    <div style="margin-top:10px" class="small">
+      Camera pixels are processed at the low sampling resolution (pixelated) before being used to paint the scan stripes.
+      Try CMYK or RGB split for a stylized, non‑literal camera look.
+    </div>
+  </div>
+</div>
+
+<script>
+/* === Setup & DPR === */
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: false });
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+function resize(){
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width  = Math.floor(window.innerWidth * DPR);
+  canvas.height = Math.floor(window.innerHeight * DPR);
+  canvas.style.width  = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* === Video sampling & processing canvases (low-res) === */
+const video = document.getElementById('cam');
+const vCanvas = document.createElement('canvas');
+const vCtx = vCanvas.getContext('2d');
+const processedCanvas = document.createElement('canvas');
+const pCtx = processedCanvas.getContext('2d');
+
+// sampling resolution (small, keeps performance up)
+let sampleRes = 128;
+function updateSampleResForAspect(){
+  const cssW = canvas.width / DPR, cssH = canvas.height / DPR;
+  vCanvas.width = sampleRes;
+  vCanvas.height = Math.max(8, Math.round(sampleRes * (cssH / cssW)));
+  processedCanvas.width = vCanvas.width;
+  processedCanvas.height = vCanvas.height;
+}
+updateSampleResForAspect();
+
+/* === UI refs === */
+const stripeEl = document.getElementById('stripe'), stripeOut = document.getElementById('stripe_out');
+const speedEl = document.getElementById('speed'), speedOut = document.getElementById('speed_out');
+const jitterEl = document.getElementById('jitter'), jitterOut = document.getElementById('jitter_out');
+const blendEl = document.getElementById('blend'), blendOut = document.getElementById('blend_out');
+const dirSel = document.getElementById('dir');
+
+const colorModeSel = document.getElementById('colorMode');
+const splitEl = document.getElementById('split'), splitOut = document.getElementById('split_out');
+const posterEl = document.getElementById('poster'), posterOut = document.getElementById('poster_out');
+const hshiftEl = document.getElementById('hshift'), hshiftOut = document.getElementById('hshift_out');
+const procIntEl = document.getElementById('proc_int'), procIntOut = document.getElementById('proc_int_out');
+
+const btnClear = document.getElementById('btn_clear');
+const btnPause = document.getElementById('btn_pause');
+const btnReset = document.getElementById('btn_reset');
+
+stripeEl.addEventListener('input', ()=> stripeOut.value = stripeEl.value);
+speedEl.addEventListener('input', ()=> speedOut.value = speedEl.value);
+jitterEl.addEventListener('input', ()=> jitterOut.value = Number(jitterEl.value).toFixed(2));
+blendEl.addEventListener('input', ()=> blendOut.value = Number(blendEl.value).toFixed(2));
+splitEl.addEventListener('input', ()=> splitOut.value = splitEl.value);
+posterEl.addEventListener('input', ()=> posterOut.value = posterEl.value);
+hshiftEl.addEventListener('input', ()=> hshiftOut.value = hshiftEl.value);
+procIntEl.addEventListener('input', ()=> procIntOut.value = Number(procIntEl.value).toFixed(2));
+
+btnClear.addEventListener('click', ()=> {
+  const cssW = canvas.width / DPR, cssH = canvas.height / DPR;
+  ctx.clearRect(0,0,cssW, cssH);
+});
+let paused = false;
+btnPause.addEventListener('click', ()=> { paused = !paused; btnPause.textContent = paused ? 'Resume' : 'Pause'; });
+btnReset.addEventListener('click', ()=> resetScan(true));
+
+/* === Camera start on user interaction === */
+async function startCamera(){
+  try{
+    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment' }, audio:false });
+    video.srcObject = s;
+    await video.play();
+    updateSampleResForAspect();
+    console.log('camera started', vCanvas.width, vCanvas.height);
+  }catch(e){
+    console.warn('camera denied or failed', e);
+  }
+}
+function ensureCamera(){ if(!video.srcObject) startCamera().catch(()=>{}); }
+window.addEventListener('pointerdown', ensureCamera, { once:true });
+window.addEventListener('touchstart', ensureCamera, { once:true });
+
+/* === Processing functions (operate at vCanvas scale) === */
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+function rgbSplitProcess(srcData, w, h, splitPx){
+  // create new buffer and copy channels with horizontal offsets
+  const out = new Uint8ClampedArray(srcData.length);
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const i = (y*w + x)*4;
+      // compute source X for each channel
+      const xr = clamp(x + splitPx, 0, w-1);
+      const xg = clamp(x, 0, w-1);
+      const xb = clamp(x - splitPx, 0, w-1);
+      const ir = (y*w + xr)*4, ig = (y*w + xg)*4, ib = (y*w + xb)*4;
+      out[i]   = srcData[ir];   // R
+      out[i+1] = srcData[ig+1]; // G
+      out[i+2] = srcData[ib+2]; // B
+      out[i+3] = 255;
+    }
+  }
+  return out;
+}
+
+function posterizeProcess(srcData, w, h, levels){
+  const step = 255 / (levels - 1);
+  const out = new Uint8ClampedArray(srcData.length);
+  for(let i=0;i<srcData.length;i+=4){
+    out[i]   = Math.round(Math.round(srcData[i]   / step) * step);
+    out[i+1] = Math.round(Math.round(srcData[i+1] / step) * step);
+    out[i+2] = Math.round(Math.round(srcData[i+2] / step) * step);
+    out[i+3] = 255;
+  }
+  return out;
+}
+
+function hueShiftProcess(srcData, w, h, deg){
+  const out = new Uint8ClampedArray(srcData.length);
+  const cosA = Math.cos(deg * Math.PI/180), sinA = Math.sin(deg * Math.PI/180);
+  // simple RGB hue rotation matrix (approx)
+  // from https://stackoverflow.com/a/850193/ and common approximations
+  const lumR = 0.213, lumG = 0.715, lumB = 0.072;
+  const a00 = lumR + cosA*(1-lumR) + sinA*(-lumR);
+  const a01 = lumG + cosA*(-lumG) + sinA*(-lumG);
+  const a02 = lumB + cosA*(-lumB) + sinA*(1-lumB);
+  const a10 = lumR + cosA*(-lumR) + sinA*(0.143);
+  const a11 = lumG + cosA*(1-lumG) + sinA*(0.140);
+  const a12 = lumB + cosA*(-lumB) + sinA*(-0.283);
+  const a20 = lumR + cosA*(-lumR) + sinA*(-(1-lumR));
+  const a21 = lumG + cosA*(-lumG) + sinA*(lumG);
+  const a22 = lumB + cosA*(1-lumB) + sinA*(lumB);
+  for(let i=0;i<srcData.length;i+=4){
+    const r = srcData[i], g = srcData[i+1], b = srcData[i+2];
+    const nr = clamp(Math.round(a00*r + a01*g + a02*b),0,255);
+    const ng = clamp(Math.round(a10*r + a11*g + a12*b),0,255);
+    const nb = clamp(Math.round(a20*r + a21*g + a22*b),0,255);
+    out[i]=nr; out[i+1]=ng; out[i+2]=nb; out[i+3]=255;
+  }
+  return out;
+}
+
+function cmykProcess(srcData, w, h, intensity){
+  // approximate subtractive effect: compute CMY, K and composite into RGB darker tints.
+  const out = new Uint8ClampedArray(srcData.length);
+  for(let i=0;i<srcData.length;i+=4){
+    const r = srcData[i]/255, g = srcData[i+1]/255, b = srcData[i+2]/255;
+    const C = 1 - r, M = 1 - g, Y = 1 - b;
+    const K = Math.min(C,M,Y);
+    // reduce to ink components
+    const c = (C - K) / (1 - K + 1e-6);
+    const m = (M - K) / (1 - K + 1e-6);
+    const y = (Y - K) / (1 - K + 1e-6);
+    // compose back to RGB with subtractive tinting and intensity factor
+    // start with white then subtract inks
+    let R = 1 - (c * intensity) - (K * intensity);
+    let G = 1 - (m * intensity) - (K * intensity);
+    let B = 1 - (y * intensity) - (K * intensity);
+    R = clamp(Math.round(R*255), 0, 255);
+    G = clamp(Math.round(G*255), 0, 255);
+    B = clamp(Math.round(B*255), 0, 255);
+    out[i]=R; out[i+1]=G; out[i+2]=B; out[i+3]=255;
+  }
+  return out;
+}
+
+/* Apply selected processing to current vCanvas frame */
+function processVCanvas(){
+  const w = vCanvas.width, h = vCanvas.height;
+  const raw = vCtx.getImageData(0,0,w,h);
+  const src = raw.data;
+  const mode = colorModeSel.value;
+  const splitPx = parseInt(splitEl.value,10);
+  const posterLevels = parseInt(posterEl.value,10);
+  const deg = parseInt(hshiftEl.value,10);
+  const intensity = parseFloat(procIntEl.value);
+
+  let outArr = null;
+  if(mode === 'none'){
+    // just copy raw into processedCanvas
+    pCtx.putImageData(raw, 0, 0);
+    return;
+  }else if(mode === 'rgbSplit'){
+    outArr = rgbSplitProcess(src, w, h, splitPx);
+  }else if(mode === 'posterize'){
+    outArr = posterizeProcess(src, w, h, posterLevels);
+  }else if(mode === 'hueshift'){
+    outArr = hueShiftProcess(src, w, h, deg);
+  }else if(mode === 'cmyk'){
+    outArr = cmykProcess(src, w, h, intensity);
+  }
+
+  if(outArr){
+    const outImage = new ImageData(outArr, w, h);
+    pCtx.putImageData(outImage, 0, 0);
+  }
+}
+
+/* === Scan state & animation === */
+let scanX; // CSS pixels
+let lastTime = performance.now();
+
+function resetScan(clearCanvas){
+  const cssW = canvas.width / DPR, cssH = canvas.height / DPR;
+  if(clearCanvas) ctx.clearRect(0,0,cssW, cssH);
+  const dir = dirSel.value;
+  scanX = (dir === 'rtl') ? cssW + 2 : -2;
+}
+resetScan(true);
+
+/* main loop: sample processedCanvas instead of raw vCanvas */
+function tick(now){
+  const dt = Math.min(64, now - lastTime) / 1000;
+  lastTime = now;
+  if(!paused){
+    // draw video frame to vCanvas
+    if(video && video.readyState >= 2){
+      try { vCtx.drawImage(video, 0, 0, vCanvas.width, vCanvas.height); } catch(e){}
+    } else {
+      // fallback visual if no camera
+      vCtx.fillStyle = '#000';
+      vCtx.fillRect(0,0,vCanvas.width,vCanvas.height);
+      const g = vCtx.createLinearGradient(0,0,vCanvas.width,vCanvas.height);
+      const t = performance.now()*0.0003;
+      g.addColorStop(0, `hsl(${(t*360)%360} 80% 40%)`);
+      g.addColorStop(1, `hsl(${(t*360+120)%360} 80% 20%)`);
+      vCtx.fillStyle = g; vCtx.fillRect(0,0,vCanvas.width,vCanvas.height);
+    }
+
+    // process the sampled frame to produce stylized processedCanvas
+    processVCanvas();
+
+    // painting step: sample a 1px column (or more) from processedCanvas and draw stretched vertically
+    const cssW = canvas.width / DPR, cssH = canvas.height / DPR;
+    const stripeW = Math.max(1, parseInt(stripeEl.value,10));
+    const speed = parseFloat(speedEl.value); // px per second
+    const jitter = parseFloat(jitterEl.value);
+    const dir = dirSel.value; // 'rtl' or 'ltr'
+    const blend = parseFloat(blendEl.value);
+
+    const shift = speed * dt * (dir === 'rtl' ? -1 : 1);
+    scanX += shift;
+
+    if(dir === 'rtl' && scanX < -stripeW - 4) scanX = cssW + 4;
+    if(dir === 'ltr' && scanX > cssW + stripeW + 4) scanX = -4;
+
+    // Map scanX proportion into processedCanvas x coordinate
+    const normalized = clamp(scanX / cssW, 0, 1);
+    const srcCenter = Math.floor(normalized * (processedCanvas.width - 1));
+    const j = Math.round((Math.random()*2 - 1) * jitter * processedCanvas.width);
+    const sx = clamp(srcCenter + j, 0, processedCanvas.width - 1);
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = blend;
+
+    try{
+      const destX = Math.round(scanX);
+      ctx.drawImage(processedCanvas,
+                    sx, 0, 1, processedCanvas.height,
+                    destX, 0, stripeW, cssH);
+    }catch(e){}
+    ctx.restore();
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* small console helpers */
+window._scan = { reset: ()=> resetScan(true), procCanvas: ()=> processedCanvas, sourceCanvas: ()=> vCanvas };
+
+/* keyboard shortcuts */
+window.addEventListener('keydown', (e)=>{
+  if(e.key === ' ') { paused = !paused; btnPause.textContent = paused ? 'Resume' : 'Pause'; }
+  if(e.key === 'c') ctx.clearRect(0,0,canvas.width/DPR, canvas.height/DPR);
+  if(e.key === 'r') resetScan(true);
+});
+
+/* ensure UI outputs match initial values */
+stripeOut.value = stripeEl.value;
+speedOut.value = speedEl.value;
+jitterOut.value = Number(jitterEl.value).toFixed(2);
+blendOut.value = Number(blendEl.value).toFixed(2);
+splitOut.value = splitEl.value;
+posterOut.value = posterEl.value;
+hshiftOut.value = hshiftEl.value;
+procIntOut.value = Number(procIntEl.value).toFixed(2);
+
+/* keep sampling resolution updated on resize */
+window.addEventListener('resize', ()=> updateSampleResForAspect());
+</script>
+</body>
+</html>
