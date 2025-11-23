@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Scan‑Raster — RGB‑Processed Camera</title>
+<meta name="color-scheme" content="dark">
+<style>
+  :root{
+    --bg:#000;
+    --ui-bg: rgba(255,255,255,0.03);
+    --txt:#dfffe6;
+    --accent:#00ffe1;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Roboto,Arial;}
+  canvas{display:block;width:100vw;height:100vh;background:#000}
+  #ui{position:fixed; right:14px; top:12px; z-index:2000; display:flex; flex-direction:column; gap:8px; pointer-events:auto;}
+  .panel{background:var(--ui-bg);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.04);padding:10px 12px;border-radius:10px;font-size:13px;color:var(--txt);max-width:380px;}
+  .row{display:flex; gap:8px; align-items:center; margin:6px 0;}
+  label{font-size:12px;color:rgba(255,255,255,0.9); min-width:110px;}
+  input[type="range"]{width:150px;}
+  button{background:transparent;color:var(--txt);border:1px solid rgba(255,255,255,0.06);padding:6px 8px;border-radius:8px;cursor:pointer;}
+  #hint{position:fixed; left:14px; top:12px; color:rgba(255,255,255,0.12); font-size:12px; z-index:2000;}
+  .small{font-size:12px;color:rgba(255,255,255,0.72)}
+  @media (max-width:640px){ .panel{font-size:12px;padding:8px} input[type="range"]{width:120px} }
+</style>
+</head>
+<body>
+
+<video id="cam" autoplay playsinline muted style="display:none"></video>
+<canvas id="c"></canvas>
+
+<div id="hint">tap/click to start camera • scanner paints right→left (wrap) • camera is shown only as RGB‑split abstraction</div>
+
+<div id="ui" aria-hidden="false">
+  <div class="panel">
+    <div style="font-weight:700;margin-bottom:6px">Scan Raster — RGB Abstract</div>
+
+    <div class="row"><label>Direction</label>
+      <select id="dir">
+        <option value="rtl" selected>Right → Left</option>
+        <option value="ltr">Left → Right</option>
+      </select>
+    </div>
+
+    <div class="row"><label>Stripe width (px)</label><input id="stripe" type="range" min="1" max="120" step="1" value="4"><output id="stripe_out">4</output></div>
+    <div class="row"><label>Scan speed</label><input id="speed" type="range" min="0.5" max="120" step="0.5" value="18"><output id="speed_out">18</output></div>
+    <div class="row"><label>Sample jitter</label><input id="jitter" type="range" min="0" max="1" step="0.01" value="0.06"><output id="jitter_out">0.06</output></div>
+    <div class="row"><label>Video blend</label><input id="blend" type="range" min="0" max="1" step="0.01" value="1"><output id="blend_out">1.00</output></div>
+
+    <hr style="border:0;border-top:1px solid rgba(255,255,255,0.04);margin:8px 0" />
+
+    <div style="font-weight:600;margin-bottom:6px">RGB Split Processing</div>
+
+    <div class="row"><label>RGB split (px)</label><input id="split" type="range" min="0" max="20" step="1" value="6"><output id="split_out">6</output></div>
+    <div class="row"><label>Processing intensity</label><input id="proc_int" type="range" min="0" max="1" step="0.01" value="1"><output id="proc_int_out">1.00</output></div>
+    <div class="row"><label>Sample resolution</label>
+      <select id="sampleRes">
+        <option value="64">Low (64)</option>
+        <option value="128" selected>Med (128)</option>
+        <option value="256">High (256)</option>
+      </select>
+    </div>
+
+    <div style="height:8px"></div>
+    <div style="display:flex;gap:8px">
+      <button id="btn_clear">Clear</button>
+      <button id="btn_pause">Pause</button>
+      <button id="btn_reset">Reset Scan</button>
+    </div>
+
+    <div style="margin-top:10px" class="small">
+      Only RGB Split processing is available in this build. The camera image is processed at the sampling resolution and then used for the scanner stripes.
+    </div>
+  </div>
+</div>
+
+<script>
+/* === Setup & DPR === */
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: false });
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+function resize(){
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width  = Math.floor(window.innerWidth * DPR);
+  canvas.height = Math.floor(window.innerHeight * DPR);
+  canvas.style.width  = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* === Video sampling & processed canvases === */
+const video = document.getElementById('cam');
+const vCanvas = document.createElement('canvas');
+const vCtx = vCanvas.getContext('2d');
+const processedCanvas = document.createElement('canvas');
+const pCtx = processedCanvas.getContext('2d');
+
+let sampleRes = parseInt(document.getElementById('sampleRes').value,10) || 128;
+function updateSampleRes(){
+  sampleRes = parseInt(document.getElementById('sampleRes').value,10) || 128;
+  const cssW = canvas.width / DPR, cssH = canvas.height / DPR;
+  vCanvas.width = sampleRes;
+  vCanvas.height = Math.max(8, Math.round(sampleRes * (cssH / cssW)));
+  processedCanvas.width = vCanvas.width;
+  processedCanvas.height = vCanvas.height;
+}
+updateSampleRes();
+window.addEventListener('resize', ()=> { updateSampleRes(); });
+
+/* === UI refs and wiring === */
+const stripeEl = document.getElementById('stripe'), stripeOut = document.getElementById('stripe_out');
+const speedEl = document.getElementById('speed'), speedOut = document.getElementById('speed_out');
+const jitterEl = document.getElementById('jitter'), jitterOut = document.getElementById('jitter_out');
+const blendEl = document.getElementById('blend'), blendOut = document.getElementById('blend_out');
+const dirSel = document.getElementById('dir');
+
+const splitEl = document.getElementById('split'), splitOut = document.getElementById('split_out');
+const procIntEl = document.getElementById('proc_int'), procIntOut = document.getElementById('proc_int_out');
+const sampleResSel = document.getElementById('sampleRes');
+
+const btnClear = document.getElementById('btn_clear');
+const btnPause = document.getElementById('btn_pause');
+const btnReset = document.getElementById('btn_reset');
+
+stripeEl.addEventListener('input', ()=> stripeOut.value = stripeEl.value);
+speedEl.addEventListener('input', ()=> speedOut.value = speedEl.value);
+jitterEl.addEventListener('input', ()=> jitterOut.value = Number(jitterEl.value).toFixed(2));
+blendEl.addEventListener('input', ()=> blendOut.value = Number(blendEl.value).toFixed(2));
+splitEl.addEventListener('input', ()=> splitOut.value = splitEl.value);
+procIntEl.addEventListener('input', ()=> procIntOut.value = Number(procIntEl.value).toFixed(2));
+sampleResSel.addEventListener('change', ()=> { updateSampleRes(); });
+
+btnClear.addEventListener('click', ()=> {
+  const cssW = canvas.width / DPR, cssH = canvas.height / DPR;
+  ctx.clearRect(0,0,cssW, cssH);
+});
+let paused = false;
+btnPause.addEventListener('click', ()=> { paused = !paused; btnPause.textContent = paused ? 'Resume' : 'Pause'; });
+btnReset.addEventListener('click', ()=> resetScan(true));
+
+/* === Camera start on first interaction === */
+async function startCamera(){
+  try{
+    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment' }, audio:false });
+    video.srcObject = s;
+    await video.play();
+    updateSampleRes();
+    console.log('camera started', vCanvas.width, vCanvas.height);
+  }catch(e){
+    console.warn('camera denied or failed', e);
+  }
+}
+function ensureCamera(){ if(!video.srcObject) startCamera().catch(()=>{}); }
+window.addEventListener('pointerdown', ensureCamera, { once:true });
+window.addEventListener('touchstart', ensureCamera, { once:true });
+
+/* === RGB split process (optimized at sampling resolution) === */
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+function rgbSplitProcess(srcData, w, h, splitPx, intensity){
+  // srcData: Uint8ClampedArray
+  const out = new Uint8ClampedArray(srcData.length);
+  // precompute clamp bounds
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const i = (y*w + x)*4;
+      const xr = clamp(x + splitPx, 0, w-1);
+      const xb = clamp(x - splitPx, 0, w-1);
+      const ir = (y*w + xr)*4;
+      const ig = (y*w + x)*4;
+      const ib = (y*w + xb)*4;
+      // apply intensity by lerping between original channel and split channel
+      const R = Math.round( srcData[ir] * intensity + srcData[ig] * (1 - intensity) );
+      const G = Math.round( srcData[ig+1] * intensity + srcData[ig+1] * (1 - intensity) );
+      const B = Math.round( srcData[ib+2] * intensity + srcData[ig+2] * (1 - intensity) );
+      out[i]   = R;
+      out[i+1] = G;
+      out[i+2] = B;
+      out[i+3] = 255;
+    }
+  }
+  return out;
+}
+
+/* Apply processing each frame at sampling resolution */
+function processVCanvas(){
+  const w = vCanvas.width, h = vCanvas.height;
+  const raw = vCtx.getImageData(0,0,w,h);
+  const src = raw.data;
+  const splitPx = parseInt(splitEl.value,10);
+  const intensity = parseFloat(procIntEl.value);
+  const outArr = rgbSplitProcess(src, w, h, splitPx, intensity);
+  const outImage = new ImageData(outArr, w, h);
+  pCtx.putImageData(outImage, 0, 0);
+}
+
+/* === Scan state & animation === */
+let scanX; // CSS pixels
+let lastTime = performance.now();
+function resetScan(clearCanvas){
+  const cssW = canvas.width / DPR, cssH = canvas.height / DPR;
+  if(clearCanvas) ctx.clearRect(0,0,cssW, cssH);
+  const dir = dirSel.value;
+  scanX = (dir === 'rtl') ? cssW + 2 : -2;
+}
+resetScan(true);
+
+/* main loop: sample processedCanvas and paint columns */
+function tick(now){
+  const dt = Math.min(64, now - lastTime) / 1000;
+  lastTime = now;
+  if(!paused){
+    // fill vCanvas from video (low-res)
+    if(video && video.readyState >= 2){
+      try { vCtx.drawImage(video, 0, 0, vCanvas.width, vCanvas.height); } catch(e){}
+    } else {
+      // fallback visual
+      vCtx.fillStyle = '#000';
+      vCtx.fillRect(0,0,vCanvas.width,vCanvas.height);
+      const g = vCtx.createLinearGradient(0,0,vCanvas.width,vCanvas.height);
+      const t = performance.now()*0.0003;
+      g.addColorStop(0, `hsl(${(t*360)%360} 80% 40%)`);
+      g.addColorStop(1, `hsl(${(t*360+120)%360} 80% 20%)`);
+      vCtx.fillStyle = g; vCtx.fillRect(0,0,vCanvas.width,vCanvas.height);
+    }
+
+    // process into processedCanvas (RGB split)
+    processVCanvas();
+
+    // paint stripe from processedCanvas
+    const cssW = canvas.width / DPR, cssH = canvas.height / DPR;
+    const stripeW = Math.max(1, parseInt(stripeEl.value,10));
+    const speed = parseFloat(speedEl.value);
+    const jitter = parseFloat(jitterEl.value);
+    const dir = dirSel.value;
+    const blend = parseFloat(blendEl.value);
+
+    const shift = speed * dt * (dir === 'rtl' ? -1 : 1);
+    scanX += shift;
+
+    if(dir === 'rtl' && scanX < -stripeW - 4) scanX = cssW + 4;
+    if(dir === 'ltr' && scanX > cssW + stripeW + 4) scanX = -4;
+
+    const normalized = clamp(scanX / cssW, 0, 1);
+    const srcCenter = Math.floor(normalized * (processedCanvas.width - 1));
+    const j = Math.round((Math.random()*2 - 1) * jitter * processedCanvas.width);
+    const sx = clamp(srcCenter + j, 0, processedCanvas.width - 1);
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = blend;
+    try{
+      const destX = Math.round(scanX);
+      ctx.drawImage(processedCanvas,
+                    sx, 0, 1, processedCanvas.height,
+                    destX, 0, stripeW, cssH);
+    }catch(e){}
+    ctx.restore();
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* helpers accessible from console */
+window._scan = {
+  reset: ()=> resetScan(true),
+  processedCanvas: ()=> processedCanvas,
+  sourceCanvas: ()=> vCanvas
+};
+
+/* keyboard shortcuts */
+window.addEventListener('keydown', (e)=>{
+  if(e.key === ' ') { paused = !paused; btnPause.textContent = paused ? 'Resume' : 'Pause'; }
+  if(e.key === 'c') ctx.clearRect(0,0,canvas.width/DPR, canvas.height/DPR);
+  if(e.key === 'r') resetScan(true);
+});
+</script>
+</body>
+</html>
