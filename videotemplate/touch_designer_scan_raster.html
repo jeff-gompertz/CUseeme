@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Scan‑Raster — Live Flatbed Scanner Style</title>
+<meta name="color-scheme" content="dark">
+<style>
+  :root{
+    --bg:#000;
+    --ui-bg: rgba(255,255,255,0.03);
+    --txt:#dfffe6;
+    --accent:#00ffe1;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Roboto,Arial;}
+  canvas{display:block;width:100vw;height:100vh;background:#000}
+  #ui{position:fixed; right:14px; top:12px; z-index:2000; display:flex; flex-direction:column; gap:8px; pointer-events:auto;}
+  .panel{background:var(--ui-bg);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.04);padding:10px 12px;border-radius:10px;font-size:13px;color:var(--txt);max-width:360px;}
+  .row{display:flex; gap:8px; align-items:center; margin:6px 0;}
+  label{font-size:12px;color:rgba(255,255,255,0.9); min-width:110px;}
+  input[type="range"]{width:150px;}
+  button{background:transparent;color:var(--txt);border:1px solid rgba(255,255,255,0.06);padding:6px 8px;border-radius:8px;cursor:pointer;}
+  #hint{position:fixed; left:14px; top:12px; color:rgba(255,255,255,0.12); font-size:12px; z-index:2000;}
+  .small{font-size:12px;color:rgba(255,255,255,0.72)}
+  @media (max-width:640px){ .panel{font-size:12px;padding:8px} input[type="range"]{width:120px} }
+</style>
+</head>
+<body>
+
+<!-- Hidden video capture -->
+<video id="cam" autoplay playsinline muted style="display:none"></video>
+
+<!-- Main canvas -->
+<canvas id="c"></canvas>
+
+<div id="hint">tap/click to start camera • scanner paints right→left (wrap)</div>
+
+<!-- UI: simplified — raster/scan only -->
+<div id="ui" aria-hidden="false">
+  <div class="panel">
+    <div style="font-weight:700;margin-bottom:6px">Scan Raster — Flatbed Style</div>
+
+    <div class="row"><label>Direction</label>
+      <select id="dir">
+        <option value="rtl" selected>Right → Left</option>
+        <option value="ltr">Left → Right</option>
+      </select>
+    </div>
+
+    <div class="row"><label>Stripe width (px)</label><input id="stripe" type="range" min="1" max="120" step="1" value="4"><output id="stripe_out">4</output></div>
+    <div class="row"><label>Scan speed</label><input id="speed" type="range" min="0.5" max="60" step="0.5" value="18"><output id="speed_out">18</output></div>
+    <div class="row"><label>Sample jitter</label><input id="jitter" type="range" min="0" max="1" step="0.01" value="0.06"><output id="jitter_out">0.06</output></div>
+    <div class="row"><label>Video blend</label><input id="blend" type="range" min="0" max="1" step="0.01" value="1"><output id="blend_out">1.00</output></div>
+    <div class="row"><label>Pixelate (sample res)</label>
+      <select id="sampleRes">
+        <option value="64">Low (64px)</option>
+        <option value="128" selected>Med (128px)</option>
+        <option value="256">High (256px)</option>
+      </select>
+    </div>
+
+    <div style="margin-top:8px;display:flex;gap:8px">
+      <button id="btn_clear">Clear</button>
+      <button id="btn_pause">Pause</button>
+      <button id="btn_reset">Reset Scan</button>
+    </div>
+
+    <div style="margin-top:8px" class="small">
+      The scanner samples a narrow vertical column from the low‑res video buffer and paints it as a vertical stripe across the canvas.
+      Use Stripe width and Speed to tune the scan look. Jitter simulates mechanical noise.
+    </div>
+  </div>
+</div>
+
+<script>
+/* Scan Raster Implementation
+- Single visual mode: scan bars painted across the canvas.
+- Implementation strategy:
+  - Sample the live video into a small vCanvas (sampleRes x computed height).
+  - Each animation step, take a 1px wide column (or more if stripe large) from vCanvas at a sampled sx.
+  - Draw that source column scaled to stripe width and full canvas height at destination scanX.
+  - Move scanX across viewport (rtl or ltr) by (speed * dt) pixels per second.
+  - Accumulate past scans on canvas (do not clear every frame) to create the scanned composite.
+  - UI controls expose stripe width, speed, jitter, blend (global alpha), and sample resolution.
+*/
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: false });
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+function resize(){
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width  = Math.floor(window.innerWidth * DPR);
+  canvas.height = Math.floor(window.innerHeight * DPR);
+  canvas.style.width  = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  // work in CSS pixel coordinates for drawing; scale transform maps CSS→device
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  // when size changes, we want to preserve scanX percentage rather than absolute; handled below
+}
+window.addEventListener('resize', resize);
+resize();
+
+const video = document.getElementById('cam');
+const vCanvas = document.createElement('canvas');
+const vCtx = vCanvas.getContext('2d');
+
+// UI bindings
+const stripeEl = document.getElementById('stripe'), stripeOut = document.getElementById('stripe_out');
+const speedEl = document.getElementById('speed'), speedOut = document.getElementById('speed_out');
+const jitterEl = document.getElementById('jitter'), jitterOut = document.getElementById('jitter_out');
+const blendEl = document.getElementById('blend'), blendOut = document.getElementById('blend_out');
+const sampleResSel = document.getElementById('sampleRes');
+const dirSel = document.getElementById('dir');
+
+const btnClear = document.getElementById('btn_clear');
+const btnPause = document.getElementById('btn_pause');
+const btnReset = document.getElementById('btn_reset');
+
+stripeEl.addEventListener('input', ()=> stripeOut.value = stripeEl.value);
+speedEl.addEventListener('input', ()=> speedOut.value = speedEl.value);
+jitterEl.addEventListener('input', ()=> jitterOut.value = Number(jitterEl.value).toFixed(2));
+blendEl.addEventListener('input', ()=> blendOut.value = Number(blendEl.value).toFixed(2));
+sampleResSel.addEventListener('change', updateSampleRes);
+
+btnClear.addEventListener('click', ()=> {
+  const cssW = canvas.width / DPR, cssH = canvas.height / DPR;
+  ctx.clearRect(0,0,cssW, cssH);
+});
+let paused = false;
+btnPause.addEventListener('click', ()=> { paused = !paused; btnPause.textContent = paused ? 'Resume' : 'Pause'; });
+btnReset.addEventListener('click', ()=> resetScan(true));
+
+/* camera start on first user interaction */
+async function startCamera(){
+  try{
+    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment' }, audio:false });
+    video.srcObject = s;
+    await video.play();
+    updateSampleRes(); // re-evaluate vCanvas sizing based on sampleRes
+    console.log('camera started', vCanvas.width, vCanvas.height);
+  }catch(e){
+    console.warn('camera denied or failed', e);
+  }
+}
+function ensureCamera(){ if(!video.srcObject) startCamera().catch(()=>{}); }
+window.addEventListener('pointerdown', ensureCamera, { once:true });
+window.addEventListener('touchstart', ensureCamera, { once:true });
+
+/* sampling resolution (vertical height matches main canvas CSS height proportionally) */
+let sampleRes = parseInt(sampleResSel.value,10) || 128;
+function updateSampleRes(){
+  sampleRes = parseInt(sampleResSel.value,10) || 128;
+  // vCanvas width = sampleRes px; height scaled to match aspect ratio of main canvas
+  const cssW = canvas.width / DPR, cssH = canvas.height / DPR;
+  vCanvas.width = sampleRes;
+  // keep same aspect to avoid vertical distortion
+  vCanvas.height = Math.max(16, Math.round(sampleRes * (cssH / cssW)));
+}
+updateSampleRes();
+
+/* scan state */
+let scanX; // in CSS pixels (0..cssW)
+let lastTime = performance.now();
+let accumulated = false;
+function resetScan(clearCanvas){
+  const cssW = canvas.width / DPR, cssH = canvas.height / DPR;
+  if(clearCanvas) ctx.clearRect(0,0,cssW, cssH);
+  const dir = dirSel.value;
+  scanX = (dir === 'rtl') ? cssW + 2 : -2; // start just offscreen so first stripe is visible
+  accumulated = true;
+}
+resetScan(true);
+
+/* main animation: sample vCanvas and paint columns */
+function tick(now){
+  const dt = Math.min(64, now - lastTime) / 1000;
+  lastTime = now;
+  if(!paused){
+    // draw current video frame into vCanvas (pixelated sampling)
+    if(video && video.readyState >= 2){
+      // draw video to fill vCanvas
+      try { vCtx.drawImage(video, 0, 0, vCanvas.width, vCanvas.height); } catch(e){}
+    } else {
+      // animate fallback noise when no camera
+      vCtx.fillStyle = '#000';
+      vCtx.fillRect(0,0,vCanvas.width,vCanvas.height);
+      const g = vCtx.createLinearGradient(0,0,vCanvas.width,vCanvas.height);
+      const t = performance.now()*0.0003;
+      g.addColorStop(0, `hsl(${(t*360)%360} 80% 40%)`);
+      g.addColorStop(1, `hsl(${(t*360+120)%360} 80% 20%)`);
+      vCtx.fillStyle = g; vCtx.fillRect(0,0,vCanvas.width,vCanvas.height);
+    }
+
+    const cssW = canvas.width / DPR, cssH = canvas.height / DPR;
+    const stripeW = Math.max(1, parseInt(stripeEl.value,10));
+    const speed = parseFloat(speedEl.value); // px per second
+    const jitter = parseFloat(jitterEl.value);
+    const dir = dirSel.value; // 'rtl' or 'ltr'
+    const blend = parseFloat(blendEl.value);
+
+    // Advance scan position
+    const shift = speed * dt * (dir === 'rtl' ? -1 : 1);
+    scanX += shift;
+
+    // wrapping: when fully scanned across, wrap around and optionally leave image (accumulate) or clear
+    if(dir === 'rtl' && scanX < -stripeW - 4){
+      // wrapped past left edge
+      scanX = cssW + 4;
+    } else if(dir === 'ltr' && scanX > cssW + stripeW + 4){
+      scanX = -4;
+    }
+
+    // Determine source X in vCanvas to sample. We can map horizontal proportion of scanX to source column,
+    // and add jitter to simulate analog scanner wobble.
+    // Map scan position (0..cssW) to source column index (0..vCanvas.width)
+    const normalized = Math.max(0, Math.min(1, (scanX / cssW)));
+    const srcCenter = Math.floor(normalized * (vCanvas.width - 1));
+    // jitter: small offset within [-jitter * vCanvas.width, +...]
+    const j = (Math.random()*2 - 1) * jitter * vCanvas.width;
+    const sx = Math.max(0, Math.min(vCanvas.width - 1, Math.round(srcCenter + j)));
+
+    // For wider stripe widths, we can sample a few adjacent source columns and scale across stripe
+    // Use drawImage with source rect (sx,0,1,vCanvas.height) scaled to stripeW x cssH.
+    ctx.save();
+    ctx.imageSmoothingEnabled = false; // keep crisp, raster look
+    ctx.globalAlpha = blend;
+
+    // When stripeW > 1, we draw multiple narrow source columns in succession for slight anti-aliasing
+    // But typically draw a single column stretched.
+    try{
+      // destination X: convert to integer for crisp placement
+      const destX = Math.round(scanX);
+      // draw the sampled column(s)
+      ctx.drawImage(vCanvas,
+                    sx, 0, 1, vCanvas.height,            // source: single column
+                    destX, 0, stripeW, cssH);            // dest: vertical stripe stretched full height
+    }catch(e){
+      // ignore drawing errors (video not ready)
+    }
+
+    ctx.restore();
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* expose quick helpers to the user console and small controls */
+window._scan = {
+  reset: ()=> resetScan(true),
+  sampleCanvas: ()=> vCanvas,
+  mainCanvas: ()=> canvas
+};
+
+/* keyboard shortcuts */
+window.addEventListener('keydown', (e)=>{
+  if(e.key === ' ') { paused = !paused; btnPause.textContent = paused ? 'Resume' : 'Pause'; }
+  if(e.key === 'c') ctx.clearRect(0,0,canvas.width/DPR, canvas.height/DPR);
+  if(e.key === 'r') resetScan(true);
+});
+
+/* initialize UI outputs */
+stripeOut.value = stripeEl.value;
+speedOut.value = speedEl.value;
+jitterOut.value = Number(jitterEl.value).toFixed(2);
+blendOut.value = Number(blendEl.value).toFixed(2);
+
+/* ensure canvas cleared then start scan origin */
+resetScan(true);
+</script>
+
+</body>
+</html>
