@@ -553,7 +553,7 @@ window.addEventListener('DOMContentLoaded', function() {
   var holdTimer = null, HOLD_DURATION = 700;
   advanceBtn.onpointerdown = function(e){
     e.stopPropagation(); // Prevent global pointerdown (camera)
-    advanceBtn.style.background = "#ff3b3b";
+    advanceBtn.style.background = "#000"; /*"#ff3b3b"*/
     holdTimer = setTimeout(function(){
       window.location.href = "https://jeff-gompertz.github.io/CUseeme/";
     }, HOLD_DURATION);
