@@ -525,8 +525,50 @@ window.addEventListener('touchstart', ()=> { if(!cameraMain.srcObject) startCame
 })();
 </script>
 
+
 <script>
+  
 window.addEventListener('DOMContentLoaded', function() {
+  var advanceBtn = document.createElement('button');
+  advanceBtn.textContent = "Advance";
+  advanceBtn.setAttribute("id", "advanceBtn");
+  advanceBtn.style.position = "fixed";
+  advanceBtn.style.right = "16px";
+  advanceBtn.style.bottom = "16px";
+  advanceBtn.style.zIndex = "2147483647";
+  advanceBtn.style.background = "#e9ff32";
+  advanceBtn.style.color = "#273a22";
+  advanceBtn.style.borderRadius = "32px";
+  advanceBtn.style.border = "2px solid #b4cb2d";
+  advanceBtn.style.fontSize = "18px";
+  advanceBtn.style.fontFamily = '"VT323", monospace';
+  advanceBtn.style.fontWeight = "600";
+  advanceBtn.style.boxShadow = "0 5px 19px rgba(120,140,30,0.18)";
+  advanceBtn.style.padding = "7px 32px";
+  advanceBtn.style.cursor = "pointer";
+  advanceBtn.style.userSelect = "none";
+  advanceBtn.style.touchAction = "manipulation";
+  advanceBtn.style.webkitTapHighlightColor = "transparent";
+  advanceBtn.oncontextmenu = function(e){ e.preventDefault(); return false; };
+  var holdTimer = null, HOLD_DURATION = 700;
+  advanceBtn.onpointerdown = function(e){
+    e.stopPropagation(); // Prevent global pointerdown (camera)
+    advanceBtn.style.background = "#ff3b3b";
+    holdTimer = setTimeout(function(){
+      window.location.href = "https://jeff-gompertz.github.io/CUseeme/";
+    }, HOLD_DURATION);
+  };
+  advanceBtn.onpointerup = advanceBtn.onpointerleave = function(e){
+    e.stopPropagation(); // Prevent global pointerup (camera)
+    advanceBtn.style.background = "#e9ff32";
+    clearTimeout(holdTimer);
+  };
+  document.body.appendChild(advanceBtn);
+});
+</script>
+  /*prrvious scpript*/
+  
+/* window.addEventListener('DOMContentLoaded', function() {
   var advanceBtn = document.createElement('button');
   advanceBtn.textContent = "Advance";
   advanceBtn.setAttribute("id", "advanceBtn");
@@ -561,8 +603,9 @@ window.addEventListener('DOMContentLoaded', function() {
     clearTimeout(holdTimer);
   };
   document.body.appendChild(advanceBtn);
-});
-</script>
+}); */
+  
+
 
 
 
