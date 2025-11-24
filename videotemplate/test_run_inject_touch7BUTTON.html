@@ -560,7 +560,7 @@ window.addEventListener('DOMContentLoaded', function() {
   };
   advanceBtn.onpointerup = advanceBtn.onpointerleave = function(e){
     e.stopPropagation(); // Prevent global pointerup (camera)
-    advanceBtn.style.background = "#e9ff32";
+    advanceBtn.style.background = "fff";/*#e9ff32*/
     clearTimeout(holdTimer);
   };
   document.body.appendChild(advanceBtn);
