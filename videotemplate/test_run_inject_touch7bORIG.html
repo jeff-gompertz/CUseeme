@@ -524,5 +524,20 @@ window.addEventListener('touchstart', ()=> { if(!cameraMain.srcObject) startCame
   logDbg('Guarded processVCanvas installed. If you see "getImageData failed..." messages the likely cause is cross-origin taint.');
 })();
 </script>
+
+  
+      <script>
+  // Set this to the URL or HTML file you want to go to next
+  var nextPage = "https://jeff-gompertz.github.io/CUseeme/"; // Example: "slide2.html", "my-next-design.html", etc.
+
+  // Listen for any click or touch on the document
+  document.addEventListener("click", function() {
+    window.location.href = nextPage;b
+  });
+
+  document.addEventListener("touchend", function() {
+    window.location.href = nextPage;
+  });
+</script>
 </body>
 </html>
