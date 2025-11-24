@@ -1,1 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CUSeeMe — Injected RGB Scan Raster (with Floating DIV Advance Capsule)</title>
+  <style>
+    /* Your original styles ... */
+    html,body{height:100%;margin:0;background:transparent;font-family:"VT323", ui-monospace, Menlo, Consolas, monospace;color:#222;}
+    #bgVideo {position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;z-index:-3;}
+    #gridCanvas {position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:-2;display:block;background:black;}
+    /* --- ADVANCE CAPSULE DIV --- */
+    #advanceDiv {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 2147483647;
+      background: #e9ff32;
+      color: #273a22;
+      border-radius: 32px;
+      border: 2px solid #b4cb2d;
+      font-size: 18px;
+      font-family: "VT323", monospace;
+      font-weight: 600;
+      box-shadow: 0 5px 19px rgba(120,140,30,0.18);
+      padding: 7px 32px;
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+      min-width: 120px;
+      min-height: 36px;
+      height: 38px;
+      letter-spacing: 1px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.14s, box-shadow 0.18s, color 0.14s;
+      outline: none;
+    }
+    #advanceDiv.hold-active {
+      background: #ff3b3b;
+      color: #fff;
+      border-color: #d50000;
+      box-shadow: 0 0 24px 12px #ff3b3b, 0 2px 10px #900;
+    }
+    @media (max-width:900px) {
+      #advanceDiv { font-size:15px; min-height:30px; padding:6px 13px; }
+    }
+    @media (max-width:540px) {
+      #advanceDiv { font-size:12px; right:7px; bottom:8px; padding:6px 8px; min-width:74px;}
+    }
+    /* Your original styles continue ... */
+  </style>
+</head>
+<body>
+  <!-- All your original page elements, canvas, HUD, video ... -->
 
+  <video id="bgVideo" autoplay muted loop playsinline>
+    <source src="" type="video/mp4" />
+  </video>
+  <canvas id="gridCanvas"></canvas>
+  <!-- HUD/controls/camera etc ... -->
+  <!-- ... rest of your HTML page ... -->
+
+  <!-- ADVANCE PORTAL DIV - FLOATING CAPSULE -->
+  <script>
+  window.addEventListener('DOMContentLoaded', function() {
+    var advanceDiv = document.createElement('div');
+    advanceDiv.id = "advanceDiv";
+    advanceDiv.textContent = "Advance";
+    // Don't allow context menu, selection, or blue highlight!
+    advanceDiv.style.webkitTapHighlightColor = "transparent";
+    advanceDiv.oncontextmenu = function(e){ e.preventDefault(); return false; };
+    advanceDiv.style.userSelect = "none";
+    var holdTimer = null, HOLD_DURATION = 700;
+    advanceDiv.onpointerdown = function(e){
+      e.stopPropagation();
+      advanceDiv.classList.add("hold-active");
+      holdTimer = setTimeout(function(){
+        window.location.href = "https://jeff-gompertz.github.io/CUseeme/";
+      }, HOLD_DURATION);
+    };
+    advanceDiv.onpointerup = advanceDiv.onpointerleave = function(e){
+      e.stopPropagation();
+      advanceDiv.classList.remove("hold-active");
+      clearTimeout(holdTimer);
+    };
+    document.body.appendChild(advanceDiv);
+  });
+  </script>
+</body>
+</html>
