@@ -546,6 +546,7 @@ window.addEventListener('DOMContentLoaded', function() {
   advanceBtn.style.cursor = "pointer";
   advanceBtn.style.userSelect = "none";
   advanceBtn.style.touchAction = "manipulation";
+  advanceBtn.style.webkitTapHighlightColor = "transparent";
   var holdTimer = null, holdTime = 0;
   var HOLD_DURATION = 700;
   advanceBtn.onpointerdown = function(e){
