@@ -1,1 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CUSeeMe — Injected RGB Scan Raster (with Debug, no input)</title>
+  <style>
+    :root { --hud-bg: transparent; --ticker: #ff3a2f; }
+    html,body{height:100%;margin:0;background:transparent;font-family:"VT323", ui-monospace, Menlo, Consolas, monospace;color:#222;}
+    #bgVideo {position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;z-index:-3;}
+    #gridCanvas {position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:-2;display:block;background:black;}
+    #hudWrapper{position:fixed;top:12px;left:18px;z-index:100;}
+    .hud-row{display:flex;gap:12px;justify-content:space-between;}
+    .hud-btn{flex:1;font-family:"VT323",monospace;font-size:17px;color:#132030;
+      background:rgba(215,235,255,0.35);border:none;border-radius:10px;box-shadow:0 3px 6px rgba(0,0,0,0.08);
+      padding:10px 12px;cursor:pointer;transition:all .22s ease;}
+    .miniWin{position:absolute;width:66vw;max-width:380px;aspect-ratio:9/12;background:rgba(210,240,255,0.25);
+      border:1px solid rgba(255,255,255,0.55);border-radius:16px;backdrop-filter:blur(12px);
+      box-shadow:0 18px 40px rgba(0,0,0,0.25);overflow:hidden;cursor:grab;z-index:500;}
+    .miniBar{display:flex;align-items:center;justify-content:space-between;padding:4px 10px;height:26px;
+      background:rgba(255,255,255,0.18);font-size:12px;color:#222;user-select:none;}
+    .miniInner{position:relative;width:100%;height:calc(100% - 26px);}
+    .miniVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:black;}
+    #ticker{position:fixed;left:16px;bottom:14px;z-index:900;width:45vw;max-width:700px;max-height:50vh;display:flex;flex-direction:column-reverse;overflow:hidden;color:var(--ticker);font-size:18px;line-height:1.25;}
+    .tline{opacity:.95;margin:0;animation:fadeIn .6s ease;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    /* Removed deprecated prompt/input styles */
+    @media (max-width:700px){.miniWin{left:4vw!important;right:auto!important;max-width:90vw!important;width:90vw!important;}}
+    .source-toggle-row{margin-bottom:10px;}
+    #scanUI { margin-top:10px; font-family: system-ui, sans-serif; font-size:12px; color:#132030; }
+    #scanUI label{display:inline-block;min-width:120px;}
+    #scanUI input[type=range]{width:140px;}
+    /* debug ticker style override for visibility */
+    #debugTicker { position: fixed; right: 12px; top: 12px; z-index: 100000; max-width: 360px; max-height: 45vh; overflow:auto; font-family: monospace; font-size:12px; color:#ffd; pointer-events:none; }
+    #debugTicker .tline { margin: 2px 0; opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <!-- Background video (kept) -->
+  <video id="bgVideo" autoplay muted loop playsinline>
+    <source src="" type="video/mp4" />
+  </video>
 
+  <!-- Scan canvas (this paints the processed scan result) -->
+  <canvas id="gridCanvas"></canvas>
+
+  <!-- Hidden camera element -->
+  <video id="cameraMain" autoplay muted playsinline style="display:none"></video>
+
+  <!-- HUD / Controls -->
+  <div id="hudWrapper">
+    <div class="source-toggle-row">
+      <label><b>Source:</b>
+        <select id="sourceSelect">
+          <option value="grid">Scan Raster (default)</option>
+          <option value="camera">Live Camera (raw)</option>
+          <option value="video">Background Video</option>
+        </select>
+      </label>
+    </div>
+
+    <div id="hudShell">
+      <div id="hudHeader">Visual Source Demo</div>
+      <div id="hud1" class="hud-panel active">
+        <div class="hud-row">
+          <button class="hud-btn" id="btnSpawn5">➕ Spawn 5</button>
+          <button class="hud-btn" id="btnReverseCam">🔁 Reverse Cam</button>
+        </div>
+        <div class="hud-row">
+          <button class="hud-btn" id="btnVoice">🔊 Voice</button>
+          <button class="hud-btn" id="btnCloseAll">✕ Close All</button>
+        </div>
+
+        <!-- Scan UI -->
+        <div id="scanUI">
+          <div style="margin-top:8px;font-weight:600">Scan Controls</div>
+          <div><label>Direction</label>
+            <select id="dir"><option value="rtl" selected>Right → Left</option><option value="ltr">Left → Right</option></select>
+          </div>
+          <div><label>Stripe width</label><input id="stripe" type="range" min="1" max="120" value="4"><output id="stripe_out">4</output></div>
+          <div><label>Speed (px/s)</label><input id="speed" type="range" min="0.5" max="240" value="36"><output id="speed_out">36</output></div>
+          <div><label>Jitter</label><input id="jitter" type="range" min="0" max="1" step="0.01" value="0.06"><output id="jitter_out">0.06</output></div>
+          <div><label>Blend</label><input id="blend" type="range" min="0" max="1" step="0.01" value="1"><output id="blend_out">1.00</output></div>
+          <div style="margin-top:8px;font-weight:600">RGB Split</div>
+          <div><label>Split px</label><input id="split" type="range" min="0" max="20" value="6"><output id="split_out">6</output></div>
+          <div><label>Intensity</label><input id="proc_int" type="range" min="0" max="1" step="0.01" value="1"><output id="proc_int_out">1.00</output></div>
+          <div><label>Sample res</label><select id="sampleRes"><option value="64">64</option><option value="128" selected>128</option><option value="256">256</option></select></div>
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button id="btn_clear" class="hud-btn">Clear</button>
+            <button id="btn_pause" class="hud-btn">Pause</button>
+            <button id="btn_reset" class="hud-btn">Reset Scan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="ticker"></div>
+
+  <!-- Debug ticker (ensures visibility on mobile without opening devtools) -->
+  <div id="debugTicker" aria-hidden="false"></div>
+
+<script>
+/* Integrated scan painter (CPU) + debug instrumentation (no input box).
+   This page includes:
+   - camera capture setup
+   - vCanvas processing (RGB split)
+   - painting stripes into gridCanvas (accumulation)
+   - mini-window spawn using gridCanvas.captureStream
+   - guarded wrapper around processVCanvas that detects getImageData/taint errors and paints a fallback
+*/
+
+/* ====== canvas sizing (gridCanvas is main visible canvas) ====== */
+const gridCanvas = document.getElementById('gridCanvas');
+const gridCtx = gridCanvas.getContext('2d', { alpha: true });
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+function resizeGrid(){
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  gridCanvas.width = Math.floor(window.innerWidth * DPR);
+  gridCanvas.height = Math.floor(window.innerHeight * DPR);
+  gridCanvas.style.width = window.innerWidth + 'px';
+  gridCanvas.style.height = window.innerHeight + 'px';
+  gridCtx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resizeGrid);
+resizeGrid();
+
+/* ====== hidden camera element (existing) ====== */
+const cameraMain = document.getElementById('cameraMain');
+let mediaStream = null;
+let facing = 'environment';
+async function startCamera(){
+  try{
+    if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; cameraMain.srcObject=null; }
+    mediaStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal: facing } }, audio:false });
+    cameraMain.srcObject = mediaStream;
+    await cameraMain.play().catch(()=>{});
+    addTicker(`camera: ${facing==='user'?'front':'rear'} feed ready`);
+  }catch(e){
+    addTicker('⚠ camera denied/unavailable');
+    console.warn('camera start error', e);
+  }
+}
+
+/* ====== processing canvases (vCanvas + processedCanvas) ====== */
+const vCanvas = document.createElement('canvas');
+vCanvas.id = 'vCanvas';
+const vCtx = vCanvas.getContext('2d');
+const processedCanvas = document.createElement('canvas');
+processedCanvas.id = 'processedCanvas';
+const pCtx = processedCanvas.getContext('2d');
+
+let sampleRes = parseInt(document.getElementById('sampleRes').value,10) || 128;
+function updateSampleRes(){
+  sampleRes = parseInt(document.getElementById('sampleRes').value,10) || 128;
+  const cssW = gridCanvas.width / DPR, cssH = gridCanvas.height / DPR;
+  vCanvas.width = sampleRes;
+  vCanvas.height = Math.max(8, Math.round(sampleRes * (cssH / cssW)));
+  processedCanvas.width = vCanvas.width;
+  processedCanvas.height = vCanvas.height;
+}
+updateSampleRes();
+
+/* ====== UI refs and simple wiring ====== */
+const stripeEl = document.getElementById('stripe'), stripeOut = document.getElementById('stripe_out');
+const speedEl = document.getElementById('speed'), speedOut = document.getElementById('speed_out');
+const jitterEl = document.getElementById('jitter'), jitterOut = document.getElementById('jitter_out');
+const blendEl = document.getElementById('blend'), blendOut = document.getElementById('blend_out');
+const splitEl = document.getElementById('split'), splitOut = document.getElementById('split_out');
+const procIntEl = document.getElementById('proc_int'), procIntOut = document.getElementById('proc_int_out');
+const sampleResSel = document.getElementById('sampleRes');
+const dirSelect = document.getElementById('dir');
+
+stripeEl.addEventListener('input', ()=> stripeOut.value = stripeEl.value);
+speedEl.addEventListener('input', ()=> speedOut.value = speedEl.value);
+jitterEl.addEventListener('input', ()=> jitterOut.value = Number(jitterEl.value).toFixed(2));
+blendEl.addEventListener('input', ()=> blendOut.value = Number(blendEl.value).toFixed(2));
+splitEl.addEventListener('input', ()=> splitOut.value = splitEl.value);
+procIntEl.addEventListener('input', ()=> procIntOut.value = Number(procIntEl.value).toFixed(2));
+sampleResSel.addEventListener('change', ()=> updateSampleRes());
+
+/* ====== processing: RGB split ====== */
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function rgbSplitProcess(srcData, w, h, splitPx, intensity){
+  const out = new Uint8ClampedArray(srcData.length);
+  for(let y=0;y<h;y++){
+    const row = y*w;
+    for(let x=0;x<w;x++){
+      const i = (row + x)*4;
+      const xr = clamp(x + splitPx, 0, w-1);
+      const xb = clamp(x - splitPx, 0, w-1);
+      const ir = (row + xr)*4;
+      const ig = i;
+      const ib = (row + xb)*4;
+      const R = Math.round( srcData[ir] * intensity + srcData[ig] * (1 - intensity) );
+      const G = Math.round( srcData[ig+1] * intensity + srcData[ig+1] * (1 - intensity) );
+      const B = Math.round( srcData[ib+2] * intensity + srcData[ig+2] * (1 - intensity) );
+      out[i]   = R;
+      out[i+1] = G;
+      out[i+2] = B;
+      out[i+3] = 255;
+    }
+  }
+  return out;
+}
+
+function processVCanvas(){
+  const w = vCanvas.width, h = vCanvas.height;
+  const bgVideo = document.getElementById('bgVideo');
+  if(cameraMain && cameraMain.readyState >= 2){
+    try { vCtx.drawImage(cameraMain, 0, 0, w, h); } catch(e){}
+  } else if(bgVideo && bgVideo.readyState >= 2){
+    try { vCtx.drawImage(bgVideo, 0, 0, w, h); } catch(e){}
+  } else {
+    vCtx.fillStyle = '#000';
+    vCtx.fillRect(0,0,w,h);
+    const g = vCtx.createLinearGradient(0,0,w,h);
+    const t = performance.now()*0.0004;
+    g.addColorStop(0, `hsl(${(t*360)%360} 80% 40%)`);
+    g.addColorStop(1, `hsl(${(t*360+120)%360} 80% 20%)`);
+    vCtx.fillStyle = g; vCtx.fillRect(0,0,w,h);
+  }
+
+  let raw;
+  try {
+    raw = vCtx.getImageData(0,0,w,h);
+  } catch(e){
+    pCtx.fillStyle = '#000'; pCtx.fillRect(0,0,processedCanvas.width, processedCanvas.height);
+    return;
+  }
+
+  const splitPx = parseInt(splitEl.value,10);
+  const intensity = parseFloat(procIntEl.value);
+  const outArr = rgbSplitProcess(raw.data, w, h, splitPx, intensity);
+  const outImage = new ImageData(outArr, w, h);
+  pCtx.putImageData(outImage, 0, 0);
+}
+
+/* ====== scan / accumulation painter ====== */
+let scanX = 0;
+let lastTime = performance.now();
+let paused = false;
+document.getElementById('btn_clear').addEventListener('click', ()=> {
+  const cssW = gridCanvas.width / DPR, cssH = gridCanvas.height / DPR;
+  gridCtx.clearRect(0,0,cssW, cssH);
+});
+document.getElementById('btn_pause').addEventListener('click', ()=> {
+  paused = !paused;
+  document.getElementById('btn_pause').textContent = paused ? 'Resume' : 'Pause';
+});
+document.getElementById('btn_reset').addEventListener('click', ()=> { resetScan(true); });
+
+function resetScan(clearCanvas){
+  const cssW = gridCanvas.width / DPR;
+  if(clearCanvas) gridCtx.clearRect(0,0,cssW,gridCanvas.height / DPR);
+  const dir = dirSelect ? dirSelect.value : 'rtl';
+  scanX = (dir === 'rtl') ? cssW + 2 : -2;
+}
+resetScan(true);
+
+/* ====== main loop ====== */
+function tick(now){
+  const dt = Math.min(48, now - lastTime) / 1000;
+  lastTime = now;
+
+  stripeOut.value = stripeEl.value;
+  speedOut.value = speedEl.value;
+  splitOut.value = splitEl.value;
+  procIntOut.value = Number(procIntEl.value).toFixed(2);
+
+  if(!paused){
+    updateSampleRes();
+    processVCanvas();
+
+    const cssW = gridCanvas.width / DPR, cssH = gridCanvas.height / DPR;
+    const stripeW = Math.max(1, parseInt(stripeEl.value,10));
+    const speed = parseFloat(speedEl.value);
+    const jitter = parseFloat(jitterEl.value);
+    const dir = dirSelect ? dirSelect.value : 'rtl';
+    const blend = parseFloat(blendEl.value);
+
+    const dirFactor = (dir === 'rtl') ? -1 : 1;
+    scanX += speed * dt * dirFactor;
+
+    if(dirFactor < 0 && scanX < -stripeW - 8) scanX = cssW + 8;
+    if(dirFactor > 0 && scanX > cssW + stripeW + 8) scanX = -8;
+
+    const norm = Math.max(0, Math.min(1, ((scanX % cssW) + cssW) % cssW / cssW));
+    const srcCenter = Math.floor(norm * (processedCanvas.width - 1));
+    const j = Math.round((Math.random()*2 - 1) * jitter * processedCanvas.width);
+    const sx = Math.max(0, Math.min(processedCanvas.width - 1, srcCenter + j));
+
+    gridCtx.save();
+    gridCtx.imageSmoothingEnabled = false;
+    gridCtx.globalAlpha = blend;
+    try {
+      const destX = Math.round(scanX);
+      gridCtx.drawImage(processedCanvas, sx, 0, 1, processedCanvas.height, destX, 0, stripeW, cssH);
+    } catch(e) {}
+    gridCtx.restore();
+  }
+
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* ====== source select & camera control ====== */
+const sourceSelect = document.getElementById('sourceSelect');
+let currentSource = "grid";
+sourceSelect.addEventListener('change', async function(e){
+  currentSource = e.target.value;
+  if(currentSource === "camera"){
+    await startCamera();
+    addTicker('Source set: camera (raw). Scanner still processes camera for background.');
+  } else if(currentSource === "video"){
+    addTicker('Source set: background video (processed into scan).');
+  } else {
+    addTicker('Source set: scan raster (default).');
+  }
+});
+
+/* ====== mini windows (captureStream of gridCanvas) ====== */
+function getActiveSourceStream(){
+  try { return gridCanvas.captureStream ? gridCanvas.captureStream(30) : null; }
+  catch(e){ console.warn('captureStream unavailable', e); return null; }
+}
+
+/* ====== mini-window spawn & drag, ticker, voice (kept) ====== */
+const ticker = document.getElementById('ticker');
+function addTicker(txt){
+  const line = document.createElement('div');
+  line.className = 'tline';
+  line.textContent = txt;
+  ticker.prepend(line);
+  if(ticker.children.length > 80) ticker.removeChild(ticker.lastChild);
+}
+['Demo loaded','HUD ready','scan raster injected'].forEach((m,i)=>setTimeout(()=>addTicker(m),250*i));
+
+let winCount = 0, spawnUsed = false;
+function makeMiniWindow({x=150,y=300} = {}){
+  if(window.innerWidth < 700 && x > 20) x = 20;
+  winCount++;
+  const el = document.createElement('div');
+  el.className = 'miniWin';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.innerHTML = `
+    <div class="miniBar">
+      <div class="miniTitle">window_${String(winCount).padStart(4,'0')}</div>
+      <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+    </div>
+    <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>`;
+  document.body.appendChild(el);
+  const v = el.querySelector('.miniVideo');
+
+  v.srcObject = getActiveSourceStream();
+  v.play().catch(()=>{});
+
+  const bar = el.querySelector('.miniBar');
+  let dragging=false, sx=0, sy=0, sl=0, st=0;
+  function start(e){
+    dragging=true;
+    const r=el.getBoundingClientRect(); sl=r.left; st=r.top;
+    sx=(e.touches?e.touches[0].clientX:e.clientX);
+    sy=(e.touches?e.touches[0].clientY:e.clientY);
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', stop);
+    document.addEventListener('touchmove', move, { passive:false });
+    document.addEventListener('touchend', stop);
+  }
+  function move(e){
+    if(!dragging) return;
+    const cx=(e.touches?e.touches[0].clientX:e.clientX);
+    const cy=(e.touches?e.touches[0].clientY:e.clientY);
+    el.style.left = (sl + (cx - sx)) + 'px';
+    el.style.top  = (st + (cy - sy)) + 'px';
+    e.preventDefault?.();
+  }
+  function stop(){
+    dragging=false;
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', stop);
+    document.removeEventListener('touchmove', move);
+    document.removeEventListener('touchend', stop);
+  }
+  bar.addEventListener('pointerdown', start);
+  bar.addEventListener('touchstart', start, { passive:false });
+  return el;
+}
+
+document.getElementById('btnSpawn5').addEventListener('click', ()=>{
+  if(spawnUsed) return addTicker('spawn blocked: already active');
+  spawnUsed = true;
+  let startX = 170 + Math.random()*40, startY = 300 + Math.random()*40;
+  if(window.innerWidth < 700) startX = 20;
+  for(let i=0;i<5;i++) makeMiniWindow({ x: startX + i*26, y: startY + i*18 });
+  addTicker('spawned 5 windows');
+});
+document.getElementById('btnCloseAll').addEventListener('click', ()=>{
+  document.querySelectorAll('.miniWin').forEach(n=>n.remove());
+  winCount = 0; spawnUsed = false;
+  addTicker('all windows closed');
+});
+
+document.getElementById('btnReverseCam').addEventListener('click', async ()=>{
+  facing = (facing === 'user') ? 'environment' : 'user';
+  await startCamera();
+});
+
+let voiceOn = false, voicesReady = false;
+function primeVoices(){ return new Promise(res=>{ const tid = setInterval(()=>{ const v = speechSynthesis.getVoices(); if(v && v.length){ clearInterval(tid); voicesReady = true; res(); } },100); }); }
+async function speak(t){ if(!voiceOn || !('speechSynthesis' in window)) return; if(!voicesReady) await primeVoices(); const u = new SpeechSynthesisUtterance(t); u.lang='en-US'; u.rate=1.05; u.pitch=0.9; u.volume=0.85; const v = speechSynthesis.getVoices(); u.voice = v.find(x=>/samantha/i.test(x.name)) || v.find(x=>/google/i.test(x.name)) || v[0]; speechSynthesis.speak(u); }
+document.getElementById('btnVoice').addEventListener('click', ()=>{ voiceOn = !voiceOn; document.getElementById('btnVoice').classList.toggle('active', voiceOn); addTicker(`voice: ${voiceOn ? 'enabled' : 'disabled'}`); if(voiceOn) speak('voice system online'); });
+
+/* initial spawn windows for demo */
+(function initialSpawn(){
+  let startX = 100, startY = 170;
+  if(window.innerWidth < 700) startX = 20;
+  for(let i=0;i<5;i++) makeMiniWindow({ x: startX + i*22, y: startY + i*18 });
+})();
+
+/* ensure camera on first interaction */
+window.addEventListener('pointerdown', ()=> { if(!cameraMain.srcObject) startCamera().catch(()=>{}); }, { once:true });
+window.addEventListener('touchstart', ()=> { if(!cameraMain.srcObject) startCamera().catch(()=>{}); }, { once:true });
+
+/* ============================
+   Debug wrapper: install guarded processVCanvas and diagnostics
+   ============================ */
+(function installDebugWrapper(){
+  const debugTicker = document.getElementById('debugTicker');
+  function logDbg(msg){
+    const ts = new Date().toLocaleTimeString();
+    console.log('[SCAN-DBG]', ts, msg);
+    try{
+      const el = document.createElement('div');
+      el.className = 'tline';
+      el.textContent = ts + ' — ' + msg;
+      debugTicker.prepend(el);
+      while(debugTicker.children.length > 60) debugTicker.removeChild(debugTicker.lastChild);
+    }catch(e){}
+  }
+
+  logDbg('Installing debug wrapper...');
+
+  // Run quick diagnostics
+  try{
+    const cam = document.getElementById('cameraMain');
+    const bg = document.getElementById('bgVideo');
+    logDbg('User agent: ' + (navigator.userAgent || 'unknown'));
+    if(cam) logDbg('camera readyState: ' + cam.readyState + ' srcObject? ' + !!cam.srcObject);
+    if(bg) { try { logDbg('bgVideo readyState: ' + bg.readyState + ' src: ' + (bg.currentSrc || bg.src)); } catch(e){ logDbg('bgVideo info err: ' + e.message); } }
+    logDbg(`gridCanvas size: ${gridCanvas.width}x${gridCanvas.height} (css ${gridCanvas.width/(window.devicePixelRatio||1)}x${gridCanvas.height/(window.devicePixelRatio||1)})`);
+    logDbg(`vCanvas size: ${vCanvas.width}x${vCanvas.height}`);
+    logDbg(`processedCanvas size: ${processedCanvas.width}x${processedCanvas.height}`);
+    try {
+      const cap = !!(gridCanvas.captureStream);
+      logDbg('gridCanvas.captureStream supported: ' + cap);
+    } catch(e) { logDbg('captureStream check error: ' + e.message); }
+  }catch(e){
+    logDbg('Diagnostics failed: ' + (e && e.message));
+  }
+
+  // Wrap processVCanvas with guarded version to detect taint/getImageData errors
+  const orig = window.processVCanvas || null;
+  if(!orig){
+    logDbg('processVCanvas not found; installing placeholder process that shows activity');
+    window.processVCanvas = function placeholderProcess(){
+      try{
+        const cssW = gridCanvas.width / DPR, cssH = gridCanvas.height / DPR;
+        const t = Math.floor(performance.now() / 120) % 360;
+        gridCtx.save();
+        gridCtx.fillStyle = `hsl(${t} 60% 8%)`;
+        gridCtx.fillRect(0,0,cssW,cssH);
+        gridCtx.fillStyle = `rgba(255,255,255,0.03)`;
+        for(let x=0;x<cssW;x+=24) gridCtx.fillRect((x + (t%24))%cssW, 0, 8, cssH);
+        gridCtx.restore();
+      }catch(e){ console.warn('placeholderProcess error', e); }
+    };
+    logDbg('Installed placeholder processVCanvas.');
+    return;
+  }
+
+  window.processVCanvas = function guardedProcess(){
+    try{
+      orig();
+      // quick validation - ensure processedCanvas accessible
+      if(processedCanvas && processedCanvas.width>0){
+        try{
+          const tctx = pCtx;
+          if(tctx) {
+            tctx.getImageData(0,0,1,1);
+            logDbg('processedCanvas readback OK');
+          }
+        }catch(e){
+          throw new Error('getImageData failed on processedCanvas: ' + (e && e.message));
+        }
+      }
+    }catch(err){
+      logDbg('processVCanvas error: ' + (err && err.message));
+      // paint a clear fallback gradient so canvas is never blank
+      try{
+        const cssW = gridCanvas.width / (window.devicePixelRatio||1);
+        const cssH = gridCanvas.height / (window.devicePixelRatio||1);
+        gridCtx.save();
+        const g = gridCtx.createLinearGradient(0,0,cssW,cssH);
+        g.addColorStop(0, '#001020');
+        g.addColorStop(0.5, '#203040');
+        g.addColorStop(1, '#001020');
+        gridCtx.fillStyle = g;
+        gridCtx.fillRect(0,0,cssW,cssH);
+        gridCtx.strokeStyle = 'rgba(255,255,255,0.04)';
+        gridCtx.lineWidth = 6;
+        gridCtx.beginPath();
+        gridCtx.moveTo(0,0); gridCtx.lineTo(cssW, cssH);
+        gridCtx.moveTo(cssW,0); gridCtx.lineTo(0, cssH);
+        gridCtx.stroke();
+        gridCtx.restore();
+      }catch(e2){
+        console.error('fallback painting also failed', e2);
+      }
+    }
+  };
+
+  logDbg('Guarded processVCanvas installed. If you see "getImageData failed..." messages the likely cause is cross-origin taint.');
+})();
+</script>
+
+
+<!-- Advance button include: put this near the end of <body> after your HUD and other scripts -->
+<!-- Option A: per-page navigation target (recommended) -->
+<script>
+  // set this before the advance-button script so the button will use it
+  // change the URL to whatever you want this page's "Advance" to go to
+  window.nextPage = "/CUseeme/"; // <-- set your page-specific target here
+</script>
+
+<!-- Include the advance-button script you already added to js/ -->
+<script src="/CUseeme/js/advance-button.js"></script>
+
+<!-- Optional: set a data-longpress-url on the injected button after script loads
+     (only needed if you prefer data attribute over window.nextPage) -->
+<script>
+  document.addEventListener('DOMContentLoaded', function(){
+    // Example: override for this page only:
+    const btn = document.getElementById('advanceButtonGlobal') || document.getElementById('advanceDiv');
+    if(btn) btn.setAttribute('data-longpress-url', '/CUseeme/'); // change as needed
+  });
+</script>
+
+<!-- Simple noscript fallback (visible when JS disabled) -->
+<noscript>
+  <div style="position:fixed;right:16px;bottom:16px;z-index:10020;">
+    <a href="/CUseeme/" style="display:inline-block;padding:8px 16px;border-radius:24px;background:#e9ff32;color:#273a22;font-family:monospace;text-decoration:none;">
+      Advance
+    </a>
+  </div>
+</noscript>
+
+  </body>
+</html>
