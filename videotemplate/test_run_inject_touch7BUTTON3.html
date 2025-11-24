@@ -524,37 +524,212 @@ window.addEventListener('touchstart', ()=> { if(!cameraMain.srcObject) startCame
   logDbg('Guarded processVCanvas installed. If you see "getImageData failed..." messages the likely cause is cross-origin taint.');
 })();
 </script>
-
-
-<!-- Advance button include: put this near the end of <body> after your HUD and other scripts -->
-<!-- Option A: per-page navigation target (recommended) -->
+<!-- Paste this entire block just before the closing </body> of your page.
+     It is a self-contained inline version of the advance-button script (no external file).
+     If you previously included /CUseeme/js/advance-button.js, remove that <script src=...> line to avoid duplicates. -->
 <script>
-  // set this before the advance-button script so the button will use it
-  // change the URL to whatever you want this page's "Advance" to go to
-  window.nextPage = "/CUseeme/"; // <-- set your page-specific target here
+/* Inline advance button — copy/paste at end of page (just before </body>) 
+   Self-contained: injects its own CSS and behavior. No external refs.
+*/
+(function(){
+  const ID = 'advanceButtonGlobal';
+  const STYLE_ID = 'advance-button-styles-inline';
+  const HOLD_MS_DEFAULT = 900; // ms to hold
+  const MOVE_TOLERANCE = 12;    // px of movement allowed while holding
+
+  // Inject minimal CSS once
+  if(!document.getElementById(STYLE_ID)){
+    const s = document.createElement('style');
+    s.id = STYLE_ID;
+    s.textContent = `
+#${ID} {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10020;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  min-width: 84px;
+  padding: 7px 22px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(240,250,240,0.92));
+  color: #132030;
+  font-family: "VT323", monospace, system-ui;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  border: 1px solid rgba(255,255,255,0.06);
+  overflow: visible;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+@media (max-width: 540px) {
+  #${ID} { right: 8px; bottom: 8px; padding: 6px 12px; min-width: 64px; height: 30px; font-size: 12px; }
+}
+#${ID}.holding { transform: translateY(-1px) scale(1.01); box-shadow: 0 10px 28px rgba(0,0,0,0.18); }
+#${ID} .ab-progress {
+  position: absolute; left:0; top:0; height:100%; width:0%; border-radius:inherit; pointer-events:none; z-index:0;
+  background: linear-gradient(90deg, rgba(255,74,74,0.14), rgba(255,120,40,0.08));
+  transition: width 0s linear;
+}
+#${ID} .ab-label { position: relative; z-index: 1; display:inline-block; padding:0 6px; }
+#${ID}:focus { outline: none; box-shadow: 0 0 0 4px rgba(0,208,255,0.12), 0 8px 22px rgba(0,0,0,0.18); }
+#${ID}.pressed { transition: all 200ms ease; transform: translateY(0); }
+`;
+    document.head.appendChild(s);
+  }
+
+  // Create the button if missing
+  function ensureButton(){
+    let btn = document.getElementById(ID);
+    if(btn) return btn;
+
+    btn = document.createElement('button');
+    btn.id = ID;
+    btn.type = 'button';
+    btn.setAttribute('role','button');
+    btn.setAttribute('aria-pressed','false');
+    btn.setAttribute('title','Hold to advance');
+    btn.tabIndex = 0;
+    btn.className = '';
+
+    // progress overlay + label
+    const prog = document.createElement('span');
+    prog.className = 'ab-progress';
+    btn.appendChild(prog);
+
+    const label = document.createElement('span');
+    label.className = 'ab-label';
+    label.textContent = 'Advance';
+    btn.appendChild(label);
+
+    document.body.appendChild(btn);
+    return btn;
+  }
+
+  // Attach long-press behavior to a button
+  function attachAdvance(btn, options){
+    options = options || {};
+    const holdDuration = Number(options.holdDuration || btn.getAttribute('data-hold-ms') || HOLD_MS_DEFAULT) || HOLD_MS_DEFAULT;
+    const moveTol = Number(options.moveTolerance || MOVE_TOLERANCE) || MOVE_TOLERANCE;
+    const progressEl = btn.querySelector('.ab-progress');
+
+    let pointerId = null, startX=0, startY=0, timer=null, isHolding=false;
+
+    function startHold(px, py, pid){
+      if(isHolding) return;
+      isHolding = true;
+      pointerId = pid == null ? null : pid;
+      startX = px; startY = py;
+      btn.classList.add('holding');
+      btn.setAttribute('aria-pressed','true');
+      progressEl.style.transition = 'width ' + holdDuration + 'ms linear';
+      // small allow for transition to apply
+      setTimeout(()=>{ progressEl.style.width = '100%'; }, 10);
+      timer = setTimeout(()=>{ completeHold(); }, holdDuration);
+      try{ if(navigator.vibrate) navigator.vibrate(8); }catch(e){}
+    }
+
+    function cancelHold(){
+      if(!isHolding) return;
+      isHolding = false;
+      pointerId = null;
+      clearTimeout(timer); timer = null;
+      progressEl.style.transition = 'width 160ms linear';
+      progressEl.style.width = '0%';
+      btn.classList.remove('holding');
+      btn.setAttribute('aria-pressed','false');
+    }
+
+    function completeHold(){
+      // Reset visuals first
+      cancelHold();
+      // determine URL: prefer data-longpress-url, then window.nextPage, then '/'
+      const url = btn.getAttribute('data-longpress-url') || window.nextPage || options.url || '/';
+      // Dispatch custom event so page can intercept
+      const ev = new CustomEvent('advanceActivated', { detail: { url: url, source: 'advance-button' }, bubbles: true, cancelable: true });
+      const prevented = !btn.dispatchEvent(ev);
+      if(prevented) {
+        // navigation canceled by listener
+        return;
+      }
+      // Navigate
+      try{ window.location.href = url; }catch(e){ console.error('advance navigation failed', e); }
+    }
+
+    // Pointer handlers
+    btn.addEventListener('pointerdown', function(e){
+      if(e.isPrimary === false) return;
+      if(e.button && e.button !== 0) return;
+      try{ btn.setPointerCapture && btn.setPointerCapture(e.pointerId); }catch(_){}
+      startHold(e.clientX, e.clientY, e.pointerId);
+      e.preventDefault();
+    }, { passive: false });
+
+    btn.addEventListener('pointermove', function(e){
+      if(!isHolding) return;
+      const dx = Math.abs(e.clientX - startX), dy = Math.abs(e.clientY - startY);
+      if(Math.hypot(dx,dy) > moveTol) cancelHold();
+    }, { passive: true });
+
+    btn.addEventListener('pointerup', function(e){
+      if(!isHolding) return;
+      try{ btn.releasePointerCapture && btn.releasePointerCapture(e.pointerId); }catch(_){}
+      if(timer){ clearTimeout(timer); timer = null; }
+      cancelHold();
+    }, { passive: true });
+
+    btn.addEventListener('pointercancel', function(){ cancelHold(); });
+
+    // Keyboard support: Space / Enter
+    let keyTimer = null, keyStart = 0;
+    btn.addEventListener('keydown', function(e){
+      if(e.code === 'Space' || e.key === ' ' || e.key === 'Enter'){
+        if(keyTimer) return;
+        e.preventDefault();
+        btn.classList.add('holding');
+        progressEl.style.transition = 'width ' + holdDuration + 'ms linear';
+        setTimeout(()=> { progressEl.style.width = '100%'; }, 10);
+        keyStart = performance.now();
+        keyTimer = setTimeout(()=> { keyTimer = null; completeHold(); }, holdDuration);
+      }
+    });
+    btn.addEventListener('keyup', function(e){
+      if((e.code === 'Space' || e.key === ' ' || e.key === 'Enter') && keyTimer){
+        clearTimeout(keyTimer); keyTimer = null;
+        progressEl.style.transition = 'width 160ms linear';
+        progressEl.style.width = '0%';
+        btn.classList.remove('holding');
+        e.preventDefault();
+      }
+    });
+
+    // clean up on page hide/blur
+    window.addEventListener('pagehide', cancelHold);
+    window.addEventListener('blur', cancelHold);
+  }
+
+  // DOM ready: create button and attach
+  function init(){
+    const btn = ensureButton();
+    attachAdvance(btn, {});
+    // If page already set a data-longpress-url earlier, it's used; otherwise window.nextPage applies.
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function ondom(){ document.removeEventListener('DOMContentLoaded', ondom); init(); });
+  } else {
+    init();
+  }
+
+})();
 </script>
+  
 
-<!-- Include the advance-button script you already added to js/ -->
-<script src="/CUseeme/js/advance-button.js"></script>
-
-<!-- Optional: set a data-longpress-url on the injected button after script loads
-     (only needed if you prefer data attribute over window.nextPage) -->
-<script>
-  document.addEventListener('DOMContentLoaded', function(){
-    // Example: override for this page only:
-    const btn = document.getElementById('advanceButtonGlobal') || document.getElementById('advanceDiv');
-    if(btn) btn.setAttribute('data-longpress-url', '/CUseeme/'); // change as needed
-  });
-</script>
-
-<!-- Simple noscript fallback (visible when JS disabled) -->
-<noscript>
-  <div style="position:fixed;right:16px;bottom:16px;z-index:10020;">
-    <a href="/CUseeme/" style="display:inline-block;padding:8px 16px;border-radius:24px;background:#e9ff32;color:#273a22;font-family:monospace;text-decoration:none;">
-      Advance
-    </a>
-  </div>
-</noscript>
 
   </body>
 </html>
