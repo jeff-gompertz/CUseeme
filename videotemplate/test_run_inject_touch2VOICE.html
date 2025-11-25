@@ -293,11 +293,61 @@
     document.getElementById('hudHeader').addEventListener('click',()=>showHUD(currentHUD + 1));
     updateHUDLabel();
   </script>
+  
+<script>
+(function() {
+  const input = document.getElementById('input');
+  const micBtn = document.getElementById('btnMic');
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    if(micBtn) micBtn.style.display = 'none';
+    console.log("Voice-to-text not supported in this browser.");
+    return;
+  }
+  let rec = new SR();
+  rec.lang = "en-US";
+  rec.continuous = false;
+  rec.interimResults = true;
+  let interim = "";
+  rec.onresult = function(evt) {
+    let final = "";
+    for(let i=evt.resultIndex; i<evt.results.length; ++i) {
+      const txt = evt.results[i][0].transcript;
+      if(evt.results[i].isFinal)
+        final += txt;
+      else
+        interim = txt;
+    }
+    if(input) input.value = interim || final;
+    if(final) {
+      input.value = final;
+      interim = "";
+      // 🚀 AUTO-SUBMIT after final speech:
+      if(typeof handleSubmit === 'function'){
+        handleSubmit(final);
+      }
+    }
+  };
+  rec.onerror = function(e) {
+    if(input) input.placeholder = "Voice error";
+    micBtn.disabled = false;
+    console.log("SpeechRecognition error:", e.error);
+  };
+  micBtn && micBtn.addEventListener('click', function() {
+    micBtn.disabled = true;
+    if(input) input.focus();
+    try { rec.abort(); } catch(e){}
+    try { rec.start(); } catch(e){}
+    micBtn.disabled = false;
+  });
+})();
+</script>
 
+
+  
   <!-- VOICE TO TEXT: Minimal mic integration -->
-  <script>
   // --- VOICE TO TEXT FOR #input ---
-  (function() {
+ /* (function() {
     const input = document.getElementById('input');
     const micBtn = document.getElementById('btnMic');
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -340,8 +390,7 @@
       try { rec.start(); } catch(e){}
       micBtn.disabled = false;
     });
-  })();
-  </script>
+  })(); */
 
   <!-- Your Inline Advance Button (unchanged) -->
   <!-- ...You can keep your advance button code here if you wish... -->
