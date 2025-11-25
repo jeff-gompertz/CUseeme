@@ -160,7 +160,7 @@
 
     function makeMiniWindow({x=180,y=320}={}) {
   // Remove this line for full control of x:
-  // if(window.innerWidth < 700 && x > 20) x = 20;
+  // if(window.innerWidth < 700 & x > 20) x = 20;
   winCount++;
   const el = document.createElement('div');
   el.className = 'miniWin';
@@ -217,7 +217,7 @@ const btnCloseAll = document.getElementById('btnCloseAll');
 btnSpawn5.addEventListener('click', () => {
   if (spawnUsed) return addTicker('spawn blocked: already active');
   spawnUsed = true;
-  let startX = 200 + Math.random() * 40, startY = 300 + Math.random() * 40;
+  let startX = 180 + Math.random() * 40, startY = 300 + Math.random() * 40;
   // On mobile, still keep a decently large offset
   if (window.innerWidth < 700) startX = 40;
   for (let i = 0; i < 5; i++) makeMiniWindow({x: startX + i * 26, y: startY + i * 18});
@@ -231,7 +231,7 @@ btnCloseAll.addEventListener('click', () => {
 
 // Initial spawn mini windows
 (async () => {
-  let startX = 160, startY = 180;
+  let startX = 140, startY = 180;
   if (window.innerWidth < 700) startX = 60;
   for (let i = 0; i < 5; i++) makeMiniWindow({x: startX + i * 28, y: startY + i * 18});
 })();
