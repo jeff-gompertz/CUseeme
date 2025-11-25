@@ -157,98 +157,101 @@
       if(currentSource === "video")  return videoStream;
       return gridStream;
     }
-    function makeMiniWindow({x=200,y=300}={}){
-      if(window.innerWidth < 700 && x > 20) x = 20;
-      winCount++;
-      const el=document.createElement('div');
-      el.className='miniWin';
-      el.style.left=x+'px';
-      el.style.top=y+'px';
-      el.innerHTML=`
-        <div class="miniBar">
-          <div class="miniTitle">window_${String(winCount).padStart(4,'0')}</div>
-          <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
-        </div>
-        <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>`;
-      document.body.appendChild(el);
-      const v=el.querySelector('.miniVideo');
-      v.srcObject = getActiveSourceStream();
-      v.play();
 
-      const bar=el.querySelector('.miniBar');
-      let dragging=false,sx=0,sy=0,sl=0,st=0;
-      function start(e){
-        dragging=true;
-        const r=el.getBoundingClientRect(); sl=r.left; st=r.top;
-        sx=(e.touches?e.touches[0].clientX:e.clientX);
-        sy=(e.touches?e.touches[0].clientY:e.clientY);
-        document.addEventListener('pointermove',move);
-        document.addEventListener('pointerup',stop);
-        document.addEventListener('touchmove',move,{passive:false});
-        document.addEventListener('touchend',stop);
-      }
-      function move(e){
-        if(!dragging)return;
-        const cx=(e.touches?e.touches[0].clientX:e.clientX);
-        const cy=(e.touches?e.touches[0].clientY:e.clientY);
-        el.style.left=(sl+(cx-sx))+'px';
-        el.style.top=(st+(cy-sy))+'px';
-        e.preventDefault?.();
-      }
-      function stop(){
-        dragging=false;
-        document.removeEventListener('pointermove',move);
-        document.removeEventListener('pointerup',stop);
-        document.removeEventListener('touchmove',move);
-        document.removeEventListener('touchend',stop);
-      }
-      bar.addEventListener('pointerdown',start);
-      bar.addEventListener('touchstart',start,{passive:false});
-      return el;
-    }
-    const btnSpawn5=document.getElementById('btnSpawn5');
-    const btnCloseAll=document.getElementById('btnCloseAll');
-    btnSpawn5.addEventListener('click',()=>{
-      if(spawnUsed)return addTicker('spawn blocked: already active');
-      spawnUsed=true;
-      let startX=170+Math.random()*40, startY=300+Math.random()*40;
-      if(window.innerWidth < 700) startX = 20;
-      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*26, y:startY+i*18});
-      addTicker('spawned 5 windows');
-    });
-    btnCloseAll.addEventListener('click',()=>{
-      document.querySelectorAll('.miniWin').forEach(n=>n.remove());
-      winCount=0; spawnUsed=false;
-      addTicker('all windows closed');
-    });
+    function makeMiniWindow({x=200,y=300}={}) {
+  // Remove this line for full control of x:
+  // if(window.innerWidth < 700 && x > 20) x = 20;
+  winCount++;
+  const el = document.createElement('div');
+  el.className = 'miniWin';
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  el.innerHTML = `
+    <div class="miniBar">
+      <div class="miniTitle">window_${String(winCount).padStart(4,'0')}</div>
+      <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+    </div>
+    <div class="miniInner">
+      <video class="miniVideo" autoplay muted playsinline></video>
+    </div>`;
+  document.body.appendChild(el);
+  const v = el.querySelector('.miniVideo');
+  v.srcObject = getActiveSourceStream();
+  v.play();
 
-    document.getElementById('btnReverseCam').addEventListener('click',async()=>{
-      facing=(facing==='user')?'environment':'user';
-      await startCamera();
-    });
+  const bar = el.querySelector('.miniBar');
+  let dragging = false, sx = 0, sy = 0, sl = 0, st = 0;
+  function start(e) {
+    dragging = true;
+    const r = el.getBoundingClientRect(); sl = r.left; st = r.top;
+    sx = (e.touches ? e.touches[0].clientX : e.clientX);
+    sy = (e.touches ? e.touches[0].clientY : e.clientY);
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', stop);
+    document.addEventListener('touchmove', move, {passive:false});
+    document.addEventListener('touchend', stop);
+  }
+  function move(e) {
+    if (!dragging) return;
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+    el.style.left = (sl + (cx - sx)) + 'px';
+    el.style.top = (st + (cy - sy)) + 'px';
+    e.preventDefault?.();
+  }
+  function stop() {
+    dragging = false;
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', stop);
+    document.removeEventListener('touchmove', move);
+    document.removeEventListener('touchend', stop);
+  }
+  bar.addEventListener('pointerdown', start);
+  bar.addEventListener('touchstart', start, {passive:false});
+  return el;
+}
 
-    // Initial spawn mini windows
-    (async()=>{
-      let startX = 150, startY = 170;
-      if(window.innerWidth < 700) startX = 20;
-      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*22, y:startY+i*18});
-    })();
-    // HUD panel switch (single panel preserved)
-    const huds = [...document.querySelectorAll('.hud-panel')];
-    const hudIndex = document.getElementById('hudIndex');
-    let currentHUD = 0;
-    function updateHUDLabel(){
-      hudIndex.textContent = `HUD ${currentHUD + 1} / ${huds.length}`;
-    }
-    function showHUD(i){
-      huds[currentHUD].classList.remove('active');
-      currentHUD = (i + huds.length) % huds.length;
-      huds[currentHUD].classList.add('active');
-      updateHUDLabel();
-      addTicker(`HUD switched → ${currentHUD + 1}`);
-    }
-    document.getElementById('hudHeader').addEventListener('click',()=>showHUD(currentHUD + 1));
-    updateHUDLabel();
+// "Spawn 5" button handler
+const btnSpawn5 = document.getElementById('btnSpawn5');
+const btnCloseAll = document.getElementById('btnCloseAll');
+btnSpawn5.addEventListener('click', () => {
+  if (spawnUsed) return addTicker('spawn blocked: already active');
+  spawnUsed = true;
+  let startX = 220 + Math.random() * 40, startY = 300 + Math.random() * 40;
+  // On mobile, still keep a decently large offset
+  if (window.innerWidth < 700) startX = 60;
+  for (let i = 0; i < 5; i++) makeMiniWindow({x: startX + i * 32, y: startY + i * 18});
+  addTicker('spawned 5 windows');
+});
+btnCloseAll.addEventListener('click', () => {
+  document.querySelectorAll('.miniWin').forEach(n => n.remove());
+  winCount = 0; spawnUsed = false;
+  addTicker('all windows closed');
+});
+
+// Initial spawn mini windows
+(async () => {
+  let startX = 180, startY = 170;
+  if (window.innerWidth < 700) startX = 60;
+  for (let i = 0; i < 5; i++) makeMiniWindow({x: startX + i * 28, y: startY + i * 18});
+})();
+
+const huds = [...document.querySelectorAll('.hud-panel')];
+const hudIndex = document.getElementById('hudIndex');
+let currentHUD = 0;
+function updateHUDLabel() {
+  hudIndex.textContent = `HUD ${currentHUD + 1} / ${huds.length}`;
+}
+function showHUD(i) {
+  huds[currentHUD].classList.remove('active');
+  currentHUD = (i + huds.length) % huds.length;
+  huds[currentHUD].classList.add('active');
+  updateHUDLabel();
+  addTicker(`HUD switched → ${currentHUD + 1}`);
+}
+document.getElementById('hudHeader').addEventListener('click', () => showHUD(currentHUD + 1));
+updateHUDLabel();
+   
   </script>
 </body>
 </html>
