@@ -158,7 +158,7 @@
       return gridStream;
     }
 
-    function makeMiniWindow({x=200,y=300}={}) {
+    function makeMiniWindow({x=180,y=320}={}) {
   // Remove this line for full control of x:
   // if(window.innerWidth < 700 && x > 20) x = 20;
   winCount++;
@@ -220,7 +220,7 @@ btnSpawn5.addEventListener('click', () => {
   let startX = 220 + Math.random() * 40, startY = 300 + Math.random() * 40;
   // On mobile, still keep a decently large offset
   if (window.innerWidth < 700) startX = 60;
-  for (let i = 0; i < 5; i++) makeMiniWindow({x: startX + i * 32, y: startY + i * 18});
+  for (let i = 0; i < 5; i++) makeMiniWindow({x: startX + i * 26, y: startY + i * 18});
   addTicker('spawned 5 windows');
 });
 btnCloseAll.addEventListener('click', () => {
@@ -231,7 +231,7 @@ btnCloseAll.addEventListener('click', () => {
 
 // Initial spawn mini windows
 (async () => {
-  let startX = 180, startY = 170;
+  let startX = 160, startY = 180;
   if (window.innerWidth < 700) startX = 60;
   for (let i = 0; i < 5; i++) makeMiniWindow({x: startX + i * 28, y: startY + i * 18});
 })();
