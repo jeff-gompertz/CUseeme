@@ -27,7 +27,7 @@
     #ticker{position:fixed;left:8px;bottom:14px;z-index:900;width:90vw;max-width:700px;max-height:45vh;display:flex;flex-direction:column-reverse;overflow:hidden;color:var(--ticker);font-size:16px;line-height:1.22;}
     .tline{opacity:.95;margin:0;animation:fadeIn .6s ease;}
     @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-   @media (max-width:430px) {
+   @media (max-width:500px@) {
   #hudWrapper, .miniWin {
     max-width:99vw!important;
     padding:2px 2px!important;
@@ -157,7 +157,7 @@
       if(currentSource === "video")  return videoStream;
       return gridStream;
     }
-    function makeMiniWindow({x=150,y=300}={}){
+    function makeMiniWindow({x=200,y=300}={}){
       if(window.innerWidth < 700 && x > 20) x = 20;
       winCount++;
       const el=document.createElement('div');
@@ -229,7 +229,7 @@
 
     // Initial spawn mini windows
     (async()=>{
-      let startX = 100, startY = 170;
+      let startX = 150, startY = 170;
       if(window.innerWidth < 700) startX = 20;
       for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*22, y:startY+i*18});
     })();
