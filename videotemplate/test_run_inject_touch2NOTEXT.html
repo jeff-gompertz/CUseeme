@@ -27,11 +27,23 @@
     #ticker{position:fixed;left:8px;bottom:14px;z-index:900;width:90vw;max-width:700px;max-height:45vh;display:flex;flex-direction:column-reverse;overflow:hidden;color:var(--ticker);font-size:16px;line-height:1.22;}
     .tline{opacity:.95;margin:0;animation:fadeIn .6s ease;}
     @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-    @media (max-width:700px){
-      #hudWrapper{left:4vw!important;max-width:92vw!important;}
-      .miniWin{left:4vw!important;right:auto!important;max-width:92vw!important;width:92vw!important;}
-      #ticker{font-size:13px; padding-right:30px;}
-    }
+   @media (max-width:500px) {
+  #hudWrapper, .miniWin {
+    max-width:99vw!important;
+    left:1vw!important;
+    padding:2px 2px!important;
+  }
+  #ticker {
+    font-size:12px;
+    left:2vw;
+    padding-right:18px;
+  }
+}
+/* Old/reference:
+   #hudWrapper{left:4vw!important;max-width:92vw!important;}
+   .miniWin{left:4vw!important;right:auto!important;max-width:92vw!important;width:92vw!important;}
+   #ticker{font-size:13px; padding-right:30px;}
+*/
     .source-toggle-row{margin-bottom:10px;}
   </style>
 </head>
