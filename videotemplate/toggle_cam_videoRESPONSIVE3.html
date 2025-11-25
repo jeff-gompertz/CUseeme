@@ -348,19 +348,407 @@
     updateHUDLabel();
     
   </script>
+<!--
+  Inline Advance Button — Highly commented version
+  Paste this entire block just before your closing </body>.
+  Edit the values noted below to change URL, hold time, and colors.
+-->
 
-      <script>
-  // Set this to the URL or HTML file you want to go to next
-  var nextPage = "https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch6.html"; // Example: "slide2.html", "my-next-design.html", etc.
+<!-- ===== BUTTON (edit attributes here) ===== -->
+<!--
+  data-longpress-url : destination URL when hold completes (change this)
+  data-hold-ms       : optional per-button override for hold duration in milliseconds (e.g. "1200")
+-->
+<button id="advanceButtonGlobal"
+        type="button"
+        role="button"
+        aria-pressed="false"
+        title="Hold to advance"
+        tabindex="0"
+        data-longpress-url="https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch7.html"
+        <!-- Example override: data-hold-ms="1200" -->
+>
+  <!-- Visual progress overlay (fills left→right while holding) -->
+  <span class="ab-progress" aria-hidden="true"></span>
 
-  // Listen for any click or touch on the document
-  document.addEventListener("click", function() {
-    window.location.href = nextPage;b
-  });
+  <!-- Visible label on the button -->
+  <span class="ab-label">Advance</span>
+</button>
 
-  document.addEventListener("touchend", function() {
-    window.location.href = nextPage;
-  });
+<style>
+/* ===== CUSTOMIZABLE COLORS & SIZING (change these variables) =====
+   - --ab-bg-start / --ab-bg-end — background gradient of the button
+   - --ab-fore — label color
+   - --ab-progress — color used for the progress overlay (can be subtle)
+   - --ab-width / --ab-height — dimensions (useful for quick resizing)
+*/
+:root {
+  --ab-bg-start: rgba(255,255,255,0.98);       /* top of button gradient */
+  --ab-bg-end:   rgba(240,250,240,0.92);       /* bottom of button gradient */
+  --ab-fore:     #132030;                      /* label color */
+  --ab-progress: linear-gradient(90deg, rgba(255,74,74,0.14), rgba(255,120,40,0.08));
+  --ab-width:    min(84px, 40vw);
+  --ab-height:   36px;
+}
+
+/* ================== BUTTON CORE STYLE ================== */
+/* A few iOS-specific and cross-browser properties are critical to avoid selection/callouts:
+   - -webkit-touch-callout: none  -> prevents "Look Up / Search" on iOS
+   - user-select / -webkit-user-select -> prevents selection handles
+   - touch-action: none -> helps ensure pointer events are delivered to the element
+   - -webkit-tap-highlight-color: transparent -> remove tap flash
+*/
+#advanceButtonGlobal {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10020;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--ab-height);
+  min-width: var(--ab-width);
+  padding: 7px 22px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, var(--ab-bg-start), var(--ab-bg-end));
+  color: var(--ab-fore);
+  font-family: "VT323", monospace, system-ui;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+
+  /* Prevent selection / callouts on iOS and other browsers */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;     /* remove iOS callout (Look Up/Search) */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;        /* avoid native iOS chrome */
+  appearance: none;
+  -webkit-user-drag: none;
+  touch-action: none;
+
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  border: 1px solid rgba(255,255,255,0.06);
+  overflow: visible;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+/* Responsive smaller size */
+@media (max-width: 540px) {
+  #advanceButtonGlobal {
+    right: 8px;
+    bottom: 8px;
+    padding: 6px 12px;
+    min-width: 64px;
+    height: 30px;
+    font-size: 12px;
+  }
+}
+
+/* Visual state applied while holding */
+#advanceButtonGlobal.holding {
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.18);
+}
+
+/* Progress overlay: change --ab-progress to tweak color / gradient.
+   If you prefer no visible progress, set background: transparent;
+*/
+#advanceButtonGlobal .ab-progress {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background: var(--ab-progress);
+  transition: width 0s linear; /* JS will set the duration to match hold time */
+}
+
+/* Label text — keep it non-selectable */
+#advanceButtonGlobal .ab-label {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  padding: 0 6px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Accessible focus styling (visible but not the iOS selection brackets) */
+#advanceButtonGlobal:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(0,208,255,0.12), 0 8px 22px rgba(0,0,0,0.18);
+}
+
+/* Remove Firefox inner focus padding so it looks consistent */
+#advanceButtonGlobal::-moz-focus-inner { border: 0; }
+</style>
+
+<script>
+/* Highly commented JS
+   Where to change:
+   - Default hold time: HOLD_MS_DEFAULT (ms). Keep at 900 if you want 0.9s default.
+   - Per-button override: set data-hold-ms on the <button> element (string integer, e.g. "1200").
+   - Navigation URL: data-longpress-url on the <button>.
+   - If you need SPA navigation (history.pushState), edit the completeHold() function where window.location.href is used.
+*/
+
+(function(){
+  // ====== CONFIG ======
+  const ID = 'advanceButtonGlobal';
+  const HOLD_MS_DEFAULT = 900; // Default hold time in milliseconds (900 = 0.9s)
+  const MOVE_TOLERANCE_DEFAULT = 12; // px — how far the finger may move before cancel
+
+  // Helper: create the button if page author omitted it (keeps snippet idempotent)
+  function ensureButton(){
+    let btn = document.getElementById(ID);
+    if(btn) return btn;
+    // Create a simple fallback button; note: you probably already included the <button> above
+    btn = document.createElement('button');
+    btn.id = ID;
+    btn.type = 'button';
+    btn.setAttribute('role','button');
+    btn.setAttribute('aria-pressed','false');
+    btn.setAttribute('title','Hold to advance');
+    btn.tabIndex = 0;
+    btn.innerHTML = '<span class="ab-progress" aria-hidden="true"></span><span class="ab-label">Advance</span>';
+    // fallback/default URL (override via data-longpress-url)
+    btn.setAttribute('data-longpress-url', '/');
+    document.body.appendChild(btn);
+    return btn;
+  }
+
+  // Attach long-press behavior
+  function attachAdvance(btn, options){
+    options = options || {};
+
+    // Compute hold duration:
+    // Priority order:
+    // 1) options.holdDuration (if caller sets it)
+    // 2) data-hold-ms on the button (per-button override)
+    // 3) script constant HOLD_MS_DEFAULT
+    const holdDuration = Number(options.holdDuration || btn.getAttribute('data-hold-ms') || HOLD_MS_DEFAULT) || HOLD_MS_DEFAULT;
+    const moveTol = Number(options.moveTolerance || MOVE_TOLERANCE_DEFAULT) || MOVE_TOLERANCE_DEFAULT;
+
+    // Get the progress overlay element used to show visual progress
+    const progressEl = btn.querySelector('.ab-progress');
+
+    // State variables
+    let pointerId = null;         // tracked pointer id (null for keyboard)
+    let startX = 0, startY = 0;   // start coordinates for move-cancel detection
+    let timer = null;             // hold timer for pointer/touch
+    let keyTimer = null;          // hold timer for keyboard
+    let isHolding = false;        // whether we're currently in "holding" state
+
+    // Start hold (pointer/touch) — px/py are client coordinates, pid is pointer identifier
+    function startHold(px, py, pid){
+      if(isHolding) return; // ignore if already holding
+      isHolding = true;
+      pointerId = (pid == null) ? null : pid;
+      startX = px; startY = py;
+
+      // update UI
+      btn.classList.add('holding');
+      btn.setAttribute('aria-pressed','true');
+
+      // Make the progress overlay animate for the same duration as the hold
+      // Set transition duration dynamically so the visual always matches the timer
+      progressEl.style.transition = 'width ' + holdDuration + 'ms linear';
+      // set width a tick later to ensure transition takes effect
+      setTimeout(()=>{ progressEl.style.width = '100%'; }, 10);
+
+      // Start the timer that completes the action
+      timer = setTimeout(()=>{ timer = null; completeHold(); }, holdDuration);
+
+      // optional haptic
+      try{ if(navigator.vibrate) navigator.vibrate(8); }catch(e){}
+    }
+
+    // Cancel an in-progress hold (pointer or keyboard)
+    function cancelHold(){
+      if(!isHolding) return;
+      isHolding = false;
+      pointerId = null;
+
+      // Clear any timeout(s)
+      if(timer){ clearTimeout(timer); timer = null; }
+      if(keyTimer){ clearTimeout(keyTimer); keyTimer = null; }
+
+      // Reset UI/animation quickly
+      progressEl.style.transition = 'width 160ms linear';
+      progressEl.style.width = '0%';
+      btn.classList.remove('holding');
+      btn.setAttribute('aria-pressed','false');
+    }
+
+    // Complete hold — navigation or custom behavior
+    function completeHold(){
+      // Reset visuals first
+      cancelHold();
+
+      // Compute URL to navigate to:
+      // Priority: data-longpress-url on button, then window.nextPage global, then options.url, then fallback '/'
+      const url = btn.getAttribute('data-longpress-url') || window.nextPage || options.url || '/';
+
+      // Dispatch a cancellable custom event so page scripts can intercept or cancel navigation:
+      const ev = new CustomEvent('advanceActivated', { detail: { url: url, source: 'advance-button' }, bubbles: true, cancelable: true });
+      const prevented = !btn.dispatchEvent(ev);
+      if(prevented) {
+        // caller canceled action, so do nothing
+        return;
+      }
+
+      // Default behavior: navigate to url.
+      // If you're building an SPA, replace this line with history.pushState or your router call.
+      try{ window.location.href = url; }catch(e){ console.error('advance navigation failed', e); }
+    }
+
+    // Prevent native context menu (extra safety for iOS long-press)
+    btn.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+
+    // ---- PointerEvent path for modern browsers ----
+    if(window.PointerEvent){
+      btn.addEventListener('pointerdown', function(e){
+        // Only track primary pointer and left-click (button === 0)
+        if(e.isPrimary === false) return;
+        if(e.button && e.button !== 0) return;
+        try{ btn.setPointerCapture && btn.setPointerCapture(e.pointerId); }catch(_){}
+        startHold(e.clientX, e.clientY, e.pointerId);
+        e.preventDefault(); // prevent default browser gestures
+      }, { passive: false });
+
+      btn.addEventListener('pointermove', function(e){
+        if(!isHolding) return;
+        // Ensure only the pointer that started the hold can cancel it
+        if(pointerId !== null && e.pointerId !== pointerId) return;
+        const dx = Math.abs(e.clientX - startX), dy = Math.abs(e.clientY - startY);
+        if(Math.hypot(dx,dy) > moveTol) cancelHold();
+      }, { passive: true });
+
+      btn.addEventListener('pointerup', function(e){
+        if(!isHolding) return;
+        if(pointerId !== null && e.pointerId !== pointerId) return;
+        try{ btn.releasePointerCapture && btn.releasePointerCapture(e.pointerId); }catch(_){}
+        if(timer){ clearTimeout(timer); timer = null; }
+        cancelHold();
+      }, { passive: true });
+
+      btn.addEventListener('pointercancel', function(e){
+        if(pointerId !== null && e.pointerId !== pointerId) return;
+        cancelHold();
+      });
+    } else {
+      // ---- Fallbacks for older browsers: mouse + touch ----
+
+      // Mouse: start hold on mousedown
+      btn.addEventListener('mousedown', function(e){
+        if(e.button !== 0) return;
+        startHold(e.clientX, e.clientY, 'mouse');
+        e.preventDefault();
+      }, { passive: false });
+
+      // Track mousemove/up globally so the user can move outside the button
+      function onMouseMove(e){
+        if(!isHolding) return;
+        const dx = Math.abs(e.clientX - startX), dy = Math.abs(e.clientY - startY);
+        if(Math.hypot(dx,dy) > moveTol) cancelHold();
+      }
+      function onMouseUp(e){
+        if(!isHolding) return;
+        if(timer){ clearTimeout(timer); timer = null; }
+        cancelHold();
+      }
+      document.addEventListener('mousemove', onMouseMove, { passive: true });
+      document.addEventListener('mouseup', onMouseUp, { passive: true });
+
+      // Touch: start hold on touchstart
+      btn.addEventListener('touchstart', function(e){
+        // Use the first changed touch as the tracked touch
+        const t = e.changedTouches[0];
+        if(!t) return;
+        startHold(t.clientX, t.clientY, t.identifier);
+        e.preventDefault(); // prevent native gestures
+      }, { passive: false });
+
+      // Track touchmove/end globally
+      document.addEventListener('touchmove', function(e){
+        if(!isHolding) return;
+        for(let i=0;i<e.changedTouches.length;i++){
+          const t = e.changedTouches[i];
+          if(t.identifier === pointerId){
+            const dx = Math.abs(t.clientX - startX), dy = Math.abs(t.clientY - startY);
+            if(Math.hypot(dx,dy) > moveTol) cancelHold();
+            break;
+          }
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchend', function(e){
+        if(!isHolding) return;
+        for(let i=0;i<e.changedTouches.length;i++){
+          const t = e.changedTouches[i];
+          if(t.identifier === pointerId){
+            if(timer){ clearTimeout(timer); timer = null; }
+            cancelHold();
+            break;
+          }
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchcancel', function(){ if(isHolding) cancelHold(); }, { passive: true });
+    }
+
+    // ---- Keyboard support: hold Space or Enter ----
+    btn.addEventListener('keydown', function(e){
+      const isSpace = (e.code === 'Space' || e.key === ' ');
+      const isEnter = (e.key === 'Enter');
+      if(!isSpace && !isEnter) return;
+      if(keyTimer) return; // already timing
+      e.preventDefault(); // avoid page scroll on space
+      btn.classList.add('holding');
+      progressEl.style.transition = 'width ' + holdDuration + 'ms linear';
+      setTimeout(()=> { progressEl.style.width = '100%'; }, 10);
+      keyTimer = setTimeout(()=> { keyTimer = null; completeHold(); }, holdDuration);
+    });
+
+    btn.addEventListener('keyup', function(e){
+      const isSpace = (e.code === 'Space' || e.key === ' ');
+      const isEnter = (e.key === 'Enter');
+      if((isSpace || isEnter) && keyTimer){
+        clearTimeout(keyTimer); keyTimer = null;
+        progressEl.style.transition = 'width 160ms linear';
+        progressEl.style.width = '0%';
+        btn.classList.remove('holding');
+        e.preventDefault();
+      }
+    });
+
+    // Clean up on blur/pagehide to avoid stuck UI when the app is backgrounded
+    window.addEventListener('pagehide', cancelHold);
+    window.addEventListener('blur', cancelHold);
+  }
+
+  // Initialize: ensure button exists and attach behavior
+  function init(){
+    const btn = ensureButton();
+    attachAdvance(btn, {});
+  }
+
+  // Run init when DOM is ready
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function ondom(){
+      document.removeEventListener('DOMContentLoaded', ondom);
+      init();
+    });
+  } else {
+    init();
+  }
+})();
 </script>
 
   
