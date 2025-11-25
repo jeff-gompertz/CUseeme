@@ -3,9 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CUSeeMe Modular v1.7 — HUD Toggle Demo With Source Switch</title>
+  <title>CUSeeMe Modular v1.7 — HUD Toggle Demo With Source Switch + Voice to Text</title>
   <style>
-    :root {--hud-bg: transparent;--ticker: #ff3a2f;}
+    :root {
+      --hud-bg: transparent;
+      --ticker: #ff3a2f;
+    }
     html,body{height:100%;margin:0;background:transparent;font-family:"VT323", ui-monospace, Menlo, Consolas, monospace;color:#222;}
     #bgVideo {position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;z-index:-2;}
     #gridCanvas {position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:-1;display:block;}
@@ -29,9 +32,9 @@
       padding:10px 16px;background:rgba(240,250,255,.55);border:1px solid rgba(255,255,255,.6);
       border-radius:12px;box-shadow:0 8px 24px rgba(0,30,60,.18);}
     #input{background:transparent;border:none;outline:none;font:inherit;font-size:18px;color:#111;width:24ch;}
-    #caret{width:.5ch;height:1.2em;background:#222;animation:blink 1s step-end infinite;}
     #btnMic{font-size:19px;padding:7px 11px;border-radius:8px;border:none;background:rgba(255,255,255,0.18);margin-left:8px;cursor:pointer;transition:background .18s;}
     #btnMic:active{background:#e9ff32;}
+    #caret{width:.5ch;height:1.2em;background:#222;animation:blink 1s step-end infinite;}
     @keyframes blink{50%{opacity:0}}
     @media (max-width:700px){.miniWin{left:4vw!important;right:auto!important;max-width:90vw!important;width:90vw!important;}}
     .source-toggle-row{margin-bottom:10px;}
@@ -82,7 +85,8 @@
   </div>
   <script>
     // === SOURCES ===
-    // Modular grid/camera logic unchanged...
+    // Modular logic untouched from your file—
+    // ... [Your entire HUD, miniwin, and core script as before] ...
     const gridCanvas = document.getElementById('gridCanvas');
     const gridCtx = gridCanvas.getContext('2d', { alpha: true });
     let DPR = Math.max(1, window.devicePixelRatio || 1);
@@ -110,9 +114,8 @@
       frame++;
       requestAnimationFrame(drawAbstractGrid);
     }
-    drawAbstractGrid();
 
-    // Camera, video, window logic unchanged
+    // Camera, background, mini windows, HUD, speak logic...
     const cameraMain = document.getElementById('cameraMain');
     let mediaStream = null;
     let facing = 'environment';
@@ -129,6 +132,7 @@
     }
 
     const bgVideo = document.getElementById("bgVideo");
+    drawAbstractGrid();
 
     let currentSource = "grid";
     document.getElementById('sourceSelect').addEventListener('change',async function(e){
@@ -137,6 +141,7 @@
         await startCamera();
       }
     });
+
     const gridStream = gridCanvas.captureStream(30);
     const videoStream = bgVideo.captureStream ? bgVideo.captureStream(30) : null;
 
@@ -206,6 +211,7 @@
       bar.addEventListener('touchstart',start,{passive:false});
       return el;
     }
+
     const btnSpawn5=document.getElementById('btnSpawn5');
     const btnCloseAll=document.getElementById('btnCloseAll');
     btnSpawn5.addEventListener('click',()=>{
@@ -258,18 +264,18 @@
       if(!t)return;
       addTicker('> '+t);
       input.value='';
-      // semanticRouter can be plugged in here in future!
-      // For now, regular chat only
       if(voiceOn)setTimeout(()=>speak('okay'),500);
     }
     input.addEventListener('keydown',e=>{
       if(e.key==='Enter'){e.preventDefault();handleSubmit(input.value);}
     });
+
     (async()=>{
       let startX = 100, startY = 170;
       if(window.innerWidth < 700) startX = 20;
       for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*22, y:startY+i*18});
     })();
+
     const huds = [...document.querySelectorAll('.hud-panel')];
     const hudIndex = document.getElementById('hudIndex');
     let currentHUD = 0;
@@ -287,56 +293,57 @@
     document.getElementById('hudHeader').addEventListener('click',()=>showHUD(currentHUD + 1));
     updateHUDLabel();
   </script>
-  <!-- VOICE TO TEXT: Minimal mic integration, auto-submit -->
-  <script>
-  // --- VOICE TO TEXT FOR #input, auto-submit to handleSubmit ---
-  (function() {
-    const input = document.getElementById('input');
-    const micBtn = document.getElementById('btnMic');
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      if(micBtn) micBtn.style.display = 'none';
-      console.log("Voice-to-text not supported in this browser.");
-      return;
+
+  <!-- VOICE TO TEXT: Minimal mic integration -->
+  // --- VOICE TO TEXT FOR #input ---
+
+<script>
+// --- CONTINUOUS VOICE TO TEXT (always-on after first gesture) ---
+(function() {
+  const input = document.getElementById('input');
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null;
+  if (!SR) {
+    if(document.getElementById('btnMic')) document.getElementById('btnMic').style.display = 'none';
+    console.log("Voice-to-text not supported in this browser.");
+    return;
+  }
+  rec = new SR();
+  rec.lang = "en-US";
+  rec.continuous = true; // <-- this is key!
+  rec.interimResults = true;
+
+  let interim = "";
+
+  rec.onresult = function(evt) {
+    let final = "";
+    for(let i=evt.resultIndex; i<evt.results.length; ++i) {
+      const txt = evt.results[i][0].transcript;
+      if(evt.results[i].isFinal)
+        final += txt;
+      else
+        interim = txt;
     }
-    let rec = new SR();
-    rec.lang = "en-US";
-    rec.continuous = false;
-    rec.interimResults = true;
-    let interim = "";
-    rec.onresult = function(evt) {
-      let final = "";
-      for(let i=evt.resultIndex; i<evt.results.length; ++i) {
-        const txt = evt.results[i][0].transcript;
-        if(evt.results[i].isFinal)
-          final += txt;
-        else
-          interim = txt;
+    if(input) input.value = interim || final;
+    if(final) {
+      input.value = final;
+      interim = "";
+      // AUTO-SUBMIT message to chat/ticker
+      if(typeof handleSubmit === 'function'){
+        handleSubmit(final);
       }
-      if(input) input.value = interim || final;
-      if(final) {
-        input.value = final;
-        interim = "";
-        // 🚀 AUTO-SUBMIT after final speech:
-        if(typeof handleSubmit === 'function'){
-          handleSubmit(final);
-        }
-      }
-    };
-    rec.onerror = function(e) {
-      if(input) input.placeholder = "Voice error";
-      micBtn.disabled = false;
-      console.log("SpeechRecognition error:", e.error);
-    };
-    micBtn && micBtn.addEventListener('click', function() {
-      micBtn.disabled = true;
-      if(input) input.focus();
-      try { rec.abort(); } catch(e){}
-      try { rec.start(); } catch(e){}
-      micBtn.disabled = false;
-    });
-  })();
-  </script>
-  <!-- Advance button & styles stay unchanged -->
+    }
+  };
+
+  rec.onerror = function(e) {
+    if(input) input.placeholder = "Voice error";
+    console.log("SpeechRecognition error:", e.error);
+  };
+
+  // --- Start mic recognition on first user gesture (mobile-friendly) ---
+  window.addEventListener("touchstart", ()=>{ try{ rec.start(); }catch(e){} }, {once:true});
+  window.addEventListener("mousedown", ()=>{ try{ rec.start(); }catch(e){} }, {once:true});
+})();
+</script>
 </body>
 </html>
