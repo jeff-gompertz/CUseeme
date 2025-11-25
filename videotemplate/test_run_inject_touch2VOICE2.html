@@ -1,1 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CUSeeMe Modular v1.7 — HUD Toggle Demo With Source Switch</title>
+  <style>
+    :root {--hud-bg: transparent;--ticker: #ff3a2f;}
+    html,body{height:100%;margin:0;background:transparent;font-family:"VT323", ui-monospace, Menlo, Consolas, monospace;color:#222;}
+    #bgVideo {position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;z-index:-2;}
+    #gridCanvas {position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:-1;display:block;}
+    #hudWrapper{position:fixed;top:12px;left:18px;z-index:100;}
+    .hud-row{display:flex;gap:12px;justify-content:space-between;}
+    .hud-btn{flex:1;font-family:"VT323",monospace;font-size:17px;color:#132030;
+      background:rgba(215,235,255,0.35);border:none;border-radius:10px;box-shadow:0 3px 6px rgba(0,0,0,0.08);
+      padding:10px 12px;cursor:pointer;transition:all .22s ease;}
+    .miniWin{position:absolute;width:66vw;max-width:380px;aspect-ratio:9/12;background:rgba(210,240,255,0.25);
+      border:1px solid rgba(255,255,255,0.55);border-radius:16px;backdrop-filter:blur(12px);
+      box-shadow:0 18px 40px rgba(0,0,0,0.25);overflow:hidden;cursor:grab;z-index:500;}
+    .miniBar{display:flex;align-items:center;justify-content:space-between;padding:4px 10px;height:26px;
+      background:rgba(255,255,255,0.18);font-size:12px;color:#222;user-select:none;}
+    .miniInner{position:relative;width:100%;height:calc(100% - 26px);}
+    .miniVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:black;}
+    #ticker{position:fixed;left:16px;bottom:14px;z-index:900;width:45vw;max-width:700px;max-height:50vh;display:flex;flex-direction:column-reverse;overflow:hidden;color:var(--ticker);font-size:18px;line-height:1.25;}
+    .tline{opacity:.95;margin:0;animation:fadeIn .6s ease;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    #promptWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:800;}
+    #promptBox{pointer-events:auto;display:flex;gap:10px;align-items:center;
+      padding:10px 16px;background:rgba(240,250,255,.55);border:1px solid rgba(255,255,255,.6);
+      border-radius:12px;box-shadow:0 8px 24px rgba(0,30,60,.18);}
+    #input{background:transparent;border:none;outline:none;font:inherit;font-size:18px;color:#111;width:24ch;}
+    #caret{width:.5ch;height:1.2em;background:#222;animation:blink 1s step-end infinite;}
+    #btnMic{font-size:19px;padding:7px 11px;border-radius:8px;border:none;background:rgba(255,255,255,0.18);margin-left:8px;cursor:pointer;transition:background .18s;}
+    #btnMic:active{background:#e9ff32;}
+    @keyframes blink{50%{opacity:0}}
+    @media (max-width:700px){.miniWin{left:4vw!important;right:auto!important;max-width:90vw!important;width:90vw!important;}}
+    .source-toggle-row{margin-bottom:10px;}
+  </style>
+</head>
+<body>
+  <!-- Fullscreen Video Background -->
+  <video id="bgVideo" autoplay muted loop playsinline>
+    <source src="/CUseeme/media/VideoObject.mp4" type="video/mp4" />
+  </video>
+  <canvas id="gridCanvas"></canvas>
+  <!-- Hidden camera video -->
+  <video id="cameraMain" autoplay muted playsinline style="display:none"></video>
 
+  <!-- [L1] HUD WRAPPER -->
+  <div id="hudWrapper">
+    <div class="source-toggle-row">
+      <label><b>Source:</b>
+        <select id="sourceSelect">
+          <option value="grid">Abstract Grid</option>
+          <option value="camera">Live Camera</option>
+          <option value="video">Background Video</option>
+        </select>
+      </label>
+    </div>
+    <div id="hudIndex">HUD 1 / 1</div>
+    <div id="hudShell">
+      <div id="hudHeader">Visual Source Demo</div>
+      <div id="hud1" class="hud-panel active">
+        <div class="hud-row">
+          <button class="hud-btn" id="btnSpawn5">➕ Spawn 5</button>
+          <button class="hud-btn" id="btnReverseCam">🔁 Reverse Cam</button>
+        </div>
+        <div class="hud-row">
+          <button class="hud-btn" id="btnVoice">🔊 Voice</button>
+          <button class="hud-btn" id="btnCloseAll">✕ Close All</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="ticker"></div>
+  <div id="promptWrap">
+    <div id="promptBox">
+      <div id="caret"></div>
+      <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" />
+      <button id="btnMic" type="button" title="Speak">🎤</button>
+    </div>
+  </div>
+  <script>
+    // === SOURCES ===
+    // Modular grid/camera logic unchanged...
+    const gridCanvas = document.getElementById('gridCanvas');
+    const gridCtx = gridCanvas.getContext('2d', { alpha: true });
+    let DPR = Math.max(1, window.devicePixelRatio || 1);
+    function resizeGrid(){
+      DPR = Math.max(1, window.devicePixelRatio || 1);
+      gridCanvas.width = Math.floor(window.innerWidth * DPR);
+      gridCanvas.height = Math.floor(window.innerHeight * DPR);
+      gridCanvas.style.width = window.innerWidth + 'px';
+      gridCanvas.style.height = window.innerHeight + 'px';
+      gridCtx.setTransform(DPR,0,0,DPR,0,0);
+    }
+    window.addEventListener('resize', resizeGrid); resizeGrid();
+
+    let frame = 0;
+    function drawAbstractGrid(){
+      gridCtx.clearRect(0,0,gridCanvas.width/DPR,gridCanvas.height/DPR);
+      for(let y=0;y<gridCanvas.height/DPR;y+=24){
+        for(let x=0;x<gridCanvas.width/DPR;x+=24){
+          const v = 0.5 + 0.38 * Math.sin(x*0.085 + frame*0.015) + 0.24*Math.cos(y*0.063 + frame*0.012);
+          const r = 190 + Math.floor(55*v + 33*Math.sin(frame/29+y*0.06));
+          gridCtx.fillStyle = `rgb(${r},${r},${r})`;
+          gridCtx.fillRect(x,y,22,22);
+        }
+      }
+      frame++;
+      requestAnimationFrame(drawAbstractGrid);
+    }
+    drawAbstractGrid();
+
+    // Camera, video, window logic unchanged
+    const cameraMain = document.getElementById('cameraMain');
+    let mediaStream = null;
+    let facing = 'environment';
+    async function startCamera(){
+      if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+      try{
+        mediaStream=await navigator.mediaDevices.getUserMedia({
+          video:{facingMode:{ideal:facing}}, audio:false
+        });
+        cameraMain.srcObject = mediaStream;
+        cameraMain.play();
+        addTicker(`camera: ${facing==='user'?'front':'rear'} feed ready`);
+      }catch(e){ addTicker('⚠ camera denied/unavailable'); }
+    }
+
+    const bgVideo = document.getElementById("bgVideo");
+
+    let currentSource = "grid";
+    document.getElementById('sourceSelect').addEventListener('change',async function(e){
+      currentSource = e.target.value;
+      if(currentSource === "camera"){
+        await startCamera();
+      }
+    });
+    const gridStream = gridCanvas.captureStream(30);
+    const videoStream = bgVideo.captureStream ? bgVideo.captureStream(30) : null;
+
+    const ticker=document.getElementById('ticker');
+    function addTicker(txt){
+      const line=document.createElement('div');
+      line.className='tline';
+      line.textContent=txt;
+      ticker.prepend(line);
+      if(ticker.children.length>80)ticker.removeChild(ticker.lastChild);
+    }
+    ['Demo loaded','HUD ready','grid/camera/video sources enabled'].forEach((m,i)=>setTimeout(()=>addTicker(m),250*i));
+
+    let winCount=0,spawnUsed=false;
+    function getActiveSourceStream(){
+      if(currentSource === "grid")   return gridStream;
+      if(currentSource === "camera") return cameraMain.srcObject;
+      if(currentSource === "video")  return videoStream;
+      return gridStream;
+    }
+    function makeMiniWindow({x=150,y=300}={}){
+      if(window.innerWidth < 700 && x > 20) x = 20;
+      winCount++;
+      const el=document.createElement('div');
+      el.className='miniWin';
+      el.style.left=x+'px';
+      el.style.top=y+'px';
+      el.innerHTML=`
+        <div class="miniBar">
+          <div class="miniTitle">window_${String(winCount).padStart(4,'0')}</div>
+          <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+        </div>
+        <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>`;
+      document.body.appendChild(el);
+      const v=el.querySelector('.miniVideo');
+      v.srcObject = getActiveSourceStream();
+      v.play();
+
+      const bar=el.querySelector('.miniBar');
+      let dragging=false,sx=0,sy=0,sl=0,st=0;
+      function start(e){
+        dragging=true;
+        const r=el.getBoundingClientRect(); sl=r.left; st=r.top;
+        sx=(e.touches?e.touches[0].clientX:e.clientX);
+        sy=(e.touches?e.touches[0].clientY:e.clientY);
+        document.addEventListener('pointermove',move);
+        document.addEventListener('pointerup',stop);
+        document.addEventListener('touchmove',move,{passive:false});
+        document.addEventListener('touchend',stop);
+      }
+      function move(e){
+        if(!dragging)return;
+        const cx=(e.touches?e.touches[0].clientX:e.clientX);
+        const cy=(e.touches?e.touches[0].clientY:e.clientY);
+        el.style.left=(sl+(cx-sx))+'px';
+        el.style.top=(st+(cy-sy))+'px';
+        e.preventDefault?.();
+      }
+      function stop(){
+        dragging=false;
+        document.removeEventListener('pointermove',move);
+        document.removeEventListener('pointerup',stop);
+        document.removeEventListener('touchmove',move);
+        document.removeEventListener('touchend',stop);
+      }
+      bar.addEventListener('pointerdown',start);
+      bar.addEventListener('touchstart',start,{passive:false});
+      return el;
+    }
+    const btnSpawn5=document.getElementById('btnSpawn5');
+    const btnCloseAll=document.getElementById('btnCloseAll');
+    btnSpawn5.addEventListener('click',()=>{
+      if(spawnUsed)return addTicker('spawn blocked: already active');
+      spawnUsed=true;
+      let startX=170+Math.random()*40, startY=300+Math.random()*40;
+      if(window.innerWidth < 700) startX = 20;
+      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*26, y:startY+i*18});
+      addTicker('spawned 5 windows');
+    });
+    btnCloseAll.addEventListener('click',()=>{
+      document.querySelectorAll('.miniWin').forEach(n=>n.remove());
+      winCount=0; spawnUsed=false;
+      addTicker('all windows closed');
+    });
+
+    document.getElementById('btnReverseCam').addEventListener('click',async()=>{
+      facing=(facing==='user')?'environment':'user';
+      await startCamera();
+    });
+
+    let voiceOn=false,voicesReady=false;
+    function primeVoices(){
+      return new Promise(res=>{
+        const tid=setInterval(()=>{
+          const v=speechSynthesis.getVoices();
+          if(v&&v.length){clearInterval(tid);voicesReady=true;res();}
+        },100);
+      });
+    }
+    async function speak(t){
+      if(!voiceOn||!('speechSynthesis'in window))return;
+      if(!voicesReady)await primeVoices();
+      const u=new SpeechSynthesisUtterance(t);
+      u.lang='en-US'; u.rate=1.05; u.pitch=0.9; u.volume=0.85;
+      const v=speechSynthesis.getVoices();
+      u.voice=v.find(x=>/samantha/i.test(x.name))||v.find(x=>/google/i.test(x.name))||v[0];
+      speechSynthesis.speak(u);
+    }
+    document.getElementById('btnVoice').addEventListener('click',()=>{
+      voiceOn=!voiceOn;
+      document.getElementById('btnVoice').classList.toggle('active',voiceOn);
+      addTicker(`voice: ${voiceOn?'enabled':'disabled'}`);
+      if(voiceOn)speak('voice system online');
+    });
+
+    const input=document.getElementById('input');
+    function handleSubmit(v){
+      const t=(v||'').trim();
+      if(!t)return;
+      addTicker('> '+t);
+      input.value='';
+      // semanticRouter can be plugged in here in future!
+      // For now, regular chat only
+      if(voiceOn)setTimeout(()=>speak('okay'),500);
+    }
+    input.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();handleSubmit(input.value);}
+    });
+    (async()=>{
+      let startX = 100, startY = 170;
+      if(window.innerWidth < 700) startX = 20;
+      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*22, y:startY+i*18});
+    })();
+    const huds = [...document.querySelectorAll('.hud-panel')];
+    const hudIndex = document.getElementById('hudIndex');
+    let currentHUD = 0;
+    function updateHUDLabel(){
+      hudIndex.textContent = `HUD ${currentHUD + 1} / ${huds.length}`;
+    }
+    function showHUD(i){
+      huds[currentHUD].classList.remove('active');
+      currentHUD = (i + huds.length) % huds.length;
+      huds[currentHUD].classList.add('active');
+      updateHUDLabel();
+      addTicker(`HUD switched → ${currentHUD + 1}`);
+      if (voiceOn && typeof speak === 'function') speak(`HUD ${currentHUD + 1} active`);
+    }
+    document.getElementById('hudHeader').addEventListener('click',()=>showHUD(currentHUD + 1));
+    updateHUDLabel();
+  </script>
+  <!-- VOICE TO TEXT: Minimal mic integration, auto-submit -->
+  <script>
+  // --- VOICE TO TEXT FOR #input, auto-submit to handleSubmit ---
+  (function() {
+    const input = document.getElementById('input');
+    const micBtn = document.getElementById('btnMic');
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      if(micBtn) micBtn.style.display = 'none';
+      console.log("Voice-to-text not supported in this browser.");
+      return;
+    }
+    let rec = new SR();
+    rec.lang = "en-US";
+    rec.continuous = false;
+    rec.interimResults = true;
+    let interim = "";
+    rec.onresult = function(evt) {
+      let final = "";
+      for(let i=evt.resultIndex; i<evt.results.length; ++i) {
+        const txt = evt.results[i][0].transcript;
+        if(evt.results[i].isFinal)
+          final += txt;
+        else
+          interim = txt;
+      }
+      if(input) input.value = interim || final;
+      if(final) {
+        input.value = final;
+        interim = "";
+        // 🚀 AUTO-SUBMIT after final speech:
+        if(typeof handleSubmit === 'function'){
+          handleSubmit(final);
+        }
+      }
+    };
+    rec.onerror = function(e) {
+      if(input) input.placeholder = "Voice error";
+      micBtn.disabled = false;
+      console.log("SpeechRecognition error:", e.error);
+    };
+    micBtn && micBtn.addEventListener('click', function() {
+      micBtn.disabled = true;
+      if(input) input.focus();
+      try { rec.abort(); } catch(e){}
+      try { rec.start(); } catch(e){}
+      micBtn.disabled = false;
+    });
+  })();
+  </script>
+  <!-- Advance button & styles stay unchanged -->
+</body>
+</html>
