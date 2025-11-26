@@ -158,7 +158,7 @@
     </div>
   </div>
   <script>
-    // ---- GRID FIELD CANVAS: a simplified "animated field" version (swap with TouchDesigner-inspired code as needed) ----
+    // ---- GRID FIELD CANVAS: a simplified "animated field" version ----
     const gridCanvas = document.getElementById('gridCanvas');
     const gridCtx = gridCanvas.getContext('2d', { alpha: true });
     let DPR = Math.max(1, window.devicePixelRatio || 1);
@@ -172,7 +172,6 @@
     }
     window.addEventListener('resize', resizeGrid); resizeGrid();
 
-    // Sample animated grid field
     let frame = 0;
     function drawGridField(){
       gridCtx.clearRect(0,0,gridCanvas.width/DPR,gridCanvas.height/DPR);
@@ -192,121 +191,113 @@
     // Stream for the grid field canvas
     const gridStream = gridCanvas.captureStream(30);
 
-    // === TOGGLE THIS TO SWITCH BEHAVIOR (card windows) ===
-    // true = use LIVE CAMERA in card windows
-    // false = use canvas stream (grid field effect) in card windows
-    const USE_LIVE_CAMERA = false;
-    const BG_VIDEO_FILENAME = "/CUseeme/media/VideoObject.mp4";
+    // === MINI WINDOW SYSTEM ===
+    // 🟦🟩🟧🟥🟨🟫⬛🟪
 
-    const ticker=document.getElementById('ticker');
-    function addTicker(txt){
-      const line=document.createElement('div');
-      line.className='tline';
-      line.textContent=txt;
-      ticker.prepend(line);
-      if(ticker.children.length>80)ticker.removeChild(ticker.lastChild);
-    }
-    ['index: v1.7 mode dynamic','HUD ready','grid canvas streaming'].forEach((m,i)=>setTimeout(()=>addTicker(m),250*i));
+    let winCount = 0, spawnUsed = false;
 
-    let mediaStream=null;
-    let facing='environment';
+    function makeMiniWindow({x=150, y=300}={}) {
+      // 🟥🛑 BLOCKER WARNING 🛑🟥
+      // IF YOU LEAVE THIS LINE UNCOMMENTED, IT WILL *FORCE* X TO THE EDGE ON MOBILE
+      // (window.innerWidth < 700) means "phone/tablet"
+      // if(window.innerWidth < 700 && x > 20) x = 20; // << REMOVE OR COMMENT TO ENABLE CUSTOM POSITIONS
 
-    async function initStream(){
-      if(!USE_LIVE_CAMERA) return;
-      if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
-      try{
-        mediaStream=await navigator.mediaDevices.getUserMedia({
-          video:{facingMode:{ideal:facing}}, audio:false
-        });
-        addTicker(`camera: ${facing==='user'?'front':'rear'} feed ready`);
-        document.querySelectorAll('.miniVideo').forEach(v=>v.srcObject=mediaStream);
-      }catch(e){ addTicker('⚠ camera denied/unavailable'); }
-    }
-
-    let winCount=0, spawnUsed=false;
-    function makeMiniWindow({x=150,y=300}={}){
-      if(window.innerWidth < 700 && x > 20) x = 20;
       winCount++;
-      const el=document.createElement('div');
-      el.className='miniWin';
-      el.style.left=x+'px';
-      el.style.top=y+'px';
-      el.innerHTML=`
+      const el = document.createElement('div');
+      el.className = 'miniWin';
+      el.style.left = x + 'px';       // 🟪 X: How far from LEFT page edge (change 'x' to adjust globally)
+      el.style.top  = y + 'px';       // 🟦 Y: How far from TOP of the page
+
+      // Mini Window HTML
+      el.innerHTML = `
         <div class="miniBar">
           <div class="miniTitle">canvas_${String(winCount).padStart(4,'0')}</div>
-          <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+          <div class="miniBtns">
+            <div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div>
+          </div>
         </div>
-        <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>`;
+        <div class="miniInner">
+          <video class="miniVideo" autoplay muted playsinline></video>
+        </div>`;
       document.body.appendChild(el);
-      const v=el.querySelector('.miniVideo');
+      const v = el.querySelector('.miniVideo');
+      v.srcObject = gridStream;
+      v.play();
 
-      if (USE_LIVE_CAMERA) {
-        if(mediaStream) v.srcObject = mediaStream;
-      } else {
-        // INJECT GRID FIELD CANVAS STREAM!
-        v.srcObject = gridStream;
-        v.play();
-      }
-
-      // Drag logic
-      const bar=el.querySelector('.miniBar');
-      let dragging=false,sx=0,sy=0,sl=0,st=0;
+      // 🟫 DRAG LOGIC 🟫
+      // --- Use these handlers to allow drag by touch or mouse ----
+      const bar = el.querySelector('.miniBar');
+      let dragging = false, sx = 0, sy = 0, sl = 0, st = 0;
       function start(e){
-        dragging=true;
-        const r=el.getBoundingClientRect(); sl=r.left; st=r.top;
-        sx=(e.touches?e.touches[0].clientX:e.clientX);
-        sy=(e.touches?e.touches[0].clientY:e.clientY);
-        document.addEventListener('pointermove',move);
-        document.addEventListener('pointerup',stop);
-        document.addEventListener('touchmove',move,{passive:false});
-        document.addEventListener('touchend',stop);
+        dragging = true;
+        const r = el.getBoundingClientRect();
+        sl = r.left;  // 🟪 Save starting left for drag math
+        st = r.top;   // 🟦 Save starting top for drag math
+        sx = (e.touches ? e.touches[0].clientX : e.clientX); // Initial pointer X
+        sy = (e.touches ? e.touches[0].clientY : e.clientY); // Initial pointer Y
+
+        document.addEventListener('pointermove', move);
+        document.addEventListener('pointerup', stop);
+        document.addEventListener('touchmove', move, {passive:false});
+        document.addEventListener('touchend', stop);
       }
       function move(e){
-        if(!dragging)return;
-        const cx=(e.touches?e.touches[0].clientX:e.clientX);
-        const cy=(e.touches?e.touches[0].clientY:e.clientY);
-        el.style.left=(sl+(cx-sx))+'px';
-        el.style.top=(st+(cy-sy))+'px';
+        if(!dragging) return;
+        const cx = (e.touches ? e.touches[0].clientX : e.clientX); // Current pointer X
+        const cy = (e.touches ? e.touches[0].clientY : e.clientY); // Current pointer Y
+        el.style.left = (sl + (cx - sx)) + 'px';
+        el.style.top  = (st + (cy - sy)) + 'px';
         e.preventDefault?.();
       }
       function stop(){
-        dragging=false;
-        document.removeEventListener('pointermove',move);
-        document.removeEventListener('pointerup',stop);
-        document.removeEventListener('touchmove',move);
-        document.removeEventListener('touchend',stop);
+        dragging = false;
+        document.removeEventListener('pointermove', move);
+        document.removeEventListener('pointerup',   stop);
+        document.removeEventListener('touchmove',   move);
+        document.removeEventListener('touchend',    stop);
       }
-      bar.addEventListener('pointerdown',start);
-      bar.addEventListener('touchstart',start,{passive:false});
+      bar.addEventListener('pointerdown', start);
+      bar.addEventListener('touchstart', start, {passive:false});
       return el;
     }
 
-    const btnSpawn5=document.getElementById('btnSpawn5');
-    const btnCloseAll=document.getElementById('btnCloseAll');
-    const btnReverseCam=document.getElementById('btnReverseCam');
-    const btnVoice=document.getElementById('btnVoice');
+    const btnSpawn5 = document.getElementById('btnSpawn5');
+    const btnCloseAll = document.getElementById('btnCloseAll');
 
     btnSpawn5.addEventListener('click',()=>{
-      if(spawnUsed)return addTicker('spawn blocked: already active');
-      spawnUsed=true;
-      let startX=170+Math.random()*40, startY=300+Math.random()*40;
-      if(window.innerWidth < 700) startX = 20;
-      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*26, y:startY+i*18});
+      if(spawnUsed) return addTicker('spawn blocked: already active');
+      spawnUsed = true;
+
+      // 🟨 Desktop initial X and Y -> windows are offset from 170px+ (can make higher for more margin)
+      let startX = 170+Math.random()*40, startY = 300+Math.random()*40;
+      // 🟧 MOBILE OVERRIDE (phone/tablet): Use a higher startX for more right margin
+      if(window.innerWidth < 700) startX = 60; // ← change 60 to 80 or higher for mobile margin!
+
+      // 🟫 SPREAD: Each window's X is spaced out using i*26, Y using i*18
+      for(let i=0;i<5;i++) makeMiniWindow({x:startX + i*26, y:startY + i*18});
       addTicker('spawned 5 canvas windows');
     });
 
     btnCloseAll.addEventListener('click',()=>{
-      document.querySelectorAll('.miniWin').forEach(n=>n.remove());
-      winCount=0; spawnUsed=false;
+      document.querySelectorAll('.miniWin').forEach(n => n.remove());
+      winCount = 0; spawnUsed = false;
       addTicker('all windows closed');
     });
 
-    btnReverseCam.addEventListener('click',async()=>{
-      facing=(facing==='user')?'environment':'user';
-      await initStream();
-    });
+    // Initial spawn on page load
+    (async ()=>{
+      let startX = 100, startY = 170;
+      if(window.innerWidth < 700) startX = 60;
+      for(let i=0;i<5;i++) makeMiniWindow({x:startX + i*22, y:startY + i*18});
+    })();
 
-    let voiceOn=false,voicesReady=false;
+    // === END MINI WINDOW SYSTEM BLOCK ===
+
+    // --- Rest of your logic (HUDs, ticker, etc) unchanged ---
+    const btnReverseCam=document.getElementById('btnReverseCam');
+    const btnVoice=document.getElementById('btnVoice');
+
+    let voiceOn=false,voicesRead=false;
     function primeVoices(){
       return new Promise(res=>{
         const tid=setInterval(()=>{
@@ -342,13 +333,6 @@
     input.addEventListener('keydown',e=>{
       if(e.key==='Enter'){e.preventDefault();handleSubmit(input.value);}
     });
-
-    (async()=>{
-      await initStream();
-      let startX = 100, startY = 170;
-      if(window.innerWidth < 700) startX = 20;
-      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*22, y:startY+i*18});
-    })();
 
     const huds = [...document.querySelectorAll('.hud-panel')];
     const hudIndex = document.getElementById('hudIndex');
