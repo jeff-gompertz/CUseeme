@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CUSeeMe Modular v1.7 — HUD Toggle Demo (Mobile Clean)</title>
+  <style>
+    :root {
+      --hud-glass: rgba(255, 225, 255, 0.45);
+      --hud-border-light: rgba(255, 255, 255, 0.65);
+      --hud-border-dark: rgba(0, 45, 90, 0.35);
+      --hud-shadow: 0 12px 45px rgba(0, 50, 90, 0.35);
+      --hud-text: #1b1d22;
+      --btn-bg: rgba(215, 235, 255, 0.35);
+      --btn-inset-light: rgba(255,255,255,0.8);
+      --btn-inset-dark: rgba(0,30,60,0.3);
+      --btn-glow: rgba(255,120,50,0.7);
+      --btn-glow-outer: rgba(255,150,80,0.35);
+      --background: transparent 
+      --ticker: #ff3a2f;
+    }
+  html,body{
+      height:100%; margin:0;
+      background: transparent
+      font-family: "VT323", ui-monospace, Menlo, Consolas, monospace;
+      color:#222;
+      overflow:visible;
+    }
+  #bgVideo {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      object-fit: cover;
+      z-index: -2;
+      pointer-events: none;
+    } 
+
+    #hudIndex{
+      position:absolute;
+      top:6px; left:10px;
+      font-size:12px;
+      opacity:.55;
+    }
+    .hud-row{ display:flex; gap:12px; justify-content:space-between; }
+    .hud-btn{
+      flex:1;
+      font-family:"VT323", monospace;
+      font-size:17px;
+      color:#132030;
+      background:var(--btn-bg);
+      border:none;
+      border-radius:10px;
+      box-shadow:
+        inset 1px 1px 2px var(--btn-inset-light),
+        inset -1px -2px 3px var(--btn-inset-dark),
+        0 3px 6px rgba(0,0,0,0.08);
+      padding:10px 12px;
+      cursor:pointer;
+      transition:all .22s ease;
+    }
+    .hud-btn:hover{
+      transform:translateY(-1px);
+      box-shadow:0 5px 12px rgba(0,0,0,0.15);
+    }
+    .hud-btn.active{
+      background:rgba(255,165,100,0.15);
+      color:#ff6a2f;
+      font-weight:600;
+      box-shadow:
+        inset 0 0 4px var(--btn-glow),
+        0 0 14px 3px var(--btn-glow-outer),
+        0 2px 8px rgba(0,0,0,0.2);
+    }
+    .hud-panel { position: relative; opacity: 1; pointer-events: auto; transition: opacity .3s ease; }
+    .hud-panel:not(.active) { opacity: 0.8; }
+    #ticker{
+      position:fixed; left:16px; bottom:14px; z-index:900;
+      width:45vw; max-width:700px; max-height:50vh;
+      display:flex; flex-direction:column-reverse; overflow:hidden;
+      color:var(--ticker);
+      font-size:18px; line-height:1.25;
+    }
+    .tline{ opacity:.95; margin:0; animation:fadeIn .6s ease; }
+    @keyframes fadeIn{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
+    .miniWin{
+      position:absolute;
+      width:66vw; max-width:380px; aspect-ratio:9/12;
+      background:rgba(210,240,255,0.25);
+      border:1px solid rgba(255,255,255,0.55);
+      border-radius:16px;
+      backdrop-filter:blur(12px);
+      box-shadow:
+        inset 0 1px 2px rgba(255,255,255,0.6),
+        0 18px 40px rgba(0,0,0,0.25);
+      overflow:hidden;
+      cursor:grab;
+      z-index:500;
+    }
+    .miniWin:active{ cursor:grabbing; }
+    .miniBar{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:4px 10px; height:26px;
+      background:rgba(255,255,255,0.18);
+      font-size:12px; color:#222; user-select:none;
+    }
+    .miniInner{ position:relative; width:100%; height:calc(100% - 26px); }
+    .miniVideo{
+      position:absolute; inset:0; width:100%; height:100%;
+      object-fit:cover; transform:scaleX(-1);
+      background: black;
+    }
+    #promptWrap{
+      position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+      pointer-events:none; z-index:800;
+    }
+    #promptBox{
+      pointer-events:auto; display:flex; gap:10px; align-items:center;
+      padding:10px 16px;
+      background:rgba(240,250,255,.55);
+      border:1px solid rgba(255,255,255,.6); border-radius:12px;
+      box-shadow:0 8px 24px rgba(0,30,60,.18);
+    }
+    #input{
+      background:transparent; border:none; outline:none;
+      font:inherit; font-size:18px; color:#111;
+      width:24ch;
+    }
+    #caret{ width:.5ch; height:1.2em; background:#222; animation:blink 1s step-end infinite; }
+    @keyframes blink{ 50%{opacity:0} }
+    @media (max-width: 700px) {
+      .miniWin {
+        left: 4vw !important;
+        right: auto !important;
+        max-width: 90vw !important;
+        width: 90vw !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Fullscreen Video Background -->
+  <video id="bgVideo" autoplay muted loop playsinline>
+    <source src="/CUseeme/media/VideoObject.mp4" type="video/mp4" />
+    Your browser does not support HTML5 video.
+  </video>
+  <video id="cameraMain" autoplay muted playsinline style="display:none"></video>
+
+  <!-- [L1] HUD WRAPPER -->
+  <div id="hudWrapper">
+    <div id="hudIndex">1 of 2</div>
+    <div id="hudShell">
+      <div id="hudHeader">2 of 2</div>
+      <div id="hud1" class="hud-panel active">
+        <div class="hud-row">
+          <button class="hud-btn" id="btnSpawn5">➕ Spawn 5</button>
+          <button class="hud-btn" id="btnReverseCam">🔁 Reverse Cam</button>
+        </div>
+        <div class="hud-row">
+          <button class="hud-btn" id="btnVoice">🔊 Voice</button>
+          <button class="hud-btn" id="btnCloseAll">✕ Close All</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="ticker"></div>
+  <div id="promptWrap">
+    <div id="promptBox">
+      <div id="caret"></div>
+      <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" />
+    </div>
+  </div>
+  <script>
+    // === TOGGLE THIS TO SWITCH BEHAVIOR (card windows) ===
+    // true = use LIVE CAMERA in card windows
+    // false = use playback of background video from below ("VideoObject.mp4") in card windows
+    const USE_LIVE_CAMERA = false;
+    const BG_VIDEO_FILENAME = "/CUseeme/media/VideoObject.mp4";
+
+    const ticker=document.getElementById('ticker');
+    function addTicker(txt){
+      const line=document.createElement('div');
+      line.className='tline';
+      line.textContent=txt;
+      ticker.prepend(line);
+      if(ticker.children.length>80)ticker.removeChild(ticker.lastChild);
+    }
+    ['index: v1.7 mode dynamic','retro4.4 aqua loaded','HUD ready','multi-HUD active']
+    .forEach((m,i)=>setTimeout(()=>addTicker(m),250*i));
+
+    let mediaStream=null;
+    let facing='environment';
+
+    async function initStream(){
+      if(!USE_LIVE_CAMERA) return;
+      if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+      try{
+        mediaStream=await navigator.mediaDevices.getUserMedia({
+          video:{facingMode:{ideal:facing}}, audio:false
+        });
+        addTicker(`camera: ${facing==='user'?'front':'rear'} feed ready`);
+        document.querySelectorAll('.miniVideo').forEach(v=>v.srcObject=mediaStream);
+      }catch(e){ addTicker('⚠ camera denied/unavailable'); }
+    }
+
+    let winCount=0, spawnUsed=false;
+    function makeMiniWindow({x=150,y=300}={}){
+      if(window.innerWidth < 700 && x > 20) x = 20;
+      winCount++;
+      const el=document.createElement('div');
+      el.className='miniWin';
+      el.style.left=x+'px';
+      el.style.top=y+'px';
+      el.innerHTML=`
+        <div class="miniBar">
+          <div class="miniTitle">subject_${String(winCount).padStart(4,'0')}</div>
+          <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+        </div>
+        <div class="miniInner"><video class="miniVideo" autoplay muted loop playsinline></video></div>`;
+      document.body.appendChild(el);
+      const v=el.querySelector('.miniVideo');
+
+      if (USE_LIVE_CAMERA) {
+        if(mediaStream) v.srcObject = mediaStream;
+      } else {
+        v.src = BG_VIDEO_FILENAME;
+        v.loop = true;
+        v.muted = true;
+        v.autoplay = true;
+        v.playsInline = true;
+        v.currentTime = document.getElementById('bgVideo').currentTime;
+      }
+
+      const bar=el.querySelector('.miniBar');
+      let dragging=false,sx=0,sy=0,sl=0,st=0;
+      function start(e){
+        dragging=true;
+        const r=el.getBoundingClientRect(); sl=r.left; st=r.top;
+        sx=(e.touches?e.touches[0].clientX:e.clientX);
+        sy=(e.touches?e.touches[0].clientY:e.clientY);
+        document.addEventListener('pointermove',move);
+        document.addEventListener('pointerup',stop);
+        document.addEventListener('touchmove',move,{passive:false});
+        document.addEventListener('touchend',stop);
+      }
+      function move(e){
+        if(!dragging)return;
+        const cx=(e.touches?e.touches[0].clientX:e.clientX);
+        const cy=(e.touches?e.touches[0].clientY:e.clientY);
+        el.style.left=(sl+(cx-sx))+'px';
+        el.style.top=(st+(cy-sy))+'px';
+        e.preventDefault?.();
+      }
+      function stop(){
+        dragging=false;
+        document.removeEventListener('pointermove',move);
+        document.removeEventListener('pointerup',stop);
+        document.removeEventListener('touchmove',move);
+        document.removeEventListener('touchend',stop);
+      }
+      bar.addEventListener('pointerdown',start);
+      bar.addEventListener('touchstart',start,{passive:false});
+      return el;
+    }
+
+    const btnSpawn5=document.getElementById('btnSpawn5');
+    const btnCloseAll=document.getElementById('btnCloseAll');
+    const btnReverseCam=document.getElementById('btnReverseCam');
+    const btnVoice=document.getElementById('btnVoice');
+
+    btnSpawn5.addEventListener('click',()=>{
+      if(spawnUsed)return addTicker('spawn blocked: already active');
+      spawnUsed=true;
+      let startX=170+Math.random()*40, startY=300+Math.random()*40;
+      if(window.innerWidth < 700) startX = 20;
+      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*26, y:startY+i*18});
+      addTicker('spawned 5 windows');
+    });
+
+    btnCloseAll.addEventListener('click',()=>{
+      document.querySelectorAll('.miniWin').forEach(n=>n.remove());
+      winCount=0; spawnUsed=false;
+      addTicker('all windows closed');
+    });
+
+    btnReverseCam.addEventListener('click',async()=>{
+      facing=(facing==='user')?'environment':'user';
+      await initStream();
+    });
+
+    let voiceOn=false,voicesReady=false;
+    function primeVoices(){
+      return new Promise(res=>{
+        const tid=setInterval(()=>{
+          const v=speechSynthesis.getVoices();
+          if(v&&v.length){clearInterval(tid);voicesReady=true;res();}
+        },100);
+      });
+    }
+    async function speak(t){
+      if(!voiceOn||!('speechSynthesis'in window))return;
+      if(!voicesReady)await primeVoices();
+      const u=new SpeechSynthesisUtterance(t);
+      u.lang='en-US'; u.rate=1.05; u.pitch=0.9; u.volume=0.85;
+      const v=speechSynthesis.getVoices();
+      u.voice=v.find(x=>/samantha/i.test(x.name))||v.find(x=>/google/i.test(x.name))||v[0];
+      speechSynthesis.speak(u);
+    }
+    btnVoice.addEventListener('click',()=>{
+      voiceOn=!voiceOn;
+      btnVoice.classList.toggle('active',voiceOn);
+      addTicker(`voice: ${voiceOn?'enabled':'disabled'}`);
+      if(voiceOn)speak('voice system online');
+    });
+
+    const input=document.getElementById('input');
+    function handleSubmit(v){
+      const t=(v||'').trim();
+      if(!t)return;
+      addTicker('> '+t);
+      input.value='';
+      if(voiceOn)setTimeout(()=>speak('okay'),500);
+    }
+    input.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();handleSubmit(input.value);}
+    });
+
+    (async()=>{
+      await initStream();
+      let startX = 100, startY = 170;
+      if(window.innerWidth < 700) startX = 20;
+      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*22, y:startY+i*18});
+    })();
+
+    const huds = [...document.querySelectorAll('.hud-panel')];
+    const hudIndex = document.getElementById('hudIndex');
+    let currentHUD = 0;
+    function updateHUDLabel(){
+      hudIndex.textContent = `HUD ${currentHUD + 1} / ${huds.length}`;
+    }
+    function showHUD(i){
+      huds[currentHUD].classList.remove('active');
+      currentHUD = (i + huds.length) % huds.length;
+      huds[currentHUD].classList.add('active');
+      updateHUDLabel();
+      addTicker(`HUD switched → ${currentHUD + 1}`);
+      if (voiceOn && typeof speak === 'function') speak(`HUD ${currentHUD + 1} active`);
+    }
+    document.getElementById('hudHeader').addEventListener('click',()=>showHUD(currentHUD + 1));
+    updateHUDLabel();
+    
+  </script>
+<!--
+  Inline Advance Button — Highly commented version
+  Paste this entire block just before your closing </body>.
+  Edit the values noted below to change URL, hold time, and colors.
+-->
+
+<!-- ===== BUTTON (edit attributes here) ===== -->
+<!--
+  data-longpress-url : destination URL when hold completes (change this)
+  data-hold-ms       : optional per-button override for hold duration in milliseconds (e.g. "1200")
+-->
+<button id="advanceButtonGlobal"
+        type="button"
+        role="button"
+        aria-pressed="false"
+        title="Hold to advance"
+        tabindex="0"
+        data-longpress-url="https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch7.html"
+        <!-- Example override: data-hold-ms="1200" -->
+>
+  <!-- Visual progress overlay (fills left→right while holding) -->
+  <span class="ab-progress" aria-hidden="true"></span>
+
+  <!-- Visible label on the button -->
+  <span class="ab-label">Advance</span>
+</button>
+
+<style>
+/* ===== CUSTOMIZABLE COLORS & SIZING (change these variables) =====
+   - --ab-bg-start / --ab-bg-end — background gradient of the button
+   - --ab-fore — label color
+   - --ab-progress — color used for the progress overlay (can be subtle)
+   - --ab-width / --ab-height — dimensions (useful for quick resizing)
+*/
+:root {
+  --ab-bg-start: rgba(255,255,255,0.98);       /* top of button gradient */
+  --ab-bg-end:   rgba(240,250,240,0.92);       /* bottom of button gradient */
+  --ab-fore:     #132030;                      /* label color */
+  --ab-progress: linear-gradient(90deg, rgba(255,74,74,0.14), rgba(255,120,40,0.08));
+  --ab-width:    min(84px, 40vw);
+  --ab-height:   36px;
+}
+
+/* ================== BUTTON CORE STYLE ================== */
+/* A few iOS-specific and cross-browser properties are critical to avoid selection/callouts:
+   - -webkit-touch-callout: none  -> prevents "Look Up / Search" on iOS
+   - user-select / -webkit-user-select -> prevents selection handles
+   - touch-action: none -> helps ensure pointer events are delivered to the element
+   - -webkit-tap-highlight-color: transparent -> remove tap flash
+*/
+#advanceButtonGlobal {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10020;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--ab-height);
+  min-width: var(--ab-width);
+  padding: 7px 22px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, var(--ab-bg-start), var(--ab-bg-end));
+  color: var(--ab-fore);
+  font-family: "VT323", monospace, system-ui;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+
+  /* Prevent selection / callouts on iOS and other browsers */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;     /* remove iOS callout (Look Up/Search) */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;        /* avoid native iOS chrome */
+  appearance: none;
+  -webkit-user-drag: none;
+  touch-action: none;
+
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  border: 1px solid rgba(255,255,255,0.06);
+  overflow: visible;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+/* Responsive smaller size */
+@media (max-width: 540px) {
+  #advanceButtonGlobal {
+    right: 8px;
+    bottom: 8px;
+    padding: 6px 12px;
+    min-width: 64px;
+    height: 30px;
+    font-size: 12px;
+  }
+}
+
+/* Visual state applied while holding */
+#advanceButtonGlobal.holding {
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.18);
+}
+
+/* Progress overlay: change --ab-progress to tweak color / gradient.
+   If you prefer no visible progress, set background: transparent;
+*/
+#advanceButtonGlobal .ab-progress {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background: var(--ab-progress);
+  transition: width 0s linear; /* JS will set the duration to match hold time */
+}
+
+/* Label text — keep it non-selectable */
+#advanceButtonGlobal .ab-label {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  padding: 0 6px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Accessible focus styling (visible but not the iOS selection brackets) */
+#advanceButtonGlobal:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(0,208,255,0.12), 0 8px 22px rgba(0,0,0,0.18);
+}
+
+/* Remove Firefox inner focus padding so it looks consistent */
+#advanceButtonGlobal::-moz-focus-inner { border: 0; }
+</style>
+
+<script>
+/* Highly commented JS
+   Where to change:
+   - Default hold time: HOLD_MS_DEFAULT (ms). Keep at 900 if you want 0.9s default.
+   - Per-button override: set data-hold-ms on the <button> element (string integer, e.g. "1200").
+   - Navigation URL: data-longpress-url on the <button>.
+   - If you need SPA navigation (history.pushState), edit the completeHold() function where window.location.href is used.
+*/
+
+(function(){
+  // ====== CONFIG ======
+  const ID = 'advanceButtonGlobal';
+  const HOLD_MS_DEFAULT = 900; // Default hold time in milliseconds (900 = 0.9s)
+  const MOVE_TOLERANCE_DEFAULT = 12; // px — how far the finger may move before cancel
+
+  // Helper: create the button if page author omitted it (keeps snippet idempotent)
+  function ensureButton(){
+    let btn = document.getElementById(ID);
+    if(btn) return btn;
+    // Create a simple fallback button; note: you probably already included the <button> above
+    btn = document.createElement('button');
+    btn.id = ID;
+    btn.type = 'button';
+    btn.setAttribute('role','button');
+    btn.setAttribute('aria-pressed','false');
+    btn.setAttribute('title','Hold to advance');
+    btn.tabIndex = 0;
+    btn.innerHTML = '<span class="ab-progress" aria-hidden="true"></span><span class="ab-label">Advance</span>';
+    // fallback/default URL (override via data-longpress-url)
+    btn.setAttribute('data-longpress-url', '/');
+    document.body.appendChild(btn);
+    return btn;
+  }
+
+  // Attach long-press behavior
+  function attachAdvance(btn, options){
+    options = options || {};
+
+    // Compute hold duration:
+    // Priority order:
+    // 1) options.holdDuration (if caller sets it)
+    // 2) data-hold-ms on the button (per-button override)
+    // 3) script constant HOLD_MS_DEFAULT
+    const holdDuration = Number(options.holdDuration || btn.getAttribute('data-hold-ms') || HOLD_MS_DEFAULT) || HOLD_MS_DEFAULT;
+    const moveTol = Number(options.moveTolerance || MOVE_TOLERANCE_DEFAULT) || MOVE_TOLERANCE_DEFAULT;
+
+    // Get the progress overlay element used to show visual progress
+    const progressEl = btn.querySelector('.ab-progress');
+
+    // State variables
+    let pointerId = null;         // tracked pointer id (null for keyboard)
+    let startX = 0, startY = 0;   // start coordinates for move-cancel detection
+    let timer = null;             // hold timer for pointer/touch
+    let keyTimer = null;          // hold timer for keyboard
+    let isHolding = false;        // whether we're currently in "holding" state
+
+    // Start hold (pointer/touch) — px/py are client coordinates, pid is pointer identifier
+    function startHold(px, py, pid){
+      if(isHolding) return; // ignore if already holding
+      isHolding = true;
+      pointerId = (pid == null) ? null : pid;
+      startX = px; startY = py;
+
+      // update UI
+      btn.classList.add('holding');
+      btn.setAttribute('aria-pressed','true');
+
+      // Make the progress overlay animate for the same duration as the hold
+      // Set transition duration dynamically so the visual always matches the timer
+      progressEl.style.transition = 'width ' + holdDuration + 'ms linear';
+      // set width a tick later to ensure transition takes effect
+      setTimeout(()=>{ progressEl.style.width = '100%'; }, 10);
+
+      // Start the timer that completes the action
+      timer = setTimeout(()=>{ timer = null; completeHold(); }, holdDuration);
+
+      // optional haptic
+      try{ if(navigator.vibrate) navigator.vibrate(8); }catch(e){}
+    }
+
+    // Cancel an in-progress hold (pointer or keyboard)
+    function cancelHold(){
+      if(!isHolding) return;
+      isHolding = false;
+      pointerId = null;
+
+      // Clear any timeout(s)
+      if(timer){ clearTimeout(timer); timer = null; }
+      if(keyTimer){ clearTimeout(keyTimer); keyTimer = null; }
+
+      // Reset UI/animation quickly
+      progressEl.style.transition = 'width 160ms linear';
+      progressEl.style.width = '0%';
+      btn.classList.remove('holding');
+      btn.setAttribute('aria-pressed','false');
+    }
+
+    // Complete hold — navigation or custom behavior
+    function completeHold(){
+      // Reset visuals first
+      cancelHold();
+
+      // Compute URL to navigate to:
+      // Priority: data-longpress-url on button, then window.nextPage global, then options.url, then fallback '/'
+      const url = btn.getAttribute('data-longpress-url') || window.nextPage || options.url || '/';
+
+      // Dispatch a cancellable custom event so page scripts can intercept or cancel navigation:
+      const ev = new CustomEvent('advanceActivated', { detail: { url: url, source: 'advance-button' }, bubbles: true, cancelable: true });
+      const prevented = !btn.dispatchEvent(ev);
+      if(prevented) {
+        // caller canceled action, so do nothing
+        return;
+      }
+
+      // Default behavior: navigate to url.
+      // If you're building an SPA, replace this line with history.pushState or your router call.
+      try{ window.location.href = url; }catch(e){ console.error('advance navigation failed', e); }
+    }
+
+    // Prevent native context menu (extra safety for iOS long-press)
+    btn.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+
+    // ---- PointerEvent path for modern browsers ----
+    if(window.PointerEvent){
+      btn.addEventListener('pointerdown', function(e){
+        // Only track primary pointer and left-click (button === 0)
+        if(e.isPrimary === false) return;
+        if(e.button && e.button !== 0) return;
+        try{ btn.setPointerCapture && btn.setPointerCapture(e.pointerId); }catch(_){}
+        startHold(e.clientX, e.clientY, e.pointerId);
+        e.preventDefault(); // prevent default browser gestures
+      }, { passive: false });
+
+      btn.addEventListener('pointermove', function(e){
+        if(!isHolding) return;
+        // Ensure only the pointer that started the hold can cancel it
+        if(pointerId !== null && e.pointerId !== pointerId) return;
+        const dx = Math.abs(e.clientX - startX), dy = Math.abs(e.clientY - startY);
+        if(Math.hypot(dx,dy) > moveTol) cancelHold();
+      }, { passive: true });
+
+      btn.addEventListener('pointerup', function(e){
+        if(!isHolding) return;
+        if(pointerId !== null && e.pointerId !== pointerId) return;
+        try{ btn.releasePointerCapture && btn.releasePointerCapture(e.pointerId); }catch(_){}
+        if(timer){ clearTimeout(timer); timer = null; }
+        cancelHold();
+      }, { passive: true });
+
+      btn.addEventListener('pointercancel', function(e){
+        if(pointerId !== null && e.pointerId !== pointerId) return;
+        cancelHold();
+      });
+    } else {
+      // ---- Fallbacks for older browsers: mouse + touch ----
+
+      // Mouse: start hold on mousedown
+      btn.addEventListener('mousedown', function(e){
+        if(e.button !== 0) return;
+        startHold(e.clientX, e.clientY, 'mouse');
+        e.preventDefault();
+      }, { passive: false });
+
+      // Track mousemove/up globally so the user can move outside the button
+      function onMouseMove(e){
+        if(!isHolding) return;
+        const dx = Math.abs(e.clientX - startX), dy = Math.abs(e.clientY - startY);
+        if(Math.hypot(dx,dy) > moveTol) cancelHold();
+      }
+      function onMouseUp(e){
+        if(!isHolding) return;
+        if(timer){ clearTimeout(timer); timer = null; }
+        cancelHold();
+      }
+      document.addEventListener('mousemove', onMouseMove, { passive: true });
+      document.addEventListener('mouseup', onMouseUp, { passive: true });
+
+      // Touch: start hold on touchstart
+      btn.addEventListener('touchstart', function(e){
+        // Use the first changed touch as the tracked touch
+        const t = e.changedTouches[0];
+        if(!t) return;
+        startHold(t.clientX, t.clientY, t.identifier);
+        e.preventDefault(); // prevent native gestures
+      }, { passive: false });
+
+      // Track touchmove/end globally
+      document.addEventListener('touchmove', function(e){
+        if(!isHolding) return;
+        for(let i=0;i<e.changedTouches.length;i++){
+          const t = e.changedTouches[i];
+          if(t.identifier === pointerId){
+            const dx = Math.abs(t.clientX - startX), dy = Math.abs(t.clientY - startY);
+            if(Math.hypot(dx,dy) > moveTol) cancelHold();
+            break;
+          }
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchend', function(e){
+        if(!isHolding) return;
+        for(let i=0;i<e.changedTouches.length;i++){
+          const t = e.changedTouches[i];
+          if(t.identifier === pointerId){
+            if(timer){ clearTimeout(timer); timer = null; }
+            cancelHold();
+            break;
+          }
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchcancel', function(){ if(isHolding) cancelHold(); }, { passive: true });
+    }
+
+    // ---- Keyboard support: hold Space or Enter ----
+    btn.addEventListener('keydown', function(e){
+      const isSpace = (e.code === 'Space' || e.key === ' ');
+      const isEnter = (e.key === 'Enter');
+      if(!isSpace && !isEnter) return;
+      if(keyTimer) return; // already timing
+      e.preventDefault(); // avoid page scroll on space
+      btn.classList.add('holding');
+      progressEl.style.transition = 'width ' + holdDuration + 'ms linear';
+      setTimeout(()=> { progressEl.style.width = '100%'; }, 10);
+      keyTimer = setTimeout(()=> { keyTimer = null; completeHold(); }, holdDuration);
+    });
+
+    btn.addEventListener('keyup', function(e){
+      const isSpace = (e.code === 'Space' || e.key === ' ');
+      const isEnter = (e.key === 'Enter');
+      if((isSpace || isEnter) && keyTimer){
+        clearTimeout(keyTimer); keyTimer = null;
+        progressEl.style.transition = 'width 160ms linear';
+        progressEl.style.width = '0%';
+        btn.classList.remove('holding');
+        e.preventDefault();
+      }
+    });
+
+    // Clean up on blur/pagehide to avoid stuck UI when the app is backgrounded
+    window.addEventListener('pagehide', cancelHold);
+    window.addEventListener('blur', cancelHold);
+  }
+
+  // Initialize: ensure button exists and attach behavior
+  function init(){
+    const btn = ensureButton();
+    attachAdvance(btn, {});
+  }
+
+  // Run init when DOM is ready
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function ondom(){
+      document.removeEventListener('DOMContentLoaded', ondom);
+      init();
+    });
+  } else {
+    init();
+  }
+})();
+</script>
+
+  
+</body>
+</html>
