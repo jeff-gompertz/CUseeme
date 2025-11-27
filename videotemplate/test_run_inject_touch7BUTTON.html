@@ -928,9 +928,21 @@ window.addEventListener('touchstart', ()=> { if(!cameraMain.srcObject) startCame
   }
 })();
 </script> 
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  // remove the visible control
+  const vb = document.getElementById('btnVoice');
+  if (vb) vb.remove();
 
-
-
+  // neutralize voice functions so any remaining code that calls them becomes a no-op
+  try{
+    if(window.speak) window.speak = function(){ /* voice disabled */ };
+    if(window.primeVoices) window.primeVoices = function(){ return Promise.resolve(); };
+    // clear any global voice flag
+    window.voiceOn = false;
+  }catch(e){}
+});
+</script>
 
   
 </body>
