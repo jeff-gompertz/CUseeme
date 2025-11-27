@@ -140,7 +140,7 @@
 
     function makeMiniWindow({x=140, y=300}={}){
       // 🛑 BLOCKER WARNING 🛑
-      // if(window.innerWidth < 500 && x > 20) x = 20;
+      // if(window.innerWidth < 430 && x > 20) x = 20;
 
       winCount++;
       const el=document.createElement('div');
@@ -210,7 +210,7 @@
     // Initial spawn mini windows
     (async()=>{
       let startX = 140, startY = 170;
-      if(window.innerWidth < 500) startX = 40;
+      if(window.innerWidth < 430) startX = 40;
       for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*16, y:startY+i*18});
     })();
 
