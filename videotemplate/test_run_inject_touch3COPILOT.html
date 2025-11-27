@@ -1,1 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CUSeeMe — Grid Field Inject (Cleaned & Fixed)</title>
+  <style>
+    :root{
+      --hud-glass: rgba(255,225,255,0.45);
+      --btn-bg: rgba(215,235,255,0.35);
+      --ticker: #ff3a2f;
+      --ab-bg-start: rgba(255,255,255,0.98);
+      --ab-bg-end:   rgba(240,250,240,0.92);
+      --ab-fore:     #132030;
+      --ab-progress: linear-gradient(90deg, rgba(255,74,74,0.14), rgba(255,120,40,0.08));
+    }
 
+    html,body{height:100%;margin:0;background:transparent;font-family:"VT323",ui-monospace,monospace;color:#222;overflow:visible}
+    #bgVideo{position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;z-index:-3;pointer-events:none}
+    #gridCanvas{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:-2;pointer-events:none}
+    #ui{position:fixed;right:12px;top:12px;z-index:2000;pointer-events:auto}
+    #hudWrapper{position:fixed;left:12px;top:12px;z-index:1200}
+    .hud-row{display:flex;gap:12px}
+    .hud-btn{flex:1;background:var(--btn-bg);border:0;border-radius:10px;padding:10px 12px;font-family:"VT323",monospace;cursor:pointer}
+    #ticker{position:fixed;left:16px;bottom:14px;z-index:900;width:45vw;max-width:700px;max-height:50vh;display:flex;flex-direction:column-reverse;overflow:hidden;color:var(--ticker);font-size:18px;line-height:1.25}
+    .tline{opacity:.95;margin:0; animation:fadeIn .45s ease}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    .miniWin{position:absolute;width:66vw;max-width:380px;aspect-ratio:9/12;background:rgba(210,240,255,0.25);border:1px solid rgba(255,255,255,0.55);border-radius:16px;backdrop-filter:blur(12px);box-shadow:inset 0 1px 2px rgba(255,255,255,0.6),0 18px 40px rgba(0,0,0,0.25);overflow:hidden;cursor:grab;z-index:500}
+    .miniBar{display:flex;align-items:center;justify-content:space-between;padding:4px 10px;height:26px;background:rgba(255,255,255,0.18);font-size:12px;color:#222;user-select:none}
+    .miniInner{position:relative;width:100%;height:calc(100% - 26px)}
+    .miniVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:black}
+    /* Advance button styling */
+    #advanceButtonGlobal{position:fixed;right:16px;bottom:16px;z-index:10020;display:inline-flex;align-items:center;justify-content:center;height:36px;min-width:84px;padding:7px 22px;border-radius:28px;background:linear-gradient(180deg,var(--ab-bg-start),var(--ab-bg-end));color:var(--ab-fore);font-family:"VT323",monospace;font-weight:600;cursor:pointer;user-select:none;box-shadow:0 6px 20px rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.06);transition:transform 120ms ease,box-shadow 120ms ease}
+    #advanceButtonGlobal .ab-progress{position:absolute;left:0;top:0;height:100%;width:0%;border-radius:inherit;pointer-events:none;z-index:0;background:var(--ab-progress);transition:width 0s linear}
+    #advanceButtonGlobal .ab-label{position:relative;z-index:1;padding:0 6px}
+    #advanceButtonGlobal.holding{transform:translateY(-1px) scale(1.01);box-shadow:0 10px 28px rgba(0,0,0,0.18)}
+    @media (max-width:540px){#advanceButtonGlobal{right:8px;bottom:8px;padding:6px 12px;min-width:64px;height:30px;font-size:12px}}
+  </style>
+</head>
+
+<body>
+  <!-- Background video -->
+  <video id="bgVideo" autoplay muted loop playsinline>
+    <source src="/CUseeme/media/VideoObject.mp4" type="video/mp4" />
+  </video>
+
+  <!-- Main grid canvas -->
+  <canvas id="gridCanvas" aria-hidden="true"></canvas>
+
+  <!-- UI (controls) -->
+  <div id="ui">
+    <div style="backdrop-filter:blur(4px);border-radius:12px;background:rgba(255,255,255,0.06);padding:10px">
+      <div style="font-weight:700;margin-bottom:8px">Grid Field — Axis-Aligned</div>
+      <div style="margin-bottom:6px"><label>Mode</label>
+        <select id="mode"><option value="gridParticles">Grid Particles</option><option value="gridMesh">Grid Mesh</option><option value="textrain">Text Rain</option></select>
+      </div>
+      <div style="margin-bottom:6px"><label>Grid resolution</label><input id="mesh_res" type="range" min="8" max="160" step="2" value="48"></div>
+      <div style="margin-bottom:6px"><label>Vector source</label>
+        <select id="vector_source"><option value="gradient">Brightness Gradient</option><option value="motion">Temporal Motion</option></select>
+      </div>
+      <div style="margin-bottom:6px"><label>Axis policy</label>
+        <select id="axis_policy"><option value="dominant">Dominant-only</option><option value="both">Both</option><option value="horizontal">Horizontal-only</option><option value="vertical">Vertical-only</option></select>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button id="btn_clear" class="hud-btn">Clear</button>
+        <button id="btn_freeze" class="hud-btn">Pause</button>
+        <button id="btn_reset" class="hud-btn">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HUD and Spawn controls -->
+  <div id="hudWrapper">
+    <div id="hudShell">
+      <div id="hud1" class="hud-panel active" style="padding:10px">
+        <div class="hud-row">
+          <button class="hud-btn" id="btnSpawn5">➕ Spawn 5</button>
+          <button class="hud-btn" id="btnReverseCam">🔁 Reverse Cam</button>
+        </div>
+        <div class="hud-row" style="margin-top:8px">
+          <button class="hud-btn" id="btnVoice">🔊 Voice</button>
+          <button class="hud-btn" id="btnCloseAll">✕ Close All</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="ticker" aria-live="polite"></div>
+
+  <!-- MAIN SCRIPT (grid field, particles, spawn) -->
+  <script>
+  /* --- BEGIN: Top-level helpers (define first) --- */
+  const ticker = document.getElementById('ticker');
+  function addTicker(txt){
+    if(!ticker) return;
+    const line = document.createElement('div');
+    line.className = 'tline';
+    line.textContent = txt;
+    ticker.prepend(line);
+    while(ticker.children.length > 80) ticker.removeChild(ticker.lastChild);
+  }
+  addTicker('Page loaded: UI initialized');
+
+  /* --- Canvas sizing and helpers --- */
+  const canvas = document.getElementById('gridCanvas');
+  const ctx = canvas.getContext('2d', { alpha: true });
+  let DPR = Math.max(1, window.devicePixelRatio || 1);
+  function resizeCanvas(){
+    DPR = Math.max(1, window.devicePixelRatio || 1);
+    canvas.width = Math.floor(window.innerWidth * DPR);
+    canvas.height = Math.floor(window.innerHeight * DPR);
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  /* --- offscreen video canvas for sampling --- */
+  const video = document.createElement('video');
+  video.playsInline = true;
+  video.muted = true;
+  video.autoplay = true;
+  video.style.display = 'none';
+  document.body.appendChild(video);
+  const vCanvas = document.createElement('canvas');
+  const vCtx = vCanvas.getContext('2d');
+
+  /* --- grid sizing --- */
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+  let gridW = parseInt(document.getElementById('mesh_res').value,10) || 48;
+  let gridH = 0;
+  function updateGridSize(){
+    gridW = Math.max(8, Math.min(160, parseInt(document.getElementById('mesh_res').value,10)));
+    const aspect = (canvas.width||window.innerWidth) / (canvas.height||window.innerHeight);
+    gridH = Math.max(6, Math.round(gridW / Math.max(0.0001, aspect)));
+    vCanvas.width = gridW; vCanvas.height = gridH;
+  }
+  updateGridSize();
+  document.getElementById('mesh_res').addEventListener('input', updateGridSize);
+
+  /* --- camera start (gesture required on some platforms) --- */
+  async function startCamera(){
+    try{
+      const s = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' }, audio:false });
+      video.srcObject = s;
+      await video.play().catch(()=>{});
+      addTicker('Camera started');
+    }catch(e){
+      addTicker('Camera start failed');
+      console.warn('startCamera', e);
+    }
+  }
+
+  /* --- field computation --- */
+  let lum=null, gx=null, gy=null, lumPrev=null;
+  function computeField(){
+    const w = vCanvas.width, h = vCanvas.height;
+    if(!video || video.readyState < 2){
+      // procedural fallback
+      lum = new Float32Array(w*h); gx = new Float32Array(w*h); gy = new Float32Array(w*h);
+      const t = performance.now()*0.0005;
+      for(let y=0;y<h;y++){
+        for(let x=0;x<w;x++){
+          const i=y*w+x;
+          lum[i] = 0.5 + 0.25*Math.sin(x*0.06 + t) + 0.12*Math.cos(y*0.04 + t*0.9);
+        }
+      }
+      // grads
+      for(let y=0;y<h;y++){
+        for(let x=0;x<w;x++){
+          const i=y*w+x;
+          const l = lum[i];
+          const r = (x+1<w)?lum[y*w+x+1]:l;
+          const lft = (x-1>=0)?lum[y*w+x-1]:l;
+          const d = (y+1<h)?lum[(y+1)*w + x]:l;
+          const u = (y-1>=0)?lum[(y-1)*w + x]:l;
+          gx[i] = (r - lft) * 0.5;
+          gy[i] = (d - u) * 0.5;
+        }
+      }
+      lumPrev = lum.slice();
+      return;
+    }
+
+    try{
+      vCtx.drawImage(video, 0, 0, w, h);
+      const imgd = vCtx.getImageData(0,0,w,h).data;
+      lum = new Float32Array(w*h); gx = new Float32Array(w*h); gy = new Float32Array(w*h);
+      for(let y=0;y<h;y++){
+        for(let x=0;x<w;x++){
+          const i = y*w + x, di = i*4;
+          const r = imgd[di], g = imgd[di+1], b = imgd[di+2];
+          lum[i] = (0.2126*r + 0.7152*g + 0.0722*b) / 255;
+        }
+      }
+      const source = document.getElementById('vector_source').value;
+      if(source === 'gradient'){
+        for(let y=0;y<h;y++){
+          for(let x=0;x<w;x++){
+            const i=y*w+x;
+            const r = (x+1<w)?lum[y*w+x+1]:lum[i];
+            const l = (x-1>=0)?lum[y*w+x-1]:lum[i];
+            const d = (y+1<h)?lum[(y+1)*w+x]:lum[i];
+            const u = (y-1>=0)?lum[(y-1)*w+x]:lum[i];
+            gx[i] = (r - l) * 0.5;
+            gy[i] = (d - u) * 0.5;
+          }
+        }
+      } else {
+        if(!lumPrev || lumPrev.length !== lum.length) lumPrev = lum.slice();
+        const delta = new Float32Array(w*h);
+        for(let i=0;i<w*h;i++) delta[i] = lum[i] - lumPrev[i];
+        for(let y=0;y<h;y++){
+          for(let x=0;x<w;x++){
+            const i=y*w+x;
+            const r = (x+1<w)?delta[y*w+x+1]:delta[i];
+            const l = (x-1>=0)?delta[y*w+x-1]:delta[i];
+            const d = (y+1<h)?delta[(y+1)*w+x]:delta[i];
+            const u = (y-1>=0)?delta[(y-1)*w+x]:delta[i];
+            gx[i] = (r - l) * 0.5;
+            gy[i] = (d - u) * 0.5;
+          }
+        }
+        lumPrev.set(lum);
+      }
+      // simple smoothing (1px)
+      const w4=w,h4=h;
+      const gx2=gx.slice(), gy2=gy.slice();
+      for(let y=0;y<h4;y++){
+        for(let x=0;x<w4;x++){
+          let sx=0, sy=0, c=0;
+          for(let oy=-1;oy<=1;oy++){
+            for(let ox=-1;ox<=1;ox++){
+              const nx=x+ox, ny=y+oy;
+              if(nx>=0 && ny>=0 && nx<w4 && ny<h4){ const ii = ny*w4+nx; sx+=gx2[ii]; sy+=gy2[ii]; c++; }
+            }
+          }
+          const idx=y*w4+x; gx[idx] = sx/c; gy[idx] = sy/c;
+        }
+      }
+    }catch(e){
+      // getImageData might fail due to CORS; fallback silently handled
+      console.warn('computeField sampling failed', e);
+    }
+  }
+
+  /* --- particles (gridParticles mode) --- */
+  const particles = [];
+  const params = { count: 1200, speed: 1.6, decay: 0.92 };
+  function makeParticle(){ return { x: Math.random() * (canvas.width/DPR), y: Math.random() * (canvas.height/DPR), vx:0, vy:0, size: 1 + Math.random()*2 }; }
+  function resetParticles(n){
+    particles.length=0;
+    for(let i=0;i<n;i++) particles.push(makeParticle());
+  }
+  resetParticles(params.count);
+
+  function sampleGrid(px, py){
+    if(!gx || !gy) return { vx:0, vy:0, lum:0.5, color:[180,180,180] };
+    const w = vCanvas.width, h = vCanvas.height;
+    const sx = Math.floor((px / (canvas.width / DPR)) * w);
+    const sy = Math.floor((py / (canvas.height / DPR)) * h);
+    const x = clamp(sx, 0, w-1), y = clamp(sy, 0, h-1);
+    const i = y*w + x;
+    let sxv = gx[i]||0, syv = gy[i]||0;
+    const lumVal = lum ? lum[i] : 0.5;
+    let col = [180,180,180];
+    if(video && video.readyState >= 2){
+      try{ const img = vCtx.getImageData(x, y, 1, 1).data; col = [img[0],img[1],img[2]]; }catch(e){}
+    }
+    return { vx: sxv, vy: syv, lum: lumVal, color: col };
+  }
+
+  function applyAxisPolicy(vx, vy){
+    const policy = document.getElementById('axis_policy').value;
+    if(policy === 'horizontal') return [vx,0];
+    if(policy === 'vertical') return [0,vy];
+    if(policy === 'dominant'){ if(Math.abs(vx) >= Math.abs(vy)) return [vx,0]; return [0,vy]; }
+    return [vx,vy];
+  }
+
+  function stepParticles(dt){
+    const w = canvas.width / DPR, h = canvas.height / DPR;
+    const influence = parseFloat(document.getElementById('vid_influence')?.value || 1);
+    // subtle persistent fade
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'rgba(8,8,8,0.12)';
+    ctx.fillRect(0,0,w,h);
+    ctx.globalCompositeOperation = 'lighter';
+    for(const p of particles){
+      const s = sampleGrid(p.x,p.y);
+      let vx = s.vx * influence * 140;
+      let vy = s.vy * influence * 140;
+      [vx,vy] = applyAxisPolicy(vx,vy);
+      const lerpT = 0.72;
+      p.vx = p.vx * (1-lerpT) + vx * lerpT;
+      p.vy = p.vy * (1-lerpT) + vy * lerpT;
+      p.x += p.vx * dt * params.speed * 60;
+      p.y += p.vy * dt * params.speed * 60;
+      if(p.x < -50) p.x = w + 50;
+      if(p.y < -50) p.y = h + 50;
+      if(p.x > w + 50) p.x = -50;
+      if(p.y > h + 50) p.y = -50;
+      const lumSample = s.lum;
+      const baseTone = Math.floor(200 - lumSample * 40);
+      const colorT = influence > 0.05 ? s.color : [baseTone,baseTone,baseTone];
+      const grd = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,10 + p.size*1.6);
+      grd.addColorStop(0, `rgba(${colorT[0]},${colorT[1]},${colorT[2]},0.14)`);
+      grd.addColorStop(0.2, `rgba(${colorT[0]},${colorT[1]},${colorT[2]},0.06)`);
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(p.x,p.y,8+p.size,0,Math.PI*2); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+      ctx.lineWidth = 0.7; ctx.beginPath(); ctx.arc(p.x,p.y,1.4 + p.size*0.4,0,Math.PI*2); ctx.stroke();
+      ctx.globalCompositeOperation = 'lighter';
+    }
+  }
+
+  /* --- grid mesh mode drawing --- */
+  function drawGridMesh(){
+    const w = vCanvas.width, h = vCanvas.height;
+    const cellW = (canvas.width / DPR) / Math.max(1,w);
+    const cellH = (canvas.height / DPR) / Math.max(1,h);
+    const influence = parseFloat(document.getElementById('vid_influence')?.value || 1);
+    const axisPolicy = document.getElementById('axis_policy')?.value || 'dominant';
+    if(document.getElementById('vid_blend')?.checked && video && video.readyState >= 2){
+      ctx.save(); ctx.globalAlpha = 0.12;
+      try{ ctx.drawImage(video, 0, 0, canvas.width / DPR, canvas.height / DPR); }catch(e){}
+      ctx.restore();
+    } else {
+      ctx.clearRect(0,0,canvas.width / DPR, canvas.height / DPR);
+    }
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const i = y*w + x;
+        let sx = (gx && gx[i]) ? gx[i] * influence * 60 : 0;
+        let sy = (gy && gy[i]) ? gy[i] * influence * 60 : 0;
+        if(axisPolicy === 'horizontal') sy = 0;
+        if(axisPolicy === 'vertical') sx = 0;
+        if(axisPolicy === 'dominant'){ if(Math.abs(sx) >= Math.abs(sy)) sy = 0; else sx = 0; }
+        const cx = x*cellW + cellW*0.5 + sx;
+        const cy = y*cellH + cellH*0.5 + sy;
+        const lumVal = lum ? lum[i] : 0.5;
+        let fillColor = `hsl(${Math.floor(200 + lumVal*40)} 6% ${Math.floor(20 + lumVal*40)}%)`;
+        if(video && video.readyState >= 2 && influence > 0.05){
+          try{ const img = vCtx.getImageData(x,y,1,1).data; fillColor = `rgb(${img[0]},${img[1]},${img[2]})`; }catch(e){}
+        }
+        ctx.fillStyle = fillColor;
+        const wq = Math.max(1, cellW * 0.95), hq = Math.max(1, cellH * 0.95);
+        ctx.fillRect(cx - wq*0.5, cy - hq*0.5, wq, hq);
+      }
+    }
+  }
+
+  /* --- text rain mode --- */
+  let columns = [];
+  function initTextRain(){
+    const cols = Math.max(8, Math.floor((canvas.width / DPR) / Math.max(12, Math.round((canvas.width / DPR)/60))));
+    columns = [];
+    for(let i=0;i<cols;i++){
+      columns.push({ x: (i+0.5) * ((canvas.width/DPR)/cols), y: -Math.random()*300, speed: 1 + Math.random()*4, char: String.fromCharCode(33 + Math.floor(Math.random()*80)) });
+    }
+  }
+  function stepTextRain(dt){
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+    ctx.fillRect(0,0,canvas.width/DPR, canvas.height/DPR);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'rgba(200,220,200,0.95)';
+    ctx.font = Math.max(10, Math.round((canvas.width/DPR)/48)) + 'px monospace';
+    for(const col of columns){
+      const sample = sampleGrid(col.x, col.y);
+      const influence = parseFloat(document.getElementById('vid_influence')?.value || 1);
+      col.speed += (sample.lum - 0.5) * influence * 2 * dt;
+      col.y += col.speed;
+      if(Math.random() < 0.03) col.char = String.fromCharCode(33 + Math.floor(Math.random()*80));
+      ctx.fillText(col.char, col.x, col.y);
+      if(col.y > (canvas.height/DPR) + 40){ col.y = -Math.random()*200; col.speed = 1 + Math.random()*4; }
+    }
+  }
+
+  /* --- main loop --- */
+  let last = performance.now(), paused = false;
+  function tick(now){
+    const dt = Math.min(50, now - last) / 1000;
+    last = now;
+    if(!paused){
+      updateGridSize();
+      computeField();
+      const mode = document.getElementById('mode').value;
+      if(mode === 'gridParticles') stepParticles(dt);
+      else if(mode === 'gridMesh') drawGridMesh();
+      else if(mode === 'textrain') stepTextRain(dt);
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // Controls
+  document.getElementById('btn_clear').addEventListener('click', ()=> ctx.clearRect(0,0,canvas.width,canvas.height));
+  document.getElementById('btn_freeze').addEventListener('click', (e)=>{ paused = !paused; e.target.textContent = paused ? 'Resume' : 'Pause'; });
+  document.getElementById('btn_reset').addEventListener('click', ()=> resetParticles(params.count));
+  window.addEventListener('resize', initTextRain);
+  window.addEventListener('keydown', (e)=>{ if(e.key === ' ') { paused = !paused; document.getElementById('btn_freeze').textContent = paused ? 'Resume' : 'Pause'; } });
+
+  initTextRain();
+  if(window.innerWidth < 700) params.count = Math.min(params.count,900);
+
+  // Ensure camera on first user gesture (if desired)
+  window.addEventListener('pointerdown', ()=>{ if(video && !video.srcObject) startCamera().catch(()=>{}); }, { once:true });
+  window.addEventListener('touchstart', ()=>{ if(video && !video.srcObject) startCamera().catch(()=>{}); }, { once:true });
+
+  /* --- spawn windows using captureStream of grid canvas --- */
+  const gridStream = canvas.captureStream ? canvas.captureStream(30) : null;
+
+  // single winCount for windows
+  let winCount = 0, spawnUsed = false;
+
+  function makeMiniWindow({ x = 150, y = 300 } = {}){
+    if(window.innerWidth < 700 && x > 20) x = 20;
+    winCount++;
+    const el = document.createElement('div');
+    el.className = 'miniWin';
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    el.innerHTML = `
+      <div class="miniBar">
+        <div class="miniTitle">canvas_${String(winCount).padStart(4,'0')}</div>
+        <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+      </div>
+      <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>`;
+    document.body.appendChild(el);
+    const v = el.querySelector('.miniVideo');
+    if(gridStream){ v.srcObject = gridStream; v.play().catch(()=>{}); }
+
+    // drag
+    const bar = el.querySelector('.miniBar');
+    let dragging=false, sx=0, sy=0, sl=0, st=0;
+    function start(e){ dragging=true; const r=el.getBoundingClientRect(); sl=r.left; st=r.top; sx=(e.touches?e.touches[0].clientX:e.clientX); sy=(e.touches?e.touches[0].clientY:e.clientY); document.addEventListener('pointermove',move); document.addEventListener('pointerup',stop); document.addEventListener('touchmove',move,{passive:false}); document.addEventListener('touchend',stop); }
+    function move(e){ if(!dragging) return; const cx=(e.touches?e.touches[0].clientX:e.clientX); const cy=(e.touches?e.touches[0].clientY:e.clientY); el.style.left=(sl+(cx-sx))+'px'; el.style.top=(st+(cy-sy))+'px'; e.preventDefault?.(); }
+    function stop(){ dragging=false; document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',stop); document.removeEventListener('touchmove',move); document.removeEventListener('touchend',stop); }
+    bar.addEventListener('pointerdown', start); bar.addEventListener('touchstart', start, { passive:false });
+    return el;
+  }
+
+  // Single DOMContentLoaded wiring for spawn/clear and initial spawn
+  document.addEventListener('DOMContentLoaded', function(){
+    const btnSpawn5 = document.getElementById('btnSpawn5');
+    const btnCloseAll = document.getElementById('btnCloseAll');
+    const btnReverseCam = document.getElementById('btnReverseCam');
+    const btnVoice = document.getElementById('btnVoice');
+
+    if(btnSpawn5){
+      btnSpawn5.addEventListener('click', ()=>{
+        if(spawnUsed) return addTicker('spawn blocked: already active');
+        spawnUsed = true;
+        let startX = 170 + Math.random()*40, startY = 300 + Math.random()*40;
+        if(window.innerWidth < 700) startX = 20;
+        for(let i=0;i<5;i++) makeMiniWindow({ x:startX + i*26, y:startY + i*18 });
+        addTicker('spawned 5 live windows');
+      });
+    } else console.warn('btnSpawn5 not found');
+
+    if(btnCloseAll){
+      btnCloseAll.addEventListener('click', ()=>{
+        document.querySelectorAll('.miniWin').forEach(n=>n.remove());
+        winCount = 0; spawnUsed = false;
+        addTicker('all windows closed');
+      });
+    }
+
+    if(btnReverseCam){
+      btnReverseCam.addEventListener('click', async ()=>{ await startCamera(); addTicker('Reverse cam toggled'); });
+    }
+    if(btnVoice){
+      btnVoice.addEventListener('click', ()=> addTicker('voice UI toggled (stub)'));
+    }
+
+    // initial auto-spawn (safe timing)
+    (async function autoSpawn(){
+      await startCamera().catch(()=>{});
+      let startX = 100, startY = 170;
+      if(window.innerWidth < 700) startX = 20;
+      for(let i=0;i<5;i++) makeMiniWindow({ x:startX + i*22, y:startY + i*18 });
+      addTicker('initial spawn complete (DOMContentLoaded)');
+    })();
+  }); // end DOMContentLoaded
+
+  </script>
+
+  <!-- ADVANCE BUTTON: HTML (outside main script) -->
+  <button id="advanceButtonGlobal" type="button" role="button" aria-pressed="false" title="Hold to advance" tabindex="0"
+          data-longpress-url="https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch8.html"
+          data-hold-ms="900" aria-label="Advance">
+    <span class="ab-progress" aria-hidden="true"></span>
+    <span class="ab-label">Advance</span>
+  </button>
+
+  <!-- Advance button behavior (kept small & separate) -->
+  <script>
+  (function(){
+    const ID = 'advanceButtonGlobal';
+    const HOLD_MS_DEFAULT = 900;
+    const MOVE_TOL = 12;
+    function ensure(){ return document.getElementById(ID); }
+    function attach(btn){
+      if(!btn) return;
+      const progressEl = btn.querySelector('.ab-progress');
+      const holdDuration = Number(btn.getAttribute('data-hold-ms')) || HOLD_MS_DEFAULT;
+      let pointerId=null, startX=0, startY=0, timer=null, keyTimer=null, isHolding=false;
+
+      function startHold(px,py,pid){
+        if(isHolding) return; isHolding=true; pointerId=pid==null?null:pid; startX=px; startY=py;
+        btn.classList.add('holding'); btn.setAttribute('aria-pressed','true');
+        if(progressEl){ progressEl.style.transition = 'width '+holdDuration+'ms linear'; setTimeout(()=>progressEl.style.width='100%',10); }
+        timer = setTimeout(()=>{ timer=null; completeHold(); }, holdDuration);
+        try{ if(navigator.vibrate) navigator.vibrate(8); }catch(e){}
+      }
+      function cancelHold(){ if(!isHolding) return; isHolding=false; pointerId=null; if(timer){ clearTimeout(timer); timer=null; } if(keyTimer){ clearTimeout(keyTimer); keyTimer=null; } if(progressEl){ progressEl.style.transition='width 160ms linear'; progressEl.style.width='0%'; } btn.classList.remove('holding'); btn.setAttribute('aria-pressed','false'); }
+      function completeHold(){ cancelHold(); const url = btn.getAttribute('data-longpress-url') || window.nextPage || '/'; const ev = new CustomEvent('advanceActivated',{ detail:{url,source:'advance-button'}, bubbles:true, cancelable:true }); const proceed = btn.dispatchEvent(ev); if(!proceed) return; try{ window.location.href = url; }catch(e){ console.error('advance navigation failed', e); } }
+      btn.addEventListener('contextmenu', e=>e.preventDefault());
+
+      if(window.PointerEvent){
+        btn.addEventListener('pointerdown', function(e){ if(e.isPrimary===false) return; if(e.button && e.button!==0) return; try{ btn.setPointerCapture && btn.setPointerCapture(e.pointerId); }catch(_){} startHold(e.clientX,e.clientY,e.pointerId); e.preventDefault(); }, { passive:false });
+        btn.addEventListener('pointermove', function(e){ if(!isHolding) return; if(pointerId!==null && e.pointerId!==pointerId) return; const dx=Math.abs(e.clientX-startX), dy=Math.abs(e.clientY-startY); if(Math.hypot(dx,dy)>MOVE_TOL) cancelHold(); }, { passive:true });
+        btn.addEventListener('pointerup', function(e){ if(!isHolding) return; if(pointerId!==null && e.pointerId!==pointerId) return; try{ btn.releasePointerCapture && btn.releasePointerCapture(e.pointerId); }catch(_){} if(timer){ clearTimeout(timer); timer=null; } cancelHold(); }, { passive:true });
+        btn.addEventListener('pointercancel', function(e){ if(pointerId!==null && e.pointerId!==pointerId) return; cancelHold(); });
+      } else {
+        btn.addEventListener('mousedown', function(e){ if(e.button!==0) return; startHold(e.clientX,e.clientY,'mouse'); e.preventDefault(); }, { passive:false });
+        document.addEventListener('mousemove', function(e){ if(!isHolding) return; const dx=Math.abs(e.clientX-startX), dy=Math.abs(e.clientY-startY); if(Math.hypot(dx,dy)>MOVE_TOL) cancelHold(); }, { passive:true });
+        document.addEventListener('mouseup', function(e){ if(!isHolding) return; if(timer){ clearTimeout(timer); timer=null; } cancelHold(); }, { passive:true });
+        btn.addEventListener('touchstart', function(e){ const t=e.changedTouches[0]; if(!t) return; startHold(t.clientX,t.clientY,t.identifier); e.preventDefault(); }, { passive:false });
+        document.addEventListener('touchmove', function(e){ if(!isHolding) return; for(let i=0;i<e.changedTouches.length;i++){ const t=e.changedTouches[i]; if(t.identifier===pointerId){ const dx=Math.abs(t.clientX-startX), dy=Math.abs(t.clientY-startY); if(Math.hypot(dx,dy)>MOVE_TOL) cancelHold(); break; } } }, { passive:true });
+        document.addEventListener('touchend', function(e){ if(!isHolding) return; for(let i=0;i<e.changedTouches.length;i++){ const t=e.changedTouches[i]; if(t.identifier===pointerId){ if(timer){ clearTimeout(timer); timer=null; } cancelHold(); break; } } }, { passive:true });
+      }
+
+      // keyboard
+      btn.addEventListener('keydown', function(e){ const isSpace=(e.code==='Space'||e.key===' '); const isEnter=(e.key==='Enter'); if(!isSpace && !isEnter) return; if(keyTimer) return; e.preventDefault(); btn.classList.add('holding'); if(progressEl){ progressEl.style.transition = 'width '+holdDuration+'ms linear'; setTimeout(()=>progressEl.style.width='100%',10); } keyTimer = setTimeout(()=>{ keyTimer=null; completeHold(); }, holdDuration); });
+      btn.addEventListener('keyup', function(e){ const isSpace=(e.code==='Space'||e.key===' '); const isEnter=(e.key==='Enter'); if((isSpace||isEnter) && keyTimer){ clearTimeout(keyTimer); keyTimer=null; if(progressEl){ progressEl.style.transition='width 160ms linear'; progressEl.style.width='0%'; } btn.classList.remove('holding'); e.preventDefault(); } });
+
+      window.addEventListener('pagehide', cancelHold); window.addEventListener('blur', cancelHold);
+    }
+
+    // init
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', function ondom(){ document.removeEventListener('DOMContentLoaded', ondom); const btn = ensure(); attach(btn); });
+    } else { const btn = ensure(); attach(btn); }
+  })();
+  </script>
+
+</body>
+</html>
