@@ -138,9 +138,9 @@
       return gridStream;
     }
 
-    function makeMiniWindow({x=150, y=300}={}){
+    function makeMiniWindow({x=140, y=300}={}){
       // 🛑 BLOCKER WARNING 🛑
-      // if(window.innerWidth < 700 && x > 20) x = 20;
+      // if(window.innerWidth < 500 && x > 20) x = 20;
 
       winCount++;
       const el=document.createElement('div');
@@ -196,8 +196,8 @@
       if(spawnUsed)return addTicker('spawn blocked: already active');
       spawnUsed=true;
       let startX=170+Math.random()*40, startY=300+Math.random()*40;
-      if(window.innerWidth < 700) startX = 40;
-      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*26, y:startY+i*18});
+      if(window.innerWidth < 500) startX = 40;
+      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*16, y:startY+i*18});
       addTicker('spawned 5 windows');
     });
 
@@ -209,9 +209,9 @@
 
     // Initial spawn mini windows
     (async()=>{
-      let startX = 100, startY = 170;
-      if(window.innerWidth < 700) startX = 40;
-      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*22, y:startY+i*18});
+      let startX = 140, startY = 170;
+      if(window.innerWidth < 500) startX = 40;
+      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*16, y:startY+i*18});
     })();
 
     // =========================
