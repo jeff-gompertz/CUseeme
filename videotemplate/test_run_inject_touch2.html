@@ -281,13 +281,116 @@
       if(e.key==='Enter'){e.preventDefault();handleSubmit(input.value);}
     });
 
-    // Initial spawn mini windows
-    (async()=>{
-      let startX = 100, startY = 170;
-      if(window.innerWidth < 700) startX = 20;
-      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*22, y:startY+i*18});
-    })();
+// =========================
+// === MINI WINDOW SYSTEM START 🟦🟩🟧🟥🟨🟫⬛🟪 ===
+// =========================
 
+let winCount = 0, spawnUsed = false;
+
+/** 
+ * 🟪 makeMiniWindow({x, y}) — spawns a draggable "card" at X and Y.
+ *   - x: horizontal (how far from the LEFT edge, in pixels)
+ *   - y: vertical (how far from TOP, in pixels)
+ */
+function makeMiniWindow({x=140, y=320}={}) {
+  // 🛑 BLOCKER WARNING 🛑
+  // If you uncomment this line, it will "clamp" cards to far left on narrow/mobile screens
+  // (window.innerWidth < 500) means "only phones"
+  // if(window.innerWidth < 500 && x > 20) x = 20; // <--- MAKE SURE THIS IS REMOVED!
+  winCount++;
+  const el = document.createElement('div');
+  el.className = 'miniWin';
+
+  el.style.left = x + 'px'; // 🟪 ← CHANGE 'x' for distance from LEFT
+  el.style.top  = y + 'px'; // 🟦 ← CHANGE 'y' for distance from TOP
+
+  el.innerHTML = `
+    <div class="miniBar">
+      <div class="miniTitle">window_${String(winCount).padStart(4, '0')}</div>
+      <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+    </div>
+    <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>
+  `;
+  document.body.appendChild(el);
+  const v = el.querySelector('.miniVideo');
+  v.srcObject = getActiveSourceStream();
+  v.play();
+
+  // 🟫 DRAG HANDLERS — allows for pointer/touch dragging
+  const bar = el.querySelector('.miniBar');
+  let dragging = false, sx = 0, sy = 0, sl = 0, st = 0;
+  function start(e) {
+    dragging = true;
+    const r = el.getBoundingClientRect(); sl = r.left; st = r.top;
+    sx = (e.touches ? e.touches[0].clientX : e.clientX);
+    sy = (e.touches ? e.touches[0].clientY : e.clientY);
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', stop);
+    document.addEventListener('touchmove', move, {passive:false});
+    document.addEventListener('touchend', stop);
+  }
+  function move(e) {
+    if (!dragging) return;
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+    el.style.left = (sl + (cx - sx)) + 'px'; // 🟪 updates left pos
+    el.style.top  = (st + (cy - sy)) + 'px'; // 🟦 updates top pos
+    e.preventDefault?.();
+  }
+  function stop() {
+    dragging = false;
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', stop);
+    document.removeEventListener('touchmove', move);
+    document.removeEventListener('touchend', stop);
+  }
+  bar.addEventListener('pointerdown', start);
+  bar.addEventListener('touchstart', start, {passive:false});
+  return el;
+}
+
+// === SPAWN BUTTONS: Control WHERE cards appear, how they're spaced & mobile override ===
+
+const btnSpawn5 = document.getElementById('btnSpawn5');
+const btnCloseAll = document.getElementById('btnCloseAll');
+
+// 🟩 "Spawn 5" button handler — SPAWN starts at startX/startY, opens 5 in sequence spaced by i*26/i*18
+btnSpawn5.addEventListener('click', () => {
+  if (spawnUsed) return addTicker('spawn blocked: already active');
+  spawnUsed = true;
+
+  // 🍊Desktop: spawn at startX = 140 + random wiggle, startY = 300 + random wiggle
+  let startX = 140 + Math.random() * 40, startY = 300 + Math.random() * 40;
+  // 🟧 MOBILE OVERRIDE: Use lower startX for small screens (<500px wide)
+  // This is the line to change for "mobile cards farther right"
+  if (window.innerWidth < 500) startX = 40; // ← CHANGE THIS to 80,120, etc for more right margin on mobile!
+
+  // 🟨 SPREAD: Each card is offset horizontally (i*26) and vertically (i*18)
+  for (let i = 0; i < 5; i++)
+    makeMiniWindow({x: startX + i * 26, y: startY + i * 18}); // 🟪🟦 Spacing between cards
+  addTicker('spawned 5 windows');
+});
+
+btnCloseAll.addEventListener('click', () => {
+  document.querySelectorAll('.miniWin').forEach(n => n.remove());
+  winCount = 0; spawnUsed = false;
+  addTicker('all windows closed');
+});
+
+// 🟫 INITIAL AUTO-SPAWN — When page loads, cards spawn automatically at these positions
+(async () => {
+  let startX = 140, startY = 180;
+  // 🟧 MOBILE OVERRIDE: Use lower startX for small screens
+  if (window.innerWidth < 500) startX = 40; // CHANGE THIS AS WELL!
+  for (let i = 0; i < 5; i++) makeMiniWindow({x: startX + i * 26, y: startY + i * 18});
+})();
+
+// =========================
+// === MINI WINDOW SYSTEM END 🟦🟩🟧🟥🟨🟫⬛🟪 ===
+// =========================
+
+
+    
     // HUD panel switch (single panel mode preserved)
     const huds = [...document.querySelectorAll('.hud-panel')];
     const hudIndex = document.getElementById('hudIndex');
@@ -307,8 +410,6 @@
     updateHUDLabel();
   </script>
 
-
-  
 <!--
   Inline Advance Button — Highly commented version
   Paste this entire block just before your closing </body>.
