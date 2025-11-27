@@ -484,11 +484,19 @@ window.addEventListener('touchstart', ()=> { if(!cameraMain.srcObject) startCame
 
 </script>
 
-<!-- Advance Button (unchanged) -->
-<button id="advanceButtonGlobal" type="button" aria-pressed="false" title="Hold to advance" tabindex="0" data-longpress-url="https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch6.html">
-  <span class="ab-progress" aria-hidden="true"></span><span class="ab-label">Advance</span>
-</button>
-<!-- Button CSS/JS omitted for brevity (unchanged) -->
+<script>
+  // Set this to the URL or HTML file you want to go to next
+  var nextPage = "https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch7BUTTON.html"; // Example: "slide2.html", "my-next-design.html", etc.
+
+  // Listen for any click or touch on the document
+  document.addEventListener("click", function() {
+    window.location.href = nextPage;
+  });
+
+  document.addEventListener("touchend", function() {
+    window.location.href = nextPage;
+  });
+</script>>
 
 </body>
 </html>
