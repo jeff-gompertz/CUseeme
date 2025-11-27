@@ -170,7 +170,7 @@
     }
 
     function makeMiniWindow({x=150,y=300}={}){
-      if(window.innerWidth < 700 && x > 20) x = 20;
+      if(window.innerWidth < 500 && x > 20) x = 20;
       winCount++;
       const el=document.createElement('div');
       el.className='miniWin';
@@ -228,8 +228,8 @@
       if(spawnUsed)return addTicker('spawn blocked: already active');
       spawnUsed=true;
       let startX=170+Math.random()*40, startY=300+Math.random()*40;
-      if(window.innerWidth < 700) startX = 20;
-      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*26, y:startY+i*18});
+      if(window.innerWidth < 500) startX = 20;
+      for(let i=0;i<5;i++) makeMiniWindow({x:startX+i*16, y:startY+i*18});
       addTicker('spawned 5 windows');
     });
 
@@ -306,6 +306,9 @@
     document.getElementById('hudHeader').addEventListener('click',()=>showHUD(currentHUD + 1));
     updateHUDLabel();
   </script>
+
+
+  
 <!--
   Inline Advance Button — Highly commented version
   Paste this entire block just before your closing </body>.
