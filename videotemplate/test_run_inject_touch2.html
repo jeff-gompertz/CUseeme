@@ -169,22 +169,6 @@
       return gridStream;
     }
 
-    function makeMiniWindow({x=150,y=300}={}){
-      if(window.innerWidth < 500 && x > 20) x = 20;
-      winCount++;
-      const el=document.createElement('div');
-      el.className='miniWin';
-      el.style.left=x+'px';
-      el.style.top=y+'px';
-      el.innerHTML=`
-        <div class="miniBar">
-          <div class="miniTitle">window_${String(winCount).padStart(4,'0')}</div>
-          <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
-        </div>
-        <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>`;
-      document.body.appendChild(el);
-      const v=el.querySelector('.miniVideo');
-
       // Set the video source to selected stream
       v.srcObject = getActiveSourceStream();
       v.play();
@@ -812,5 +796,22 @@ btnCloseAll.addEventListener('click', () => {
   }
 })();
 </script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  // remove the visible control
+  const vb = document.getElementById('btnVoice');
+  if (vb) vb.remove();
+
+  // neutralize voice functions so any remaining code that calls them becomes a no-op
+  try{
+    if(window.speak) window.speak = function(){ /* voice disabled */ };
+    if(window.primeVoices) window.primeVoices = function(){ return Promise.resolve(); };
+    // clear any global voice flag
+    window.voiceOn = false;
+  }catch(e){}
+});
+</script>
+  
 </body>
 </html>
