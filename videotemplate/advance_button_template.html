@@ -1,0 +1,225 @@
+<!--
+  Template: Add the HEAD_SNIPPET into your <head> (or global CSS).
+  Add the FOOTER_SNIPPET just before </body> on pages where you want the Advance button.
+  To change the page target, set data-longpress-url on the button or set window.nextPage
+  BEFORE the FOOTER_SNIPPET runs.
+-->
+
+<!-- ========== HEAD_SNIPPET (paste into <head>) ========== -->
+<style>
+/* Advance button theme variables — change these once in your head for site-wide color */
+:root{
+  --ab-bg-start: rgba(255,255,255,0.98);    /* button top */
+  --ab-bg-end:   rgba(240,250,240,0.92);    /* button bottom */
+  --ab-fore:     #132030;                   /* label color */
+  --ab-progress: linear-gradient(90deg, rgba(233,255,50,0.14), rgba(233,255,50,0.08)); /* marker yellow */
+  --ab-progress-strong: linear-gradient(90deg, rgba(233,255,50,0.36), rgba(233,255,50,0.18));
+}
+
+/* Minimal core styling for the Advance button */
+#advanceButtonGlobal{
+  position:fixed;
+  right:16px;
+  bottom:16px;
+  z-index:10020;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:36px;
+  min-width:84px;
+  padding:7px 22px;
+  border-radius:28px;
+  background: linear-gradient(180deg, var(--ab-bg-start), var(--ab-bg-end));
+  color: var(--ab-fore);
+  font-family: "VT323", monospace, system-ui;
+  font-weight:600;
+  font-size:15px;
+  cursor:pointer;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+/* Hover uses a marker-like yellow highlight — change the second color to your exact swatch if desired */
+#advanceButtonGlobal:hover{
+  background: linear-gradient(180deg, #fffde7, #e9ff32) !important;
+  color: #273a22 !important;
+  transform: translateY(-1px);
+}
+
+/* Progress overlay (fills left→right while holding) */
+#advanceButtonGlobal .ab-progress{
+  position:absolute; left:0; top:0; height:100%; width:0%; border-radius:inherit; pointer-events:none; z-index:0;
+  background: var(--ab-progress);
+  transition: width 0s linear; /* JS sets duration */
+}
+
+/* Stronger overlay while holding */
+#advanceButtonGlobal.holding .ab-progress{
+  background: var(--ab-progress-strong);
+}
+
+/* small mobile adjustments */
+@media (max-width:540px){
+  #advanceButtonGlobal{ right:8px; bottom:8px; padding:6px 12px; min-width:64px; height:30px; font-size:12px; }
+}
+</style>
+<!-- ========== END HEAD_SNIPPET ========== -->
+
+<!-- ========== FOOTER_SNIPPET (paste just before </body>) ========== -->
+<!-- Button HTML (edit data-longpress-url value per page or set window.nextPage before this script) -->
+<button id="advanceButtonGlobal"
+        type="button"
+        role="button"
+        aria-pressed="false"
+        title="Hold to advance"
+        tabindex="0"
+        data-longpress-url="/"
+        data-hold-ms="900"
+        aria-label="Advance">
+  <span class="ab-progress" aria-hidden="true"></span>
+  <span class="ab-label">Advance</span>
+</button>
+
+<!-- Inline JS: self-contained long-press behavior (no external deps) -->
+<script>
+(function(){
+  const ID = 'advanceButtonGlobal';
+  const HOLD_MS_DEFAULT = 900;
+  const MOVE_TOL_DEFAULT = 12;
+
+  function $(id){ return document.getElementById(id); }
+  function ensureButton(){
+    return $(ID);
+  }
+
+  function attachAdvance(btn){
+    if(!btn) return;
+    const progressEl = btn.querySelector('.ab-progress');
+    const holdDuration = Number(btn.getAttribute('data-hold-ms')) || HOLD_MS_DEFAULT;
+    const moveTol = MOVE_TOL_DEFAULT;
+
+    let pointerId = null, startX = 0, startY = 0, timer = null, keyTimer = null, isHolding = false;
+
+    function startHold(px,py,pid){
+      if(isHolding) return;
+      isHolding = true;
+      pointerId = pid == null ? null : pid;
+      startX = px; startY = py;
+      btn.classList.add('holding');
+      btn.setAttribute('aria-pressed','true');
+      if(progressEl) progressEl.style.transition = 'width ' + holdDuration + 'ms linear';
+      setTimeout(()=>{ if(progressEl) progressEl.style.width = '100%'; }, 10);
+      timer = setTimeout(()=>{ timer = null; completeHold(); }, holdDuration);
+      try{ if(navigator.vibrate) navigator.vibrate(8); }catch(e){}
+    }
+
+    function cancelHold(){
+      if(!isHolding) return;
+      isHolding = false;
+      pointerId = null;
+      if(timer){ clearTimeout(timer); timer = null; }
+      if(keyTimer){ clearTimeout(keyTimer); keyTimer = null; }
+      if(progressEl){ progressEl.style.transition = 'width 160ms linear'; progressEl.style.width = '0%'; }
+      btn.classList.remove('holding');
+      btn.setAttribute('aria-pressed','false');
+    }
+
+    function completeHold(){
+      cancelHold();
+      const url = btn.getAttribute('data-longpress-url') || window.nextPage || '/';
+      const ev = new CustomEvent('advanceActivated', { detail:{ url, source:'advance-button' }, bubbles:true, cancelable:true });
+      const proceed = btn.dispatchEvent(ev);
+      if(!proceed) return;
+      try{ window.location.href = url; }catch(e){ console.error(e); }
+    }
+
+    // pointer events (modern)
+    if(window.PointerEvent){
+      btn.addEventListener('pointerdown', function(e){
+        if(e.isPrimary === false) return;
+        if(e.button && e.button !== 0) return;
+        try{ btn.setPointerCapture && btn.setPointerCapture(e.pointerId); }catch(_){}
+        startHold(e.clientX, e.clientY, e.pointerId);
+        e.preventDefault();
+      }, { passive:false });
+
+      btn.addEventListener('pointermove', function(e){
+        if(!isHolding) return;
+        if(pointerId !== null && e.pointerId !== pointerId) return;
+        const dx = Math.abs(e.clientX - startX), dy = Math.abs(e.clientY - startY);
+        if(Math.hypot(dx,dy) > moveTol) cancelHold();
+      }, { passive:true });
+
+      btn.addEventListener('pointerup', function(e){
+        if(!isHolding) return;
+        if(pointerId !== null && e.pointerId !== pointerId) return;
+        try{ btn.releasePointerCapture && btn.releasePointerCapture(e.pointerId); }catch(_){}
+        if(timer){ clearTimeout(timer); timer = null; }
+        cancelHold();
+      }, { passive:true });
+
+      btn.addEventListener('pointercancel', function(e){
+        if(pointerId !== null && e.pointerId !== pointerId) return;
+        cancelHold();
+      });
+    } else {
+      // fallback: mouse & touch
+      btn.addEventListener('mousedown', function(e){ if(e.button !== 0) return; startHold(e.clientX,e.clientY,'mouse'); e.preventDefault(); }, { passive:false });
+      document.addEventListener('mousemove', function(e){ if(!isHolding) return; const dx=Math.abs(e.clientX-startX), dy=Math.abs(e.clientY-startY); if(Math.hypot(dx,dy)>moveTol) cancelHold(); }, { passive:true });
+      document.addEventListener('mouseup', function(e){ if(!isHolding) return; if(timer){ clearTimeout(timer); timer=null;} cancelHold(); }, { passive:true });
+
+      btn.addEventListener('touchstart', function(e){ const t = e.changedTouches[0]; if(!t) return; startHold(t.clientX,t.clientY,t.identifier); e.preventDefault(); }, { passive:false });
+      document.addEventListener('touchmove', function(e){ if(!isHolding) return; for(let i=0;i<e.changedTouches.length;i++){ const t=e.changedTouches[i]; if(t.identifier===pointerId){ const dx=Math.abs(t.clientX-startX), dy=Math.abs(t.clientY-startY); if(Math.hypot(dx,dy)>moveTol) cancelHold(); break; } } }, { passive:true });
+      document.addEventListener('touchend', function(e){ if(!isHolding) return; for(let i=0;i<e.changedTouches.length;i++){ const t=e.changedTouches[i]; if(t.identifier===pointerId){ if(timer){ clearTimeout(timer); timer=null; } cancelHold(); break; } } }, { passive:true });
+      document.addEventListener('touchcancel', function(){ if(isHolding) cancelHold(); }, { passive:true });
+    }
+
+    // keyboard support
+    btn.addEventListener('keydown', function(e){
+      const isSpace = (e.code === 'Space' || e.key === ' ');
+      const isEnter = (e.key === 'Enter');
+      if(!isSpace && !isEnter) return;
+      if(keyTimer) return;
+      e.preventDefault();
+      btn.classList.add('holding');
+      if(progressEl) progressEl.style.transition = 'width ' + holdDuration + 'ms linear';
+      setTimeout(()=>{ if(progressEl) progressEl.style.width = '100%'; }, 10);
+      keyTimer = setTimeout(()=>{ keyTimer = null; completeHold(); }, holdDuration);
+    });
+    btn.addEventListener('keyup', function(e){
+      const isSpace = (e.code === 'Space' || e.key === ' ');
+      const isEnter = (e.key === 'Enter');
+      if((isSpace||isEnter) && keyTimer){ clearTimeout(keyTimer); keyTimer=null; if(progressEl){ progressEl.style.transition='width 160ms linear'; progressEl.style.width='0%'; } btn.classList.remove('holding'); e.preventDefault(); }
+    });
+
+    window.addEventListener('pagehide', cancelHold);
+    window.addEventListener('blur', cancelHold);
+  }
+
+  // init
+  function init(){
+    const btn = ensureButton();
+    attachAdvance(btn);
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function ondom(){ document.removeEventListener('DOMContentLoaded', ondom); init(); });
+  } else {
+    init();
+  }
+})();
+</script>
+<!-- ========== END FOOTER_SNIPPET ========== -->
+
+<!-- USAGE NOTES:
+ - Paste HEAD_SNIPPET into every page's <head> (or global CSS).
+ - Paste FOOTER_SNIPPET just before </body> on pages that should show the Advance button.
+ - To change the per-page target URL:
+     * Option A (recommended): add above FOOTER_SNIPPET, before it loads:
+         <script>window.nextPage = "/path/to/next.html";</script>
+     * Option B: edit the button's data-longpress-url attribute directly in the FOOTER_SNIPPET.
+ - To change the yellow, edit the --ab-progress / --ab-progress-strong variables in the HEAD_SNIPPET.
+-->
