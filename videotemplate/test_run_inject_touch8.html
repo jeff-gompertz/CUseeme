@@ -252,7 +252,34 @@
     }
 
     // === SPAWN BUTTONS: Control WHERE cards appear, how they're spaced & mobile override ===
-    const btnSpawn5=document.getElementById('btnSpawn5');
+    document.addEventListener('DOMContentLoaded', function(){
+  const btnSpawn5 = document.getElementById('btnSpawn5');
+  const btnCloseAll = document.getElementById('btnCloseAll');
+
+  if(btnSpawn5){
+    btnSpawn5.addEventListener('click', ()=>{
+      if(spawnUsed) return addTicker('spawn blocked: already active');
+      spawnUsed = true;
+      let startX = 170 + Math.random()*40, startY = 300 + Math.random()*40;
+      if(window.innerWidth < 700) startX = 40;
+      for(let i=0;i<5;i++) makeMiniWindow({ x:startX + i*26, y:startY + i*18 });
+      addTicker('spawned 5 windows');
+    });
+  } else console.warn('btnSpawn5 not found');
+
+  if(btnCloseAll){
+    btnCloseAll.addEventListener('click', ()=>{
+      document.querySelectorAll('.miniWin').forEach(n=>n.remove());
+      winCount = 0; spawnUsed = false;
+      addTicker('all windows closed');
+    });
+  } else console.warn('btnCloseAll not found');
+
+  // and also move the auto-spawn call inside this DOMContentLoaded (see full file above)
+});
+    
+    
+    /*const btnSpawn5=document.getElementById('btnSpawn5');
     const btnCloseAll=document.getElementById('btnCloseAll');
     btnSpawn5.addEventListener('click',()=>{
       if(spawnUsed)return addTicker('spawn blocked: already active');
@@ -267,7 +294,7 @@
       document.querySelectorAll('.miniWin').forEach(n=>n.remove());
       winCount=0; spawnUsed=false;
       addTicker('all windows closed');
-    });
+    });*/
 
     // 🟫 INITIAL AUTO-SPAWN — When page loads, cards spawn automatically at these positions
     (async()=>{
