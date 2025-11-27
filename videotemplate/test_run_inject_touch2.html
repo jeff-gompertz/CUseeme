@@ -239,11 +239,13 @@ btnSpawn5.addEventListener('click', () => {
   let startX = 140 + Math.random() * 40, startY = 300 + Math.random() * 40;
   // 🟧 MOBILE OVERRIDE: Use lower startX for small screens (<500px wide)
   // This is the line to change for "mobile cards farther right"
-  if (window.innerWidth < 500) startX = 40; // ← CHANGE THIS to 80,120, etc for more right margin on mobile!
+  if (window.innerWidth < 500) startX = 40; // ← CHANGE THIS to 80,120, etc for less/more?/ margin on right
+  
+  right margin on mobile!
 
   // 🟨 SPREAD: Each card is offset horizontally (i*26) and vertically (i*18)
   for (let i = 0; i < 5; i++)
-    makeMiniWindow({x: startX + i * 26, y: startY + i * 18}); // 🟪🟦 Spacing between cards
+    makeMiniWindow({x: startX + i * 16, y: startY + i * 18}); // 🟪🟦 Spacing between cards
   addTicker('spawned 5 windows');
 });
 
@@ -258,7 +260,7 @@ btnCloseAll.addEventListener('click', () => {
   let startX = 140, startY = 180;
   // 🟧 MOBILE OVERRIDE: Use lower startX for small screens
   if (window.innerWidth < 500) startX = 40; // CHANGE THIS AS WELL!
-  for (let i = 0; i < 5; i++) makeMiniWindow({x: startX + i * 26, y: startY + i * 18});
+  for (let i = 0; i < 5; i++) makeMiniWindow({x: startX + i * 16, y: startY + i * 18});
 })();
 
 // =========================
