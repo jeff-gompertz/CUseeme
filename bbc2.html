@@ -626,6 +626,12 @@ if(miniBtn){
 
 // instantiate repo nav
 var repoNavInstance = createRepoNav({ owner: 'jeff-gompertz', repo: 'CUseeme', branch: 'main', containerId: 'repoNav', listId: 'repoList', metaId: 'repoMeta' });
+repoNavInstance.refresh = async function() {
+  try {
+    if (this.list) this.list.innerHTML = '<a href="https://jeff-gompertz.github.io/CUseeme/index.html">🏠 Index</a>';
+    if (this.statusEl) setRepoStatus('loaded');
+  } catch (e) { console.warn('override refresh failed', e); }
+};
 
 // minimal surgical override (keeps nav intentionally simple in this build)
 repoNavInstance.refresh = async function() {
