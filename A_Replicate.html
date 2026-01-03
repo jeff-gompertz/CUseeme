@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Prompt Poem — Prelude Always + Accumulation + Voice Reads Poem</title>
+
+<style>
+html, body{margin:0;padding:0;height:100%;background:#000;font-family:Helvetica,Arial,sans-serif;overflow:hidden;}
+#poemField{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:1;}
+#poemBelt{position:absolute;left:0;right:0;bottom:-10%;padding:6vh 8vw;will-change:transform;}
+.beltInner{will-change:transform;}
+.entry{
+  font-weight:800;letter-spacing:-0.02em;
+  font-size:clamp(42px,6.4vmin,92px);
+  line-height:1.05;margin:0 0 6rem 0;
+  opacity:0.86;color:rgba(255,255,255,0.92);
+}
+.entry.prelude{opacity:0.55;}
+.entry.liveAdd{
+  opacity:1;
+  color:rgba(255,255,255,0.98);
+  text-shadow:0 0 22px rgba(233,255,50,0.20), 0 0 2px rgba(0,0,0,0.50);
+  position:relative;
+}
+.entry.liveAdd::before{
+  content:"LIVE ADD";
+  position:absolute;
+  left:0;
+  top:-1.5rem;
+  font-size:12px;
+  letter-spacing:0.22em;
+  text-transform:uppercase;
+  color:rgba(233,255,50,0.92);
+}
+@keyframes liveIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.entry.liveAdd{animation:liveIn 900ms ease both;}
+
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0;}
+#frame{
+  width:min(92vmin,980px);
+  height:min(92vmin,980px);
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,0.18);
+  background:rgba(0,0,0,0.25);
+  box-shadow:0 22px 60px rgba(0,0,0,0.60);
+  overflow:hidden;position:relative;
+}
+#centerImg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 700ms ease;}
+#centerImg.on{opacity:0.92;}
+#centerImg.fade{opacity:0;}
+#centerImg img{width:100%;height:100%;object-fit:contain;display:block;}
+
+#overlay{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  text-align:center;padding:0 6vw;
+  pointer-events:none;
+  opacity:0;transition:opacity 260ms ease;
+  z-index:3;
+}
+#overlay.on{opacity:1;}
+#text{
+  font-size:clamp(42px,6.4vmin,92px);
+  font-weight:900;line-height:1.02;color:#fff;
+  letter-spacing:-0.02em;
+  text-shadow:0 0 18px rgba(255,255,255,0.22),0 0 2px rgba(0,0,0,0.50);
+  opacity:0.98;
+}
+
+#stamp{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;z-index:4;}
+#stamp.show{animation: stampPop 820ms ease forwards;}
+#stampInner{
+  padding:14px 18px;border-radius:16px;
+  border:1px solid rgba(233,255,50,0.40);
+  background:rgba(0,0,0,0.60);
+  color:#e9ff32;font-weight:900;
+  letter-spacing:0.10em;text-transform:uppercase;
+  font-size: clamp(18px, 2.2vmin, 28px);
+}
+@keyframes stampPop{
+  0%{opacity:0; transform:translateY(12px) scale(0.98);}
+  20%{opacity:1; transform:translateY(0) scale(1);}
+  80%{opacity:1; transform:translateY(0) scale(1);}
+  100%{opacity:0; transform:translateY(-10px) scale(1.01);}
+}
+
+#controls{
+  position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  z-index:10;display:flex;gap:12px;align-items:center;
+  pointer-events:auto;
+}
+.btn{
+  cursor:pointer;padding:18px 26px;border-radius:16px;
+  border:1px solid rgba(255,255,255,0.35);
+  background:rgba(0,0,0,0.6);
+  color:#fff;font-size:16px;
+  letter-spacing:0.08em;text-transform:uppercase;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+.btn[disabled]{opacity:0.45;cursor:default;}
+#generateBtn{display:none;border-color:rgba(233,255,50,0.55);}
+
+#ticker{
+  position:fixed;left:14px;bottom:14px;
+  width:min(44vw,520px);
+  max-height:42vh;
+  overflow:hidden;
+  pointer-events:none;
+  z-index:9;
+  font-size:15px;line-height:1.45;color:#e9ff32;
+}
+.tline{margin:0 0 8px 0;opacity:0;transform:translateY(6px);animation:tIn 240ms ease forwards;white-space:pre-wrap;}
+@keyframes tIn{to{opacity:1;transform:translateY(0);}}
+.tDim{color:rgba(233,255,50,0.55);} .tSig{color:rgba(233,255,50,0.78);} .tHot{color:rgba(233,255,50,0.95);}
+
+#pile{
+  position:fixed;right:14px;top:14px;
+  width:min(36vw,340px);height:min(36vh,340px);
+  border-radius:16px;border:1px solid rgba(255,255,255,0.18);
+  background:rgba(0,0,0,0.35);
+  overflow:hidden;z-index:9;pointer-events:none;
+}
+#pileInner{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:6px;padding:10px;
+  pointer-events:auto;
+}
+.thumb{width:100%;aspect-ratio:1/1;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.10);background:rgba(255,255,255,0.04);}
+.thumb button{all:unset;display:block;width:100%;height:100%;cursor:pointer;}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:0.92;}
+
+#file{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;}
+
+#console{
+  position:fixed;left:50%;bottom:18px;
+  transform:translateX(-50%);
+  width:min(94vw,980px);
+  border-radius:18px;
+  border:1px solid rgba(233,255,50,0.28);
+  background:rgba(0,0,0,0.78);
+  box-shadow:0 18px 60px rgba(0,0,0,0.75);
+  z-index:999;
+  pointer-events:auto;
+}
+#consoleInner{padding:14px 16px;}
+#consoleTitle{
+  font-size:12px;letter-spacing:0.16em;text-transform:uppercase;
+  color:rgba(233,255,50,0.75);
+  margin:0 0 6px 0;
+}
+#consoleMsg{
+  font-size:24px;font-weight:900;
+  letter-spacing:-0.01em;line-height:1.1;
+  color:#e9ff32;margin:0 0 10px 0;
+}
+#consoleMeta{font-size:13px;color:rgba(255,255,255,0.70);line-height:1.35;}
+#consoleMeta code{color:rgba(233,255,50,0.9);}
+.consoleBad{border-color:rgba(255,120,120,0.40)!important;}
+.consoleBad #consoleMsg{color:rgba(255,170,170,0.95)!important;}
+
+#voiceDock{position:fixed;right:14px;bottom:14px;z-index:1000;pointer-events:auto;}
+#voiceBtn{
+  padding:10px 14px;border-radius:14px;
+  border:1px solid rgba(233,255,50,0.28);
+  background:rgba(0,0,0,0.62);
+  color:rgba(233,255,50,0.88);
+  font-weight:900;letter-spacing:0.14em;
+  text-transform:uppercase;font-size:12px;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+#voiceBtn.on{
+  border-color:rgba(233,255,50,0.55);
+  color:#e9ff32;
+  box-shadow:0 0 0 1px rgba(233,255,50,0.10) inset;
+}
+</style>
+</head>
+
+<body>
+<div id="stage">
+  <div id="frame">
+    <div id="centerImg"><img id="centerImgEl" alt=""></div>
+    <div id="overlay"><div id="text"></div></div>
+    <div id="stamp"><div id="stampInner">ADDED TO THE POEM</div></div>
+  </div>
+</div>
+
+<div id="poemField">
+  <div id="poemBelt">
+    <div id="beltA" class="beltInner"></div>
+    <div id="beltB" class="beltInner"></div>
+  </div>
+</div>
+
+<div id="pile"><div id="pileInner"></div></div>
+<div id="ticker"></div>
+
+<div id="controls">
+  <button id="submitBtn" class="btn">Submit Image</button>
+  <button id="generateBtn" class="btn">Generate</button>
+</div>
+
+<div id="voiceDock">
+  <button id="voiceBtn" type="button">VOICE</button>
+</div>
+
+<input id="file" type="file" accept="image/*">
+
+<div id="console" aria-live="polite">
+  <div id="consoleInner">
+    <div id="consoleTitle">System console</div>
+    <div id="consoleMsg">LOADING…</div>
+    <div id="consoleMeta">Warming Act 1…</div>
+  </div>
+</div>
+
+<script>
+/* endpoints */
+const GET_LINES  = (limit=240) => `/wp-json/promptpoem/v1/lines?limit=${limit}`;
+const POST_LINE  = `/wp-json/promptpoem/v1/line`;
+const GET_THUMBS = (limit=24)  => `/wp-json/promptpoem/v1/thumbs?limit=${limit}`;
+const POST_THUMB = `/wp-json/promptpoem/v1/thumb`;
+const POST_START = `/wp-json/promptpoem/v1/interrogate_start`;
+const GET_STATUS = (id) => `/wp-json/promptpoem/v1/interrogate_status?id=${encodeURIComponent(id)}`;
+
+/* timing knobs */
+const POEM_SPEED = 0.70;
+const POEM_POLL_MS = 6000;
+const THUMB_POLL_MS = 8000;
+const TICKER_INTERVAL_MS = 1900;
+
+const POLL_INTERVAL_MS = 1400;
+const POLL_MAX_MS = 240000;
+const HEARTBEAT_MS = 8500;
+
+const LOCAL_REWRITE_MS = 3800;
+
+const PROMPT_FADE_AFTER_MS = 12000;
+const IMAGE_FADE_AFTER_MS  = 8000;
+const IMAGE_CLEAR_PAD_MS   = 900;
+
+const TEMP_SLOW_MS = 2800;
+const TEMP_SLOW_FACTOR = 0.55;
+
+/* VOICE */
+const VOICE_READ_SCROLL_MS = 18000; // reads the poem periodically when armed
+
+/* elements */
+const submitBtn = document.getElementById('submitBtn');
+const generateBtn = document.getElementById('generateBtn');
+const file = document.getElementById('file');
+const beltA = document.getElementById('beltA');
+const beltB = document.getElementById('beltB');
+const centerImg = document.getElementById('centerImg');
+const centerImgEl = document.getElementById('centerImgEl');
+const overlay = document.getElementById('overlay');
+const textEl = document.getElementById('text');
+const stamp = document.getElementById('stamp');
+const ticker = document.getElementById('ticker');
+const pileInner = document.getElementById('pileInner');
+const consoleEl = document.getElementById('console');
+const consoleMsg = document.getElementById('consoleMsg');
+const consoleMeta = document.getElementById('consoleMeta');
+const voiceBtn = document.getElementById('voiceBtn');
+
+let hasImage=false, selectedFile=null, inflight=false, inflightId=null;
+let poemHeight=0, y=0, speedMul=1;
+let lastKnownLineCount = 0;
+
+/* LOCAL ACCUMULATION QUEUE (fixes “not seeing accumulation”) */
+const LOCAL_ADDS = []; // {text, t}
+const LOCAL_ADD_TTL_MS = 180000; // keep for 3 minutes minimum
+
+/* PRELUDE always shown */
+const PRELUDE_LINES = [
+  {text:"the page is running an accumulation of texts from other users"},
+  {text:""},
+  {text:"submit an image — a reverse prompt is generated and assembled into the scroll"},
+  {text:""},
+  {text:"new prompts can take up to 4 minutes to run (blame CLIP interrogator)"},
+  {text:"if bored, previous user uploads can be viewed in the thumbnail stack"}
+];
+
+/* console */
+function escapeHtml(str){return (str||"").replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function setConsole(msg, meta="", bad=false){
+  consoleEl.classList.toggle("consoleBad", !!bad);
+  consoleMsg.textContent = msg;
+  consoleMeta.innerHTML = meta || "";
+}
+
+/* ticker */
+const BACKGROUND = ["routing pixels into language","sampling candidate space","holding ambiguity in suspension","compressing interpretation","keeping the poem alive"];
+function addTicker(text, cls="tDim"){
+  const el=document.createElement("div");
+  el.className=`tline ${cls}`.trim();
+  el.textContent=text;
+  ticker.appendChild(el);
+  while(ticker.children.length>28) ticker.removeChild(ticker.firstChild);
+}
+setInterval(()=>addTicker(BACKGROUND[Math.floor(Math.random()*BACKGROUND.length)],"tDim"),TICKER_INTERVAL_MS);
+
+/* poem belt: prelude + LOCAL_ADDS + fetched lines */
+function setBeltContent(fetchedLines){
+  const now = Date.now();
+  // prune old local adds
+  for(let i=LOCAL_ADDS.length-1;i>=0;i--){
+    if(now - LOCAL_ADDS[i].t > LOCAL_ADD_TTL_MS) LOCAL_ADDS.splice(i,1);
+  }
+
+  const makeFrag=()=>{
+    const frag=document.createDocumentFragment();
+
+    for(const item of PRELUDE_LINES){
+      const div=document.createElement("div");
+      div.className="entry prelude";
+      div.textContent=item.text;
+      frag.appendChild(div);
+    }
+
+    // LOCAL adds go immediately after prelude (so user sees the “accomplishment” in the scroll)
+    for(const item of LOCAL_ADDS){
+      const div=document.createElement("div");
+      div.className="entry liveAdd";
+      div.textContent=item.text;
+      frag.appendChild(div);
+    }
+
+    if(fetchedLines && fetchedLines.length){
+      for(const item of fetchedLines){
+        const div=document.createElement("div");
+        div.className="entry";
+        div.textContent=item.text;
+        frag.appendChild(div);
+      }
+    }
+
+    return frag;
+  };
+
+  beltA.innerHTML=""; beltB.innerHTML="";
+  beltA.appendChild(makeFrag());
+  beltB.appendChild(makeFrag());
+
+  requestAnimationFrame(()=>{
+    poemHeight=beltA.getBoundingClientRect().height;
+    beltA.style.transform=`translateY(0px)`;
+    beltB.style.transform=`translateY(${poemHeight}px)`;
+  });
+}
+
+async function fetchPoem(){
+  try{
+    const res=await fetch(GET_LINES(240),{cache:"no-store"});
+    const data=await res.json();
+    const lines=Array.isArray(data.lines)?data.lines:[];
+    lastKnownLineCount = lines.length || lastKnownLineCount;
+
+    // If server now contains one of our local lines, we can optionally drop it sooner.
+    // (kept simple: we do NOT require this; TTL handles it.)
+
+    setBeltContent(lines);
+    if(consoleMsg.textContent==="LOADING…") setConsole("READY", "Prelude + poem running. Submit an image anytime.");
+  }catch(e){
+    setBeltContent([]);
+    if(consoleMsg.textContent==="LOADING…") setConsole("READY", "Prelude running. (Poem endpoint unreachable.)");
+  }
+}
+
+/* continuous scroll */
+function poemTick(){
+  y += (POEM_SPEED * speedMul);
+  if(poemHeight>0 && y>=poemHeight) y-=poemHeight;
+  beltA.style.transform=`translateY(${-y}px)`;
+  beltB.style.transform=`translateY(${poemHeight - y}px)`;
+  requestAnimationFrame(poemTick);
+}
+requestAnimationFrame(poemTick);
+fetchPoem();
+setInterval(fetchPoem, POEM_POLL_MS);
+
+function ceremonialSlow(){ speedMul = TEMP_SLOW_FACTOR; setTimeout(()=>speedMul=1, TEMP_SLOW_MS); }
+function showStamp(){ stamp.classList.remove("show"); void stamp.offsetWidth; stamp.classList.add("show"); }
+
+/* pile */
+let lastThumbHash="";
+function hashThumbs(arr){return arr.map(x=>(x.t||"")+":"+(x.data||"").slice(0,40)).join("|").slice(-6000);}
+function renderThumbs(thumbs){
+  const h=hashThumbs(thumbs);
+  if(h===lastThumbHash) return;
+  lastThumbHash=h;
+  pileInner.innerHTML="";
+  for(const item of thumbs){
+    const cell=document.createElement("div"); cell.className="thumb";
+    const btn=document.createElement("button"); btn.type="button";
+    const im=document.createElement("img"); im.src=item.data;
+    btn.appendChild(im); cell.appendChild(btn); pileInner.appendChild(cell);
+    btn.addEventListener("click", ()=>{
+      showCenterImage(item.data);
+      addTicker("replaying prior image","tSig");
+      setConsole("REPLAY", "Showing a prior image from the pile.");
+    });
+  }
+}
+async function fetchThumbs(){
+  try{
+    const res=await fetch(GET_THUMBS(24),{cache:"no-store"});
+    const data=await res.json();
+    renderThumbs(Array.isArray(data.thumbs)?data.thumbs:[]);
+  }catch(e){}
+}
+fetchThumbs();
+setInterval(fetchThumbs, THUMB_POLL_MS);
+
+async function makeThumbDataURL(fileObj){
+  return new Promise((resolve)=>{
+    const fr=new FileReader();
+    fr.onload=()=>{
+      const im=new Image();
+      im.onload=()=>{
+        const size=160;
+        const c=document.createElement("canvas");
+        c.width=size; c.height=size;
+        const ctx=c.getContext("2d");
+        const s=Math.min(im.width, im.height);
+        const sx=(im.width-s)/2;
+        const sy=(im.height-s)/2;
+        ctx.drawImage(im,sx,sy,s,s,0,0,size,size);
+        resolve(c.toDataURL("image/jpeg",0.72));
+      };
+      im.src=fr.result;
+    };
+    fr.readAsDataURL(fileObj);
+  });
+}
+async function postThumb(dataUrl){
+  try{ await fetch(POST_THUMB,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:dataUrl})}); }catch(e){}
+}
+
+/* center image */
+function showCenterImage(src){ centerImg.classList.remove("fade"); centerImg.classList.add("on"); centerImgEl.src = src; }
+function fadeAndClearImage(){
+  centerImg.classList.add("fade");
+  setTimeout(()=>{
+    centerImg.classList.remove("on");
+    centerImg.classList.remove("fade");
+    centerImgEl.src = "";
+  }, IMAGE_CLEAR_PAD_MS);
+}
+
+/* overlay fade */
+let overlayFadeTimer=null;
+function scheduleOverlayFade(){
+  if(overlayFadeTimer) clearTimeout(overlayFadeTimer);
+  overlayFadeTimer = setTimeout(()=>{ overlay.classList.remove("on"); }, PROMPT_FADE_AFTER_MS);
+}
+
+/* replicate */
+async function compressForReplicate(fileObj){
+  const img=await new Promise((resolve,reject)=>{
+    const fr=new FileReader();
+    fr.onload=()=>{
+      const im=new Image();
+      im.onload=()=>resolve(im);
+      im.onerror=reject;
+      im.src=fr.result;
+    };
+    fr.onerror=reject;
+    fr.readAsDataURL(fileObj);
+  });
+  const MAX=768;
+  let w=img.width,h=img.height;
+  const scale=Math.min(1,MAX/Math.max(w,h));
+  w=Math.round(w*scale); h=Math.round(h*scale);
+  const c=document.createElement("canvas");
+  c.width=w; c.height=h;
+  const ctx=c.getContext("2d");
+  ctx.drawImage(img,0,0,w,h);
+  let q=0.82;
+  let out=c.toDataURL("image/jpeg",q);
+  while(out.length>1200000 && q>0.55){ q-=0.07; out=c.toDataURL("image/jpeg",q); }
+  return out;
+}
+async function startPrediction(dataUri, mode="fast"){
+  const res=await fetch(POST_START,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image:dataUri,mode})});
+  const json=await res.json();
+  if(!json.ok) throw new Error(json.error||"start_failed");
+  return {id:json.id,reused:!!json.reused};
+}
+async function pollPrediction(id){
+  const t0=Date.now();
+  while(true){
+    if(Date.now()-t0>POLL_MAX_MS) throw new Error("poll_timeout");
+    const res=await fetch(GET_STATUS(id),{cache:"no-store"});
+    const json=await res.json();
+    if(json.ok && (json.status==="starting"||json.status==="processing")){
+      setConsole("ANALYZING…", `status: <code>${json.status}</code><br>prediction id: <code>${id}</code>`);
+    }else if(json.ok && json.status==="succeeded"){
+      return (json.prompt||"").trim();
+    }else{
+      throw new Error((json && (json.error||json.status)) ? (json.error||json.status) : "status_failed");
+    }
+    await new Promise(r=>setTimeout(r, POLL_INTERVAL_MS));
+  }
+}
+
+/* commit */
+async function postLine(text){
+  try{
+    await fetch(POST_LINE,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text})});
+    return true;
+  }catch(e){ return false; }
+}
+
+/* local provisional */
+
+
+/* VOICE: “err on too much talking” = reads poem periodically when armed */
+let voiceArmed = false;
+let voiceUnlocked = false;
+let voiceTimer = null;
+let voiceIndex = 0;
+
+function unlockVoiceOnce(){
+  voiceUnlocked = true;
+  try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
+}
+function speak(text){
+  if(!voiceArmed || !voiceUnlocked) return;
+  if(!window.speechSynthesis || !text) return;
+  try{
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.92;
+    u.pitch = 0.92;
+    u.volume = 0.85;
+    window.speechSynthesis.resume && window.speechSynthesis.resume();
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function startVoiceReading(){
+  stopVoiceReading();
+  voiceTimer = setInterval(()=>{
+    if(!voiceArmed) return;
+    const nodes = [...beltA.querySelectorAll(".entry")];
+    if(!nodes.length) return;
+    // Skip prelude if possible (start after it)
+    const start = Math.min(PRELUDE_LINES.length, nodes.length-1);
+    const idx = start + (voiceIndex % Math.max(1, nodes.length - start));
+    voiceIndex++;
+    const t = (nodes[idx] && nodes[idx].textContent) ? nodes[idx].textContent : "";
+    if(t) speak(t);
+  }, VOICE_READ_SCROLL_MS);
+}
+function stopVoiceReading(){
+  if(voiceTimer){ clearInterval(voiceTimer); voiceTimer=null; }
+}
+
+voiceBtn.addEventListener("click", ()=>{
+  unlockVoiceOnce();
+  voiceArmed = !voiceArmed;
+  voiceBtn.classList.toggle("on", voiceArmed);
+  addTicker(voiceArmed ? "voice armed (reads poem)" : "voice off", "tSig");
+  setConsole(voiceArmed ? "VOICE ON" : "VOICE OFF", voiceArmed ? "Reading the poem intermittently + speaking commits." : "Audio disabled.");
+  if(voiceArmed){
+    // immediate proof it works
+    speak("Voice on.");
+    startVoiceReading();
+  }else{
+    stopVoiceReading();
+    try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
+  }
+});
+
+/* Upload */
+submitBtn.addEventListener("click", ()=> file.click());
+file.addEventListener("change", async ()=>{
+  const f=file.files && file.files[0];
+  if(!f) return;
+  selectedFile=f;
+  hasImage=true;
+  generateBtn.style.display="inline-block";
+  showCenterImage(URL.createObjectURL(f));
+  setConsole("IMAGE RECEIVED", "Tap Generate.");
+  addTicker("image received","tSig");
+  try{
+    const thumb=await makeThumbDataURL(f);
+    await postThumb(thumb);
+    fetchThumbs();
+  }catch(e){}
+  file.value="";
+});
+
+/* Generate (hybrid) */
+generateBtn.addEventListener("click", async ()=>{
+  if(!hasImage || !selectedFile){ setConsole("NO IMAGE LOADED","Tap Submit Image first.",true); return; }
+  if(inflight){ setConsole("ALREADY ANALYZING", inflightId?`prediction id: <code>${inflightId}</code>`:""); return; }
+
+  inflight=true;
+  generateBtn.disabled=true;
+  submitBtn.disabled=true;
+
+  let provisional = localPrompt();
+  overlay.classList.add("on");
+  textEl.textContent = provisional;
+  setConsole("LOCAL READ (PROVISIONAL)", "Network read pending…");
+  addTicker("local read generated","tHot");
+
+  const localTimer = setInterval(()=>{
+    provisional = localPrompt();
+    textEl.textContent = provisional;
+    addTicker("local read reshuffled","tDim");
+  }, LOCAL_REWRITE_MS);
+
+  const hb = setInterval(()=>{
+    addTicker("still processing…","tSig");
+    if(inflightId) setConsole("ANALYZING…", `prediction id: <code>${inflightId}</code><br>still processing…`);
+  }, HEARTBEAT_MS);
+
+async function locallyAccumulate(line){
+  LOCAL_ADDS.unshift({text: line, t: Date.now()});
+  setBeltContent(null); // re-render with locals immediately
+  ceremonialSlow();
+  showStamp();
+
+  if(voiceArmed){
+    speak(line);          // NEW: committed line always first
+    startVoiceReading();  // NEW: push the next scroll-reading later
+  }
+}
+
+  try{
+    const dataUri = await compressForReplicate(selectedFile);
+    const started = await startPrediction(dataUri,"fast");
+    inflightId = started.id;
+
+    setConsole("RUN STARTED", `prediction id: <code>${inflightId}</code><br>Provisional line active while waiting…`);
+    addTicker("network run started","tHot");
+
+    const networkPrompt = await pollPrediction(inflightId);
+    if(!networkPrompt) throw new Error("empty_prompt");
+
+    clearInterval(localTimer);
+
+    textEl.textContent = networkPrompt;
+    setConsole("NETWORK RECEIVED", `prediction id: <code>${inflightId}</code>`);
+    addTicker("network read received","tHot");
+    scheduleOverlayFade();
+
+    // Accumulate immediately (visible proof)
+    await locallyAccumulate(networkPrompt);
+
+    const approxNextLine = (lastKnownLineCount || 0) + 1;
+    const ok = await postLine(networkPrompt, "replicate");
+
+    if(!ok){
+      setConsole("COMMIT FAILED", "Network error saving the network line.", true);
+      addTicker("commit failed (network)","tHot");
+    }else{
+      lastKnownLineCount = approxNextLine;
+      setConsole(`SUCCESS • line #${approxNextLine}`, "Added to the public poem.");
+      addTicker(`committed • line #${approxNextLine}`,"tHot");
+    }
+
+    setTimeout(()=>fadeAndClearImage(), IMAGE_FADE_AFTER_MS);
+
+ // }catch(e){
+    clearInterval(localTimer);
+
+    scheduleOverlayFade();
+    await locallyAccumulate(provisional);
+
+    }catch(e){
+  clearInterval(localTimer);
+  scheduleOverlayFade();
+  // NO provisional accumulation
+
+    const approxNextLine = (lastKnownLineCount || 0) + 1;
+    //const ok = await postLine(provisional);
+
+    setConsole("NETWORK FAILED", `error: <code>${escapeHtml(e.message)}</code><br>Saved provisional line instead.`, true);
+    addTicker(`network failed: ${e.message}`,"tHot");
+
+    if(ok){
+      lastKnownLineCount = approxNextLine;
+      setConsole(`SUCCESS • line #${approxNextLine}`, "Saved provisional line (network fallback).");
+    }
+
+    setTimeout(()=>fadeAndClearImage(), IMAGE_FADE_AFTER_MS);
+
+  }finally{
+    clearInterval(hb);
+    inflight=false;
+    inflightId=null;
+
+    generateBtn.disabled=false;
+    submitBtn.disabled=false;
+
+    generateBtn.style.display="none";
+    hasImage=false;
+    selectedFile=null;
+
+    fetchPoem();
+    fetchThumbs();
+  }
+});
+
+/* init */
+setConsole("LOADING…", "Warming Act 1…");
+fetchPoem();
+setInterval(fetchPoem, POEM_POLL_MS);
+</script>
+</body>
+</html>
