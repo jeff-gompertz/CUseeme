@@ -1,0 +1,502 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>GAN Emulator — ZIP Intake + Contact Sheet + Publish</title>
+<style>
+  html,body{margin:0;background:#000;color:#fff;font-family:Helvetica,Arial,sans-serif;}
+  :root{--acid:#e9ff32;--line:rgba(255,255,255,.14);--soft:rgba(255,255,255,.68);--glass:rgba(0,0,0,.72);}
+  #app{min-height:100vh;display:flex;gap:14px;padding:14px;box-sizing:border-box;}
+  .panel{border:1px solid rgba(233,255,50,.22);background:var(--glass);border-radius:16px;box-shadow:0 18px 60px rgba(0,0,0,.55);overflow:hidden;min-height:0;}
+  #left{flex:0 0 min(360px, 34vw);display:flex;flex-direction:column;}
+  #mid{flex:1 1 auto;display:flex;flex-direction:column;}
+  #right{flex:0 0 min(420px, 36vw);display:flex;flex-direction:column;}
+  .head{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.10);}
+  .title{letter-spacing:.18em;text-transform:uppercase;color:rgba(233,255,50,.75);font-size:12px;margin:0 0 6px;}
+  .big{margin:0;color:var(--acid);font-size:22px;font-weight:900;line-height:1.1;}
+  .meta{margin-top:8px;color:var(--soft);font-size:13px;line-height:1.4;}
+  .meta code{color:rgba(233,255,50,.92);}
+  .body{padding:12px 14px;overflow:auto;min-height:0;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px;}
+  button{cursor:pointer;border-radius:14px;padding:12px 14px;border:1px solid rgba(255,255,255,.22);background:rgba(0,0,0,.6);color:#fff;font-weight:900;letter-spacing:.12em;text-transform:uppercase;font-size:12px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;}
+  button.primary{border-color:rgba(233,255,50,.45);color:var(--acid);}
+  button[disabled]{opacity:.45;cursor:default;}
+  .pill{font-size:12px;color:rgba(255,255,255,.70);border:1px solid rgba(255,255,255,.18);padding:6px 10px;border-radius:999px;}
+  .pill strong{color:var(--acid);}
+  #drop{margin-top:12px;border:1px dashed rgba(233,255,50,.35);border-radius:14px;padding:12px;color:rgba(233,255,50,.78);background:rgba(0,0,0,.35);font-size:12px;line-height:1.35;}
+  #drop.on{border-color:rgba(233,255,50,.85);box-shadow:0 0 0 1px rgba(233,255,50,.10) inset;}
+  #file{position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;}
+  canvas{width:100%;height:auto;display:block;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.03);}
+  #ticker{position:fixed;left:14px;bottom:14px;width:min(56vw,740px);max-height:26vh;overflow:hidden;pointer-events:none;z-index:999;font-size:13px;line-height:1.4;color:var(--acid);}
+  .tline{margin:0 0 8px 0;opacity:0;transform:translateY(6px);animation:tIn 220ms ease forwards;white-space:pre-wrap;}
+  @keyframes tIn{to{opacity:1;transform:translateY(0);}}
+  .tDim{color:rgba(233,255,50,.55);} .tSig{color:rgba(233,255,50,.78);} .tHot{color:rgba(233,255,50,.95);}
+  @media (max-width: 980px){ #app{flex-direction:column;} #left,#mid,#right{flex:0 0 auto;} #ticker{width:min(92vw,740px);} }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="left" class="panel">
+    <div class="head">
+      <div class="title">GAN Emulator — ZIP Intake</div>
+      <div class="big" id="status">Awaiting ZIP</div>
+      <div class="meta" id="meta">Choose a ZIP. We crop to <code>256×256</code>, build a contact sheet, then generate “GAN-ish” grids. You can <b>Publish</b> contact + grid to WP.</div>
+    </div>
+    <div class="body">
+      <div class="row">
+        <button class="primary" id="chooseBtn" type="button">Choose ZIP</button>
+        <button id="runBtn" type="button" disabled>Run</button>
+        <button id="stopBtn" type="button" disabled>Stop</button>
+      </div>
+
+      <div class="row">
+        <button class="primary" id="pubContactBtn" type="button" disabled>Publish Contact</button>
+        <button class="primary" id="pubGridBtn" type="button" disabled>Publish Grid</button>
+      </div>
+
+      <div class="row">
+        <span class="pill">Dataset: <strong id="dsId">—</strong></span>
+        <span class="pill">Count: <strong id="dsCount">0</strong></span>
+        <span class="pill">Step: <strong id="step">0</strong></span>
+      </div>
+
+      <div id="drop">Drop ZIP here (images inside). Or tap “Choose ZIP”.</div>
+      <input id="file" type="file" accept=".zip,application/zip" />
+
+      <div class="meta" style="margin-top:12px">
+        If you test in CodePen, you MUST set <code>API_BASE</code> to your full domain or it will “refresh/error”.
+      </div>
+    </div>
+  </div>
+
+  <div id="mid" class="panel">
+    <div class="head">
+      <div class="title">Contact sheet</div>
+      <div class="big" id="csTitle">No dataset yet</div>
+      <div class="meta" id="csMeta">Load a ZIP and the contact sheet appears here.</div>
+    </div>
+    <div class="body">
+      <canvas id="contact" width="1400" height="1400"></canvas>
+    </div>
+  </div>
+
+  <div id="right" class="panel">
+    <div class="head">
+      <div class="title">Output</div>
+      <div class="big" id="runTitle">Idle</div>
+      <div class="meta" id="runMeta">Load a ZIP to enable Run.</div>
+    </div>
+    <div class="body">
+      <canvas id="main" width="1024" height="1024"></canvas>
+      <div class="meta" style="margin-top:10px">
+        This is an emulator: patch-quilting + annealing (deliberately “old weird”).
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="ticker"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>
+/* ================== IMPORTANT: set your WP domain ==================
+   If this page is hosted ON your WP site, leave as "".
+   If running in CodePen, set like: const API_BASE = "https://yourdomain.com";
+*/
+const API_BASE = ""; // <- change only if testing off-site
+
+const POST_CONTACT = `${API_BASE}/wp-json/promptpoem/v1/gan_contact_sheet`;
+const POST_GRID    = `${API_BASE}/wp-json/promptpoem/v1/gan_grid`;
+
+/* ---------- refs ---------- */
+const chooseBtn = document.getElementById('chooseBtn');
+const runBtn = document.getElementById('runBtn');
+const stopBtn = document.getElementById('stopBtn');
+const pubContactBtn = document.getElementById('pubContactBtn');
+const pubGridBtn = document.getElementById('pubGridBtn');
+const fileEl = document.getElementById('file');
+const drop = document.getElementById('drop');
+
+const status = document.getElementById('status');
+const meta = document.getElementById('meta');
+const dsIdEl = document.getElementById('dsId');
+const dsCountEl = document.getElementById('dsCount');
+const stepEl = document.getElementById('step');
+
+const csTitle = document.getElementById('csTitle');
+const csMeta = document.getElementById('csMeta');
+const runTitle = document.getElementById('runTitle');
+const runMeta = document.getElementById('runMeta');
+
+const contact = document.getElementById('contact');
+const cctx = contact.getContext('2d', { willReadFrequently:true });
+
+const main = document.getElementById('main');
+const mctx = main.getContext('2d', { willReadFrequently:true });
+
+const ticker = document.getElementById('ticker');
+
+/* ---------- helpers ---------- */
+function addTicker(text, cls="tDim"){
+  const el=document.createElement("div");
+  el.className=`tline ${cls}`.trim();
+  el.textContent=text;
+  ticker.appendChild(el);
+  while(ticker.children.length>18) ticker.removeChild(ticker.firstChild);
+}
+function cleanId(name){
+  const base = (name||"dataset").toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  return ("ds_" + base).slice(0, 40);
+}
+async function blobToSquareBitmap(blob, size=256){
+  try{
+    const img = await createImageBitmap(blob);
+    const c = document.createElement('canvas');
+    c.width=size; c.height=size;
+    const ctx=c.getContext('2d');
+    const s=Math.min(img.width,img.height);
+    const sx=(img.width-s)/2, sy=(img.height-s)/2;
+    ctx.drawImage(img,sx,sy,s,s,0,0,size,size);
+    const outBlob = await new Promise(r=>c.toBlob(r,'image/jpeg',0.92));
+    return await createImageBitmap(outBlob);
+  }catch(e){ return null; }
+}
+
+/* ---------- state ---------- */
+let datasetId = "";
+let datasetName = "";
+let datasetCount = 0;
+let datasetImages = [];   // ImageBitmap 256
+let patchLibs = null;
+let running=false;
+let step=0;
+let runTimer=null;
+let lastGridDataURL=null;
+
+/* ---------- choose zip (must be direct user gesture) ---------- */
+chooseBtn.addEventListener('click', ()=> fileEl.click());
+
+fileEl.addEventListener('change', async ()=>{
+  const f = fileEl.files && fileEl.files[0];
+  if (!f) return;
+  await ingestZip(f);
+  fileEl.value="";
+});
+
+/* ---------- drag/drop ---------- */
+['dragenter','dragover'].forEach(evt=>{
+  drop.addEventListener(evt,(e)=>{e.preventDefault();e.stopPropagation();drop.classList.add('on');});
+});
+['dragleave','drop'].forEach(evt=>{
+  drop.addEventListener(evt,(e)=>{e.preventDefault();e.stopPropagation();drop.classList.remove('on');});
+});
+drop.addEventListener('drop', async (e)=>{
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (!f) return;
+  if (!/zip/i.test(f.type) && !/\.zip$/i.test(f.name)){
+    status.textContent="Not a ZIP";
+    addTicker("drop rejected: not a zip","tHot");
+    return;
+  }
+  await ingestZip(f);
+});
+
+/* ---------- ingestion ---------- */
+async function ingestZip(zipFile){
+  stopRun();
+  status.textContent="Reading ZIP…";
+  runTitle.textContent="Idle";
+  runMeta.textContent="Decoding images…";
+  addTicker(`zip loaded: ${zipFile.name}`,"tSig");
+
+  const ab = await zipFile.arrayBuffer();
+  const zip = await JSZip.loadAsync(ab);
+
+  const entries=[];
+  zip.forEach((path,file)=>{
+    if (file.dir) return;
+    const ext = path.split('.').pop().toLowerCase();
+    if (['jpg','jpeg','png','webp','gif'].includes(ext)) entries.push(file);
+  });
+
+  if (!entries.length){
+    status.textContent="No images found";
+    addTicker("zip contained no images","tHot");
+    return;
+  }
+
+  const MAX=500;
+  const picked=entries.slice(0,MAX);
+
+  datasetName = zipFile.name.replace(/\.[^.]+$/,'');
+  datasetId = cleanId(datasetName);
+  datasetImages=[];
+  patchLibs=null;
+  step=0; stepEl.textContent="0";
+  lastGridDataURL=null;
+
+  for (let i=0;i<picked.length;i++){
+    const blob = await picked[i].async('blob');
+    const bmp = await blobToSquareBitmap(blob,256);
+    if (bmp) datasetImages.push(bmp);
+    if ((i+1)%30===0) addTicker(`decoded ${i+1}/${picked.length}`,"tDim");
+  }
+
+  datasetCount = datasetImages.length;
+  dsIdEl.textContent = datasetId;
+  dsCountEl.textContent = String(datasetCount);
+
+  status.textContent="Dataset ready";
+  csTitle.textContent = `Dataset: ${datasetName}`;
+  csMeta.innerHTML = `Contact sheet from <code>${datasetCount}</code> images (cropped 256×256).`;
+
+  renderContactSheet(datasetImages, chooseGrid(datasetCount));
+  addTicker("contact sheet rendered","tHot");
+
+  runBtn.disabled=false;
+  pubContactBtn.disabled=false;
+  pubGridBtn.disabled=true; // enable after we have a grid
+  runMeta.textContent="Adjust + Run. Then Publish.";
+}
+
+/* ---------- contact sheet ---------- */
+function chooseGrid(count){
+  if (count>=256) return 16;
+  if (count>=144) return 12;
+  if (count>=100) return 10;
+  if (count>=64) return 8;
+  return 6;
+}
+function renderContactSheet(images, grid=12){
+  const n = Math.min(images.length, grid*grid);
+  const W = contact.width;
+  const cell = Math.floor(W/grid);
+  contact.height = W;
+  cctx.fillStyle="#000";
+  cctx.fillRect(0,0,W,W);
+  for (let i=0;i<n;i++){
+    const x=(i%grid)*cell;
+    const y=Math.floor(i/grid)*cell;
+    cctx.drawImage(images[i],x,y,cell,cell);
+  }
+}
+
+/* ---------- emulator core (minimal) ---------- */
+function randInt(n){ return (Math.random()*n)|0; }
+
+function buildPatchLibrary(images, patchSize, maxPatches=900){
+  const patches=[];
+  const c=document.createElement('canvas'); c.width=256;c.height=256;
+  const ctx=c.getContext('2d',{willReadFrequently:true});
+
+  const perImage=Math.max(1,Math.floor(maxPatches/images.length));
+  const stride=Math.max(4,Math.floor(patchSize/2));
+
+  for (let i=0;i<images.length;i++){
+    ctx.clearRect(0,0,256,256);
+    ctx.drawImage(images[i],0,0,256,256);
+    const imgd=ctx.getImageData(0,0,256,256).data;
+
+    let count=0;
+    for (let y=0;y<=256-patchSize;y+=stride){
+      for (let x=0;x<=256-patchSize;x+=stride){
+        if (count++>=perImage) break;
+        patches.push(extractPatch(imgd,x,y,patchSize,256));
+      }
+      if (count>=perImage) break;
+    }
+  }
+  return patches;
+}
+
+function extractPatch(imgd,x0,y0,ps,W){
+  const px=new Uint8ClampedArray(ps*ps*4);
+  let k=0;
+  for (let y=0;y<ps;y++){
+    const row=(y0+y)*W*4 + x0*4;
+    px.set(imgd.subarray(row,row+ps*4),k); k+=ps*4;
+  }
+  const top=px.slice(0,ps*4);
+  const left=new Uint8ClampedArray(ps*4);
+  for (let y=0;y<ps;y++) left.set(px.subarray((y*ps)*4,(y*ps)*4+4),y*4);
+  return {ps,px,top,left};
+}
+
+function edgeCost(a,b){
+  let s=0;
+  for (let i=0;i<a.length;i+=4){
+    const dr=a[i]-b[i], dg=a[i+1]-b[i+1], db=a[i+2]-b[i+2];
+    s += dr*dr+dg*dg+db*db;
+  }
+  return s;
+}
+
+function pastePatch(dst,patch,x0,y0,W){
+  const ps=patch.ps;
+  for (let y=0;y<ps;y++){
+    const dstOff=((y0+y)*W+x0)*4;
+    const srcOff=(y*ps)*4;
+    dst.set(patch.px.subarray(srcOff,srcOff+ps*4),dstOff);
+  }
+}
+
+function extractNeedTop(dst,x0,y0,ps,W){
+  const out=new Uint8ClampedArray(ps*4);
+  const y=y0-1;
+  for (let x=0;x<ps;x++){
+    const off=(y*W+(x0+x))*4;
+    out.set(dst.subarray(off,off+4),x*4);
+  }
+  return out;
+}
+function extractNeedLeft(dst,x0,y0,ps,W){
+  const out=new Uint8ClampedArray(ps*4);
+  const x=x0-1;
+  for (let y=0;y<ps;y++){
+    const off=((y0+y)*W+x)*4;
+    out.set(dst.subarray(off,off+4),y*4);
+  }
+  return out;
+}
+
+function synthOne(psLibs, outSize=128, steps=60){
+  const W=outSize;
+  const dst=new Uint8ClampedArray(W*W*4);
+
+  const base = psLibs[16] || psLibs[8];
+  for (let y=0;y<W;y+=16){
+    for (let x=0;x<W;x+=16){
+      pastePatch(dst, base[randInt(base.length)], x,y,W);
+    }
+  }
+
+  const scales=[32,16,8].filter(s=>psLibs[s] && psLibs[s].length);
+
+  for (let st=0;st<steps;st++){
+    const ps=scales[randInt(scales.length)];
+    const lib=psLibs[ps];
+    const x0=randInt(Math.floor(W/ps))*ps;
+    const y0=randInt(Math.floor(W/ps))*ps;
+
+    const needTop  = (y0-ps>=0) ? extractNeedTop(dst,x0,y0,ps,W) : null;
+    const needLeft = (x0-ps>=0) ? extractNeedLeft(dst,x0,y0,ps,W) : null;
+
+    let best=null, bestCost=Infinity;
+    const K=90;
+    for (let k=0;k<K;k++){
+      const cand=lib[randInt(lib.length)];
+      let c=0;
+      if (needTop) c+=edgeCost(cand.top,needTop);
+      if (needLeft)c+=edgeCost(cand.left,needLeft);
+      if (c<bestCost){bestCost=c;best=cand;}
+    }
+    if (best) pastePatch(dst,best,x0,y0,W);
+  }
+  return dst;
+}
+
+/* ---------- run loop ---------- */
+runBtn.addEventListener('click', startRun);
+stopBtn.addEventListener('click', stopRun);
+
+function startRun(){
+  if (running || !datasetImages.length) return;
+  running=true;
+  step=0; stepEl.textContent="0";
+  runBtn.disabled=true;
+  stopBtn.disabled=false;
+  runTitle.textContent="Running";
+  runMeta.textContent="Generating evolving grid…";
+  addTicker("building patch libraries…","tSig");
+
+  patchLibs={
+    8: buildPatchLibrary(datasetImages,8,1200),
+    16: buildPatchLibrary(datasetImages,16,1000),
+    32: buildPatchLibrary(datasetImages,32,700),
+  };
+
+  runTimer=setInterval(()=>{
+    if (!running) return;
+    step++;
+    stepEl.textContent=String(step);
+
+    const g=8, cell=128;
+    const gridCanvas=document.createElement('canvas');
+    gridCanvas.width=g*cell; gridCanvas.height=g*cell;
+    const gctx=gridCanvas.getContext('2d',{willReadFrequently:true});
+
+    for (let i=0;i<g*g;i++){
+      const pix=synthOne(patchLibs,128,60);
+      const imgd=new ImageData(new Uint8ClampedArray(pix),128,128);
+      const x=(i%g)*cell; const y=Math.floor(i/g)*cell;
+      gctx.putImageData(imgd,x,y);
+    }
+
+    // draw to main canvas (fit)
+    mctx.clearRect(0,0,main.width,main.height);
+    const scale=Math.min(main.width/gridCanvas.width, main.height/gridCanvas.height);
+    const w=gridCanvas.width*scale, h=gridCanvas.height*scale;
+    const ox=(main.width-w)/2, oy=(main.height-h)/2;
+    mctx.drawImage(gridCanvas,ox,oy,w,h);
+
+    lastGridDataURL = gridCanvas.toDataURL("image/jpeg", 0.88);
+    pubGridBtn.disabled = false;
+
+    if (step%3===0) addTicker(`grid updated • step ${step}`,"tDim");
+  }, 1600);
+}
+
+function stopRun(){
+  if (runTimer){clearInterval(runTimer); runTimer=null;}
+  running=false;
+  runBtn.disabled = !datasetImages.length;
+  stopBtn.disabled=true;
+  runTitle.textContent="Idle";
+  runMeta.textContent = datasetImages.length ? "Dataset loaded. Run again or publish." : "Load a ZIP.";
+  addTicker("run stopped","tDim");
+}
+
+/* ---------- publish to WP endpoints ---------- */
+pubContactBtn.addEventListener('click', async ()=>{
+  try{
+    pubContactBtn.disabled=true;
+    addTicker("publishing contact sheet…","tSig");
+    const data = contact.toDataURL("image/jpeg", 0.90);
+
+    const payload = { dataset_id: datasetId, name: datasetName, count: datasetCount, data };
+    const res = await fetch(POST_CONTACT, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || "contact_failed");
+    addTicker("contact sheet published ✅","tHot");
+  }catch(e){
+    addTicker("publish contact failed: "+e.message,"tHot");
+  }finally{
+    pubContactBtn.disabled=false;
+  }
+});
+
+pubGridBtn.addEventListener('click', async ()=>{
+  try{
+    if (!lastGridDataURL) return;
+    pubGridBtn.disabled=true;
+    addTicker("publishing grid…","tSig");
+
+    const payload = { dataset_id: datasetId, step, note: `step=${step}`, data: lastGridDataURL };
+    const res = await fetch(POST_GRID, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || "grid_failed");
+    addTicker("grid published ✅","tHot");
+  }catch(e){
+    addTicker("publish grid failed: "+e.message,"tHot");
+  }finally{
+    pubGridBtn.disabled=false;
+  }
+});
+
+/* boot */
+addTicker("ready: choose a ZIP","tSig");
+</script>
+</body>
+</html>
