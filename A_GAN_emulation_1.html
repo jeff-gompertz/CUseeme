@@ -5,53 +5,51 @@
     --soft:rgba(255,255,255,.68);
     --glass:rgba(0,0,0,.72);
   }
-  /* IMPORTANT: WP-safe, and forces clickability above theme overlays */
-  #ganApp, #ganApp * { pointer-events:auto !important; }
-  #ganApp { position:relative; z-index:999999 !important; }
-
-  #ganAppWrap{background:#000;color:#fff;font-family:Helvetica,Arial,sans-serif;}
-  #ganApp{min-height:100vh;display:flex;gap:14px;padding:14px;box-sizing:border-box;}
-  .panel{border:1px solid rgba(233,255,50,.22);background:var(--glass);border-radius:16px;box-shadow:0 18px 60px rgba(0,0,0,.55);overflow:hidden;min-height:0;}
-  #ganLeft{flex:0 0 min(360px, 34vw);display:flex;flex-direction:column;}
-  #ganMid{flex:1 1 auto;display:flex;flex-direction:column;}
-  #ganRight{flex:0 0 min(420px, 36vw);display:flex;flex-direction:column;}
-  .head{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.10);}
+  #ganAppWrap{position:relative;z-index:999999;background:#000;color:#fff;font-family:Helvetica,Arial,sans-serif;}
+  #ganApp{height:100vh;display:flex;gap:14px;padding:14px;box-sizing:border-box;}
+  .panel{border:1px solid rgba(233,255,50,.22);background:var(--glass);border-radius:16px;box-shadow:0 18px 60px rgba(0,0,0,.55);overflow:hidden;min-height:0;display:flex;flex-direction:column;}
+  #ganLeft{flex:0 0 min(420px, 40vw);}
+  #ganMid{flex:1 1 auto;}
+  #ganRight{flex:0 0 min(520px, 42vw);}
+  .head{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.10);flex:0 0 auto;}
   .title{letter-spacing:.18em;text-transform:uppercase;color:rgba(233,255,50,.75);font-size:12px;margin:0 0 6px;}
   .big{margin:0;color:var(--acid);font-size:22px;font-weight:900;line-height:1.1;}
   .meta{margin-top:8px;color:var(--soft);font-size:13px;line-height:1.4;}
   .meta code{color:rgba(233,255,50,.92);}
-  .body{padding:12px 14px;overflow:auto;min-height:0;}
-
+  .body{padding:12px 14px;overflow:auto;min-height:0;flex:1 1 auto;}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px;}
-  button.gbtn{
-    cursor:pointer;border-radius:14px;padding:12px 14px;border:1px solid rgba(255,255,255,.22);
-    background:rgba(0,0,0,.6);color:#fff;font-weight:900;letter-spacing:.12em;text-transform:uppercase;
-    font-size:12px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;
-  }
-  button.gbtn.primary{border-color:rgba(233,255,50,.45);color:var(--acid);}
-  button.gbtn[disabled]{opacity:.45;cursor:default;}
-
+  .gbtn{display:inline-flex;align-items:center;justify-content:center;cursor:pointer;border-radius:14px;padding:12px 14px;border:1px solid rgba(255,255,255,.22);background:rgba(0,0,0,.6);color:#fff;font-weight:900;letter-spacing:.12em;text-transform:uppercase;font-size:12px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;}
+  .gbtn.primary{border-color:rgba(233,255,50,.45);color:var(--acid);}
+  .gbtn:disabled{opacity:.45;cursor:default;}
   .pill{font-size:12px;color:rgba(255,255,255,.70);border:1px solid rgba(255,255,255,.18);padding:6px 10px;border-radius:999px;}
   .pill strong{color:var(--acid);}
-
+  .kv{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;}
+  .kv label{font-size:12px;color:rgba(255,255,255,0.70);letter-spacing:0.04em;}
+  .kv input[type="range"]{width:160px;}
   #ganDrop{margin-top:12px;border:1px dashed rgba(233,255,50,.35);border-radius:14px;padding:12px;color:rgba(233,255,50,.78);background:rgba(0,0,0,.35);font-size:12px;line-height:1.35;}
   #ganDrop.on{border-color:rgba(233,255,50,.85);box-shadow:0 0 0 1px rgba(233,255,50,.10) inset;}
-
-  /* hide file input but keep it real */
-  #ganFile{position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;}
-
+  #ganFile{position:absolute;left:-9999px;top:auto;width:1px;height:1px;opacity:0;}
   canvas{width:100%;height:auto;display:block;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.03);}
 
-  #ganTicker{position:fixed;left:14px;bottom:14px;width:min(56vw,740px);max-height:26vh;overflow:hidden;pointer-events:none;z-index:1000000;font-size:13px;line-height:1.4;color:var(--acid);}
-  .tline{margin:0 0 8px 0;opacity:0;transform:translateY(6px);animation:tIn 220ms ease forwards;white-space:pre-wrap;}
-  @keyframes tIn{to{opacity:1;transform:translateY(0);}}
-  .tDim{color:rgba(233,255,50,.55);} .tSig{color:rgba(233,255,50,.78);} .tHot{color:rgba(233,255,50,.95);}
+  /* Copyable log */
+  #ganLog{
+    width:100%;
+    min-height:160px;
+    resize:vertical;
+    box-sizing:border-box;
+    padding:10px 10px;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.18);
+    background:rgba(0,0,0,.55);
+    color:rgba(233,255,50,.90);
+    font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size:12px;
+    line-height:1.35;
+  }
 
-  /* mobile */
   @media (max-width: 980px){
-    #ganApp{flex-direction:column;}
+    #ganApp{flex-direction:column;height:auto;min-height:100vh;}
     #ganLeft,#ganMid,#ganRight{flex:0 0 auto;}
-    #ganTicker{width:min(92vw,740px);}
   }
 </style>
 
@@ -59,29 +57,44 @@
   <div id="ganApp">
     <div id="ganLeft" class="panel">
       <div class="head">
-        <div class="title">GAN Emulator — ZIP Intake (WP-safe)</div>
+        <div class="title">GAN Emulator — Handshake Mode</div>
         <div class="big" id="ganStatus">Awaiting ZIP</div>
-        <div class="meta" id="ganMeta">Tap <code>Choose ZIP</code> to ingest images, build a contact sheet, and generate “GAN-ish” grids.</div>
+        <div class="meta">ZIP → contact sheet → Run POSTs to <code>/img2img</code>. Logs are copyable below.</div>
       </div>
       <div class="body">
         <div class="row">
-          <button class="gbtn primary" id="ganChooseBtn" type="button">Choose ZIP</button>
+          <label class="gbtn primary" for="ganFile">Choose ZIP</label>
           <button class="gbtn" id="ganRunBtn" type="button" disabled>Run</button>
           <button class="gbtn" id="ganStopBtn" type="button" disabled>Stop</button>
         </div>
 
         <div class="row">
-          <span class="pill">Dataset: <strong id="ganDsId">—</strong></span>
           <span class="pill">Count: <strong id="ganCount">0</strong></span>
           <span class="pill">Step: <strong id="ganStep">0</strong></span>
+          <span class="pill">Mode: <strong id="ganMode">GPU</strong></span>
+        </div>
+
+        <div class="kv">
+          <label>Strength</label>
+          <input id="ganStrength" type="range" min="5" max="95" value="70">
+          <span class="pill"><strong id="ganStrengthVal">0.70</strong></span>
         </div>
 
         <div id="ganDrop">Drop ZIP here (images inside). Or tap “Choose ZIP”.</div>
         <input id="ganFile" type="file" accept=".zip,application/zip" />
 
-        <div class="meta" style="margin-top:12px">
-          If the file picker still won’t open, your WP setup is likely stripping/neutralizing file inputs inside post content (security/sanitizer). This build gives us a clear signal.
+        <div class="meta" style="margin-top:12px;">
+          Endpoints:<br>
+          <code id="ganEp1"></code><br>
+          <code id="ganEp2"></code>
         </div>
+
+        <div class="row" style="margin-top:12px;">
+          <button class="gbtn" id="ganCopyBtn" type="button">Copy Log</button>
+          <button class="gbtn" id="ganClearBtn" type="button">Clear</button>
+        </div>
+
+        <textarea id="ganLog" readonly></textarea>
       </div>
     </div>
 
@@ -104,56 +117,84 @@
       </div>
       <div class="body">
         <canvas id="ganMain" width="1024" height="1024"></canvas>
-        <div class="meta" style="margin-top:10px">Emulator vibe: patch-quilting + annealing (deliberately “old weird”).</div>
+        <div class="meta" style="margin-top:10px;">
+          If it fails, copy/paste the log text here.
+        </div>
       </div>
     </div>
   </div>
-
-  <div id="ganTicker"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
 <script>
 (() => {
   const $ = (id)=>document.getElementById(id);
 
-  const chooseBtn = $('ganChooseBtn');
-  const runBtn    = $('ganRunBtn');
-  const stopBtn   = $('ganStopBtn');
-  const fileEl    = $('ganFile');
-  const drop      = $('ganDrop');
+  const EP_IMG2IMG = "/wp-json/ganemulator/v1/img2img";
+  const EP_POLL    = "/wp-json/ganemulator/v1/poll";
 
-  const status    = $('ganStatus');
-  const meta      = $('ganMeta');
-  const dsIdEl    = $('ganDsId');
-  const countEl   = $('ganCount');
-  const stepEl    = $('ganStep');
+  $('ganEp1').textContent = EP_IMG2IMG;
+  $('ganEp2').textContent = EP_POLL;
 
-  const csTitle   = $('ganCsTitle');
-  const csMeta    = $('ganCsMeta');
-  const runTitle  = $('ganRunTitle');
-  const runMeta   = $('ganRunMeta');
-
-  const contact   = $('ganContact');
-  const cctx      = contact.getContext('2d', { willReadFrequently:true });
-
-  const main      = $('ganMain');
-  const mctx      = main.getContext('2d', { willReadFrequently:true });
-
-  const ticker    = $('ganTicker');
-
-  function addTicker(text, cls="tDim"){
-    const el=document.createElement("div");
-    el.className=`tline ${cls}`.trim();
-    el.textContent=text;
-    ticker.appendChild(el);
-    while(ticker.children.length>18) ticker.removeChild(ticker.firstChild);
+  const logEl = $('ganLog');
+  function log(line){
+    const ts = new Date().toISOString().slice(11,19);
+    logEl.value += `[${ts}] ${line}\n`;
+    logEl.scrollTop = logEl.scrollHeight;
+    console.log(line);
   }
 
-  function cleanId(name){
-    const base = (name||"dataset").toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-    return ("ds_" + base).slice(0, 40);
-  }
+  $('ganCopyBtn').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(logEl.value);
+      log("copied log to clipboard ✅");
+    } catch(e) {
+      // iOS fallback: select text so user can copy
+      logEl.focus();
+      logEl.select();
+      log("clipboard blocked — selected log; use Copy");
+    }
+  });
+
+  $('ganClearBtn').addEventListener('click', () => {
+    logEl.value = "";
+    log("log cleared");
+  });
+
+  const status = $('ganStatus');
+  const countEl = $('ganCount');
+  const stepEl = $('ganStep');
+  const modeEl = $('ganMode');
+
+  const csTitle = $('ganCsTitle');
+  const csMeta  = $('ganCsMeta');
+
+  const runBtn  = $('ganRunBtn');
+  const stopBtn = $('ganStopBtn');
+
+  const runTitle = $('ganRunTitle');
+  const runMeta  = $('ganRunMeta');
+
+  const strengthEl = $('ganStrength');
+  const strengthVal = $('ganStrengthVal');
+
+  const fileEl = $('ganFile');
+  const drop = $('ganDrop');
+
+  const contact = $('ganContact');
+  const cctx = contact.getContext('2d', { willReadFrequently:true });
+
+  const main = $('ganMain');
+  const mctx = main.getContext('2d', { willReadFrequently:true });
+
+  const sync = () => strengthVal.textContent = (strengthEl.value/100).toFixed(2);
+  strengthEl.addEventListener('input', sync);
+  sync();
+
+  let datasetImages = [];
+  let running = false;
+  let step = 0;
 
   async function blobToSquareBitmap(blob, size=256){
     try{
@@ -191,267 +232,186 @@
     }
   }
 
-  // STATE
-  let datasetId="", datasetName="", datasetImages=[];
-  let patchLibs=null, running=false, step=0, runTimer=null;
-
-  // IMPORTANT: capture click + stop propagation (WP overlays)
-  chooseBtn.addEventListener('click', (e)=>{
-    e.preventDefault();
-    e.stopPropagation();
-    fileEl.value = "";
-    fileEl.click();
-    addTicker("choose click fired", "tSig");
-  }, { capture:true });
-
-  fileEl.addEventListener('change', async ()=>{
-    const f = fileEl.files && fileEl.files[0];
-    if (!f){ addTicker("file picker closed (no file)", "tDim"); return; }
-    await ingestZip(f);
-    fileEl.value="";
-  });
-
-  ['dragenter','dragover'].forEach(evt=>{
-    drop.addEventListener(evt,(e)=>{e.preventDefault();e.stopPropagation();drop.classList.add('on');});
-  });
-  ['dragleave','drop'].forEach(evt=>{
-    drop.addEventListener(evt,(e)=>{e.preventDefault();e.stopPropagation();drop.classList.remove('on');});
-  });
-  drop.addEventListener('drop', async (e)=>{
-    const f = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (!f) return;
-    if (!/zip/i.test(f.type) && !/\.zip$/i.test(f.name)){
-      status.textContent="Not a ZIP";
-      addTicker("drop rejected: not a zip","tHot");
-      return;
-    }
-    await ingestZip(f);
-  });
-
-  function stopRun(){
-    if (runTimer){ clearInterval(runTimer); runTimer=null; }
-    running=false;
-    runBtn.disabled = !datasetImages.length;
-    stopBtn.disabled = true;
-    runTitle.textContent="Idle";
-    runMeta.textContent = datasetImages.length ? "Dataset loaded. Run again." : "Load a ZIP.";
-    addTicker("run stopped","tDim");
-  }
-
   async function ingestZip(zipFile){
-    stopRun();
-    status.textContent="Reading ZIP…";
-    runTitle.textContent="Idle";
-    runMeta.textContent="Decoding images…";
-    addTicker(`zip loaded: ${zipFile.name}`,"tSig");
+    status.textContent = "Reading ZIP…";
+    runTitle.textContent = "Idle";
+    runMeta.textContent = "Decoding images…";
+    runBtn.disabled = true;
+    stopBtn.disabled = true;
+    countEl.textContent = "0";
+    stepEl.textContent = "0";
+
+    log("zip loaded: " + zipFile.name);
 
     const ab = await zipFile.arrayBuffer();
     const zip = await JSZip.loadAsync(ab);
 
-    const entries=[];
-    zip.forEach((path,file)=>{
+    const entries = [];
+    zip.forEach((path, file)=>{
       if (file.dir) return;
       const ext = path.split('.').pop().toLowerCase();
       if (['jpg','jpeg','png','webp','gif'].includes(ext)) entries.push(file);
     });
 
     if (!entries.length){
-      status.textContent="No images found";
-      addTicker("zip contained no images","tHot");
+      status.textContent = "No images found";
+      log("zip contained no images");
       return;
     }
 
-    const MAX=500;
-    const picked=entries.slice(0,MAX);
-
-    datasetName = zipFile.name.replace(/\.[^.]+$/,'');
-    datasetId = cleanId(datasetName);
-    datasetImages=[];
-    patchLibs=null;
-    step=0; stepEl.textContent="0";
+    datasetImages = [];
+    const picked = entries.slice(0, 500);
 
     for (let i=0;i<picked.length;i++){
       const blob = await picked[i].async('blob');
-      const bmp = await blobToSquareBitmap(blob,256);
+      const bmp = await blobToSquareBitmap(blob, 256);
       if (bmp) datasetImages.push(bmp);
-      if ((i+1)%30===0) addTicker(`decoded ${i+1}/${picked.length}`,"tDim");
+      if ((i+1) % 30 === 0) log(`decoded ${i+1}/${picked.length}`);
     }
 
-    dsIdEl.textContent = datasetId;
+    if (!datasetImages.length){
+      status.textContent = "Decode failed";
+      log("decoded 0 images");
+      return;
+    }
+
     countEl.textContent = String(datasetImages.length);
-
-    status.textContent="Dataset ready";
-    csTitle.textContent = `Dataset: ${datasetName}`;
-    csMeta.innerHTML = `Contact sheet from <code>${datasetImages.length}</code> images (cropped 256×256).`;
-
+    status.textContent = "Dataset ready";
+    csTitle.textContent = "Dataset: " + zipFile.name.replace(/\.[^.]+$/, "");
+    csMeta.innerHTML = `Contact sheet from <code>${datasetImages.length}</code> images.`;
     renderContactSheet(datasetImages, chooseGrid(datasetImages.length));
-    addTicker("contact sheet rendered","tHot");
+    log("contact sheet rendered ✅");
 
-    runBtn.disabled=false;
-    runMeta.textContent="Tap Run to generate grids.";
+    // seed output as contact sheet (so you see “something” immediately)
+    mctx.clearRect(0,0,main.width,main.height);
+    mctx.drawImage(contact, 0, 0, main.width, main.height);
+
+    runBtn.disabled = false;
+    runTitle.textContent = "Ready";
+    runMeta.textContent = "Click Run (calls /img2img).";
   }
 
-  // minimal “GAN-ish” generator (kept intentionally simple)
-  function randInt(n){ return (Math.random()*n)|0; }
-
-  function buildPatchLibrary(images, patchSize, maxPatches=900){
-    const patches=[];
-    const c=document.createElement('canvas'); c.width=256; c.height=256;
-    const ctx=c.getContext('2d',{willReadFrequently:true});
-
-    const perImage=Math.max(1,Math.floor(maxPatches/images.length));
-    const stride=Math.max(4,Math.floor(patchSize/2));
-
-    for (let i=0;i<images.length;i++){
-      ctx.clearRect(0,0,256,256);
-      ctx.drawImage(images[i],0,0,256,256);
-      const imgd=ctx.getImageData(0,0,256,256).data;
-
-      let count=0;
-      for (let y=0;y<=256-patchSize;y+=stride){
-        for (let x=0;x<=256-patchSize;x+=stride){
-          if (count++>=perImage) break;
-          patches.push(extractPatch(imgd,x,y,patchSize,256));
-        }
-        if (count>=perImage) break;
-      }
-    }
-    return patches;
-  }
-
-  function extractPatch(imgd,x0,y0,ps,W){
-    const px=new Uint8ClampedArray(ps*ps*4);
-    let k=0;
-    for (let y=0;y<ps;y++){
-      const row=(y0+y)*W*4 + x0*4;
-      px.set(imgd.subarray(row,row+ps*4),k); k+=ps*4;
-    }
-    const top=px.slice(0,ps*4);
-    const left=new Uint8ClampedArray(ps*4);
-    for (let y=0;y<ps;y++) left.set(px.subarray((y*ps)*4,(y*ps)*4+4),y*4);
-    return {ps,px,top,left};
-  }
-
-  function edgeCost(a,b){
-    let s=0;
-    for (let i=0;i<a.length;i+=4){
-      const dr=a[i]-b[i], dg=a[i+1]-b[i+1], db=a[i+2]-b[i+2];
-      s += dr*dr+dg*dg+db*db;
-    }
-    return s;
-  }
-
-  function pastePatch(dst,patch,x0,y0,W){
-    const ps=patch.ps;
-    for (let y=0;y<ps;y++){
-      const dstOff=((y0+y)*W+x0)*4;
-      const srcOff=(y*ps)*4;
-      dst.set(patch.px.subarray(srcOff,srcOff+ps*4),dstOff);
-    }
-  }
-
-  function needTop(dst,x0,y0,ps,W){
-    const out=new Uint8ClampedArray(ps*4);
-    const y=y0-1;
-    for (let x=0;x<ps;x++){
-      const off=(y*W+(x0+x))*4;
-      out.set(dst.subarray(off,off+4),x*4);
-    }
-    return out;
-  }
-  function needLeft(dst,x0,y0,ps,W){
-    const out=new Uint8ClampedArray(ps*4);
-    const x=x0-1;
-    for (let y=0;y<ps;y++){
-      const off=((y0+y)*W+x)*4;
-      out.set(dst.subarray(off,off+4),y*4);
-    }
-    return out;
-  }
-
-  function synthOne(psLibs, outSize=128, steps=60){
-    const W=outSize;
-    const dst=new Uint8ClampedArray(W*W*4);
-    const base = psLibs[16] || psLibs[8];
-
-    for (let y=0;y<W;y+=16){
-      for (let x=0;x<W;x+=16){
-        pastePatch(dst, base[randInt(base.length)], x,y,W);
-      }
-    }
-
-    const scales=[32,16,8].filter(s=>psLibs[s] && psLibs[s].length);
-
-    for (let st=0;st<steps;st++){
-      const ps=scales[randInt(scales.length)];
-      const lib=psLibs[ps];
-      const x0=randInt(Math.floor(W/ps))*ps;
-      const y0=randInt(Math.floor(W/ps))*ps;
-
-      const nt = (y0-ps>=0) ? needTop(dst,x0,y0,ps,W) : null;
-      const nl = (x0-ps>=0) ? needLeft(dst,x0,y0,ps,W) : null;
-
-      let best=null, bestCost=Infinity;
-      const K=90;
-      for (let k=0;k<K;k++){
-        const cand=lib[randInt(lib.length)];
-        let c=0;
-        if (nt) c+=edgeCost(cand.top,nt);
-        if (nl) c+=edgeCost(cand.left,nl);
-        if (c<bestCost){ bestCost=c; best=cand; }
-      }
-      if (best) pastePatch(dst,best,x0,y0,W);
-    }
-    return dst;
-  }
-
-  runBtn.addEventListener('click', ()=>{
-    if (running || !datasetImages.length) return;
-    running=true;
-    step=0; stepEl.textContent="0";
-    runBtn.disabled=true;
-    stopBtn.disabled=false;
-    runTitle.textContent="Running";
-    runMeta.textContent="Generating evolving grid…";
-    addTicker("building patch libraries…","tSig");
-
-    patchLibs={
-      8:  buildPatchLibrary(datasetImages,8,1200),
-      16: buildPatchLibrary(datasetImages,16,1000),
-      32: buildPatchLibrary(datasetImages,32,700),
-    };
-
-    runTimer=setInterval(()=>{
-      if (!running) return;
-      step++;
-      stepEl.textContent=String(step);
-
-      const g=8, cell=128;
-      const gridCanvas=document.createElement('canvas');
-      gridCanvas.width=g*cell; gridCanvas.height=g*cell;
-      const gctx=gridCanvas.getContext('2d',{willReadFrequently:true});
-
-      for (let i=0;i<g*g;i++){
-        const pix=synthOne(patchLibs,128,60);
-        const imgd=new ImageData(new Uint8ClampedArray(pix),128,128);
-        const x=(i%g)*cell; const y=Math.floor(i/g)*cell;
-        gctx.putImageData(imgd,x,y);
-      }
-
-      mctx.clearRect(0,0,main.width,main.height);
-      const scale=Math.min(main.width/gridCanvas.width, main.height/gridCanvas.height);
-      const w=gridCanvas.width*scale, h=gridCanvas.height*scale;
-      const ox=(main.width-w)/2, oy=(main.height-h)/2;
-      mctx.drawImage(gridCanvas,ox,oy,w,h);
-
-      if (step%3===0) addTicker(`grid updated • step ${step}`,"tDim");
-    }, 1600);
+  fileEl.addEventListener('change', async () => {
+    const f = fileEl.files && fileEl.files[0];
+    if (!f) return;
+    await ingestZip(f);
+    fileEl.value = "";
   });
+
+  ['dragenter','dragover'].forEach(evt=>{
+    drop.addEventListener(evt, (e)=>{ e.preventDefault(); e.stopPropagation(); drop.classList.add('on'); });
+  });
+  ['dragleave','drop'].forEach(evt=>{
+    drop.addEventListener(evt, (e)=>{ e.preventDefault(); e.stopPropagation(); drop.classList.remove('on'); });
+  });
+  drop.addEventListener('drop', async (e)=>{
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f) return;
+    await ingestZip(f);
+  });
+
+  function canvasToDataURLResized(srcCanvas, outW=512, outH=512, quality=0.88){
+    const c = document.createElement('canvas');
+    c.width = outW; c.height = outH;
+    const ctx = c.getContext('2d');
+    const sw = srcCanvas.width, sh = srcCanvas.height;
+    const s = Math.min(sw, sh);
+    const sx = (sw - s)/2;
+    const sy = (sh - s)/2;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0,0,outW,outH);
+    ctx.drawImage(srcCanvas, sx, sy, s, s, 0, 0, outW, outH);
+    return c.toDataURL("image/jpeg", quality);
+  }
+
+  async function postJSON(url, payload){
+    const res = await fetch(url, {
+      method:"POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
+    });
+
+    const txt = await res.text();
+    const ct = (res.headers.get("content-type") || "").toLowerCase();
+
+    log(`POST ${url} → http ${res.status} ct=${ct}`);
+
+    let json = null;
+    try { json = JSON.parse(txt); } catch(e) {}
+
+    if (!json){
+      // show head of response
+      throw new Error("bad_json_head: " + txt.slice(0, 300).replace(/\s+/g," ").trim());
+    }
+    if (!res.ok){
+      throw new Error("http_" + res.status + ": " + JSON.stringify(json).slice(0, 500));
+    }
+    return json;
+  }
+
+  function stopRun(){
+    running = false;
+    stopBtn.disabled = true;
+    runBtn.disabled = !datasetImages.length;
+    runTitle.textContent = "Idle";
+    runMeta.textContent = datasetImages.length ? "Dataset loaded. Click Run." : "Load ZIP.";
+    log("run stopped");
+  }
 
   stopBtn.addEventListener('click', stopRun);
 
-  // Boot + visible proof that elements exist
-  addTicker("ready: tap Choose ZIP","tSig");
-  addTicker("elements: choose=" + (!!chooseBtn) + " file=" + (!!fileEl), "tSig");
+  runBtn.addEventListener('click', async () => {
+    if (running || !datasetImages.length) return;
+
+    running = true;
+    step = 0;
+    stepEl.textContent = "0";
+    runBtn.disabled = true;
+    stopBtn.disabled = false;
+
+    modeEl.textContent = "GPU";
+    runTitle.textContent = "Running";
+    runMeta.textContent = "Calling /img2img…";
+    log("endpoints: img2img=" + EP_IMG2IMG);
+    log("endpoints: poll=" + EP_POLL);
+
+    try {
+      step++;
+      stepEl.textContent = String(step);
+
+      const image = canvasToDataURLResized(contact, 512, 512, 0.86);
+      const strength = parseFloat(strengthEl.value)/100;
+
+      const start = await postJSON(EP_IMG2IMG, {
+        image,
+        prompt: "uncanny synthetic amalgamation, latent drift, face memory, emergent texture",
+        strength
+      });
+
+      // This is the key diagnostic:
+      log("server response keys: " + Object.keys(start).join(","));
+      if (start.prediction) log("prediction keys: " + Object.keys(start.prediction).join(","));
+
+      if (!start.ok) throw new Error("server_ok_false: " + (start.error || "unknown"));
+      if (!start.prediction || !start.prediction.id) {
+        // Dump the whole object (copyable)
+        log("FULL RESPONSE: " + JSON.stringify(start).slice(0, 2500));
+        throw new Error("no_prediction_id");
+      }
+
+      log("prediction id: " + start.prediction.id);
+      runMeta.textContent = "Good: got prediction id. Next step is poll+render (we’ll add right after id is stable).";
+      runTitle.textContent = "Handshake OK";
+      stopRun();
+
+    } catch(e) {
+      runTitle.textContent = "GPU error";
+      runMeta.textContent = (e && e.message) ? e.message : String(e);
+      log("GPU error: " + ((e && e.message) ? e.message : String(e)));
+      stopRun();
+    }
+  });
+
+  log("client ready: Choose ZIP");
 })();
 </script>
