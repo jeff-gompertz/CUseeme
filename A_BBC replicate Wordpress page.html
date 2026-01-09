@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>BBC → Prompt → SDXL (One Headline at a Time)</title>
+
+<style>
+  :root{
+    --acid:#e9ff32;
+    --bg:#000;
+    --glass:rgba(0,0,0,.72);
+    --soft:rgba(255,255,255,.72);
+  }
+  html,body{height:100%;margin:0;background:var(--bg);font-family:Arial,Helvetica,sans-serif;}
+  #stage{position:relative;height:100vh;overflow:hidden;background:#000;}
+
+  /* Fullscreen image result (dramatic) */
+  #imgOut{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:cover;
+    opacity:.92;
+    filter:contrast(1.02) saturate(1.08);
+    display:none;
+  }
+  /* Subtle dark veil so white text stays readable */
+  #veil{
+    position:absolute; inset:0;
+    background:radial-gradient(circle at 50% 35%, rgba(0,0,0,.25), rgba(0,0,0,.75) 70%, rgba(0,0,0,.85));
+    pointer-events:none;
+  }
+
+  /* Ecran treatment (big, centered, narrow) */
+  #ecran{
+    position:relative;
+    height:100vh;
+    overflow:hidden;
+    width:80%;
+    margin:0 auto;
+    text-align:center;
+    color:white;
+    opacity:0.92;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  #ecran-inner{
+    height:100%;
+    width:100%;
+    overflow-y:scroll;
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+    pointer-events:none !important;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:3vh 0;
+  }
+  #ecran-inner::-webkit-scrollbar{display:none;}
+  #headline{
+    margin:0;
+    font-size:11rem;
+    font-weight:800;
+    line-height:1.05;
+    letter-spacing:-0.02em;
+    word-break:break-word;
+  }
+  @media (max-width:900px){
+    #headline{font-size:6.8rem;}
+    #ecran{width:92%;}
+  }
+  @media (max-width:520px){
+    #headline{font-size:4.2rem;}
+  }
+
+  /* Prompt output box (artifact) */
+  #promptBox{
+    position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
+    width:min(920px, calc(100% - 28px));
+    background:rgba(255,255,255,.92);
+    color:#000;
+    border-radius:14px;
+    padding:12px 14px;
+    font-size:16px;
+    line-height:1.25;
+    box-shadow:0 18px 60px rgba(0,0,0,.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  #promptBox b{color:#000;}
+  #promptText{margin-top:6px; font-weight:700;}
+  #statusRow{
+    margin-top:10px;
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    font-size:12px; color:rgba(0,0,0,.72);
+  }
+  .pill{
+    border:1px solid rgba(0,0,0,.16);
+    padding:6px 10px;
+    border-radius:999px;
+    background:rgba(255,255,255,.7);
+  }
+  .btn{
+    cursor:pointer;
+    border-radius:999px;
+    border:1px solid rgba(0,0,0,.22);
+    padding:8px 12px;
+    background:#fff;
+    font-weight:900;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    font-size:11px;
+  }
+  .btn:disabled{opacity:.45;cursor:default;}
+
+  /* tiny log: hidden by default, tap “Log” to reveal */
+  #tinyLogWrap{display:none;margin-top:10px;}
+  #tinyLog{
+    max-height:96px;
+    overflow:auto;
+    font:12px/1.35 ui-monospace, Menlo, Monaco, Consolas, monospace;
+    color:rgba(0,0,0,.65);
+    background:rgba(0,0,0,.04);
+    border-radius:10px;
+    padding:8px 10px;
+    white-space:pre-wrap;
+  }
+</style>
+</head>
+
+<body>
+<div id="stage">
+  <img id="imgOut" alt="SDXL output" />
+  <div id="veil"></div>
+
+  <div id="ecran">
+    <div id="ecran-inner">
+      <p id="headline">Loading BBC…</p>
+    </div>
+  </div>
+
+  <div id="promptBox">
+    <div><b>Derived prompt (one headline)</b></div>
+    <div id="promptText">—</div>
+
+    <div id="statusRow">
+      <span class="pill">Headline <b id="hIndex">0</b>/<b id="hTotal">0</b></span>
+      <span class="pill">Mode: <b>BBC → Prompt → SDXL</b></span>
+
+      <button class="btn" id="btnNext">Next Headline</button>
+      <button class="btn" id="btnRun" disabled>Generate Image</button>
+      <button class="btn" id="btnAuto">Auto: ON</button>
+      <button class="btn" id="btnLog">Log</button>
+    </div>
+
+    <div id="tinyLogWrap">
+      <div id="tinyLog"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const API_BASE = "https://art.jeffgompertz.site";
+
+  const EP_BBC     = new URL("/wp-json/ganemulator/v1/bbc", API_BASE).toString();
+  const EP_NEWS    = new URL("/wp-json/ganemulator/v1/news_prompt", API_BASE).toString();
+  const EP_IMG2IMG = new URL("/wp-json/ganemulator/v1/img2img", API_BASE).toString();
+  const EP_POLL    = new URL("/wp-json/ganemulator/v1/poll", API_BASE).toString();
+
+  const $ = (id)=>document.getElementById(id);
+
+  const headlineEl = $("headline");
+  const promptTextEl = $("promptText");
+  const hIndexEl = $("hIndex");
+  const hTotalEl = $("hTotal");
+  const ecranInner = $("ecran-inner");
+
+  const imgOut = $("imgOut");
+
+  const btnNext = $("btnNext");
+  const btnRun  = $("btnRun");
+  const btnAuto = $("btnAuto");
+  const btnLog  = $("btnLog");
+
+  const tinyLogWrap = $("tinyLogWrap");
+  const logEl = $("tinyLog");
+
+  // ===== tiny logger =====
+  const L = [];
+  function log(line){
+    const ts = new Date().toISOString().slice(11,19);
+    L.push(`[${ts}] ${line}`);
+    while (L.length > 60) L.shift();
+    logEl.textContent = L.join("\n");
+    logEl.scrollTop = logEl.scrollHeight;
+    console.log(line);
+  }
+
+  // ===== state =====
+  let items = [];
+  let idx = 0;
+
+  let autoOn = true;
+  let autoTimer = null;
+
+  let lastHeadlineText = "";
+  let lastPrompt = "";
+
+  // ===== fetch helpers =====
+  async function getJSON(url){
+    const r = await fetch(url, { cache: "no-store" });
+    return await r.json();
+  }
+
+  async function postJSON(url, obj){
+    const r = await fetch(url, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(obj)
+    });
+    const ct = (r.headers.get("content-type") || "").toLowerCase();
+    const raw = await r.text();
+    log(`POST ${new URL(url).pathname} → http ${r.status}`);
+    return { r, ct, raw };
+  }
+
+  // ===== headline → bounded text (one item) =====
+  function headlineToText(it){
+    const t = (it && it.title) ? it.title.trim() : "";
+    const d = (it && it.desc)  ? it.desc.trim()  : "";
+    const one = d ? `${t}. ${d}` : t;
+    return one.replace(/\s+/g, " ").trim();
+  }
+
+  function setHeadline(i){
+    if (!items.length) return;
+
+    idx = (i + items.length) % items.length;
+    const it = items[idx];
+    const text = headlineToText(it);
+
+    headlineEl.textContent = text || "—";
+    hIndexEl.textContent = String(idx + 1);
+    hTotalEl.textContent = String(items.length);
+
+    // reset ecran scroll so it “re-enters”
+    ecranInner.scrollTop = 0;
+
+    lastHeadlineText = text;
+    lastPrompt = "";
+    promptTextEl.textContent = "—";
+
+    btnRun.disabled = true;
+    imgOut.style.display = "none";
+    imgOut.removeAttribute("src");
+
+    log(`headline set: ${idx + 1}/${items.length}`);
+  }
+
+  // gentle ecran motion (even for a single headline)
+  let drift = 0;
+  setInterval(() => {
+    // small sawtooth drift to keep “life” without looking like a UI demo
+    drift = (drift + 0.6);
+    if (drift > 120) drift = 0;
+    ecranInner.scrollTop = drift;
+  }, 16);
+
+  // ===== polling =====
+  async function pollPrediction(id){
+    for (let i=0;i<60;i++){
+      await new Promise(r=>setTimeout(r, 1200));
+      const { ct, raw } = await postJSON(EP_POLL, { id });
+      if (!ct.includes("application/json")) return { ok:false, error:"bad_json_head" };
+      const j = JSON.parse(raw);
+      if (!j.ok) return { ok:false, error:j.error || "poll_failed" };
+      const p = j.prediction;
+      if (p && p.status) log(`status: ${p.status}`);
+      if (p && p.status === "succeeded") return { ok:true, prediction:p };
+      if (p && p.status === "failed") return { ok:false, error:"prediction_failed" };
+    }
+    return { ok:false, error:"poll_timeout" };
+  }
+
+  // ===== normalize Replicate LLM output to a single prompt string =====
+  function normalizePromptOutput(out){
+    // replicate LLMs can return:
+    // - string
+    // - array of strings/tokens (like ["\n\n","A"," del","ug","ed",...])
+    let s = "";
+    if (typeof out === "string") s = out;
+    else if (Array.isArray(out)) s = out.map(x => String(x || "")).join("");
+    else s = String(out || "");
+
+    // cleanup
+    s = s.replace(/\u0000/g, "");
+    s = s.replace(/^\s+/, "");              // leading whitespace/newlines
+    s = s.replace(/\s+$/g, "");             // trailing whitespace
+    s = s.replace(/^["'“”]+|["'“”]+$/g, ""); // surrounding quotes
+    s = s.replace(/\s+/g, " ").trim();      // normalize spaces
+    return s;
+  }
+
+  // ===== derive prompt from one headline =====
+  async function derivePromptFromHeadline(){
+    if (!lastHeadlineText){
+      promptTextEl.textContent = "—";
+      btnRun.disabled = true;
+      return;
+    }
+
+    promptTextEl.textContent = "Deriving…";
+    btnRun.disabled = true;
+
+    log("deriving prompt…");
+    const { ct, raw } = await postJSON(EP_NEWS, { text: lastHeadlineText });
+
+    let prompt = "";
+
+    if (ct.includes("application/json")){
+      const j = JSON.parse(raw);
+
+      // case A: server returns direct prompt
+      if (j && j.ok && (typeof j.prompt === "string" || typeof j.text === "string")){
+        prompt = (j.prompt || j.text || "").trim();
+      }
+
+      // case B: server returns replicate prediction id
+      if (!prompt && j && j.ok && j.prediction && j.prediction.id){
+        const pid = j.prediction.id;
+        log(`prompt prediction id: ${pid}`);
+        const polled = await pollPrediction(pid);
+        if (polled.ok){
+          prompt = normalizePromptOutput(polled.prediction.output);
+        }
+      }
+    } else {
+      // plain text response
+      prompt = normalizePromptOutput(raw);
+    }
+
+    if (!prompt){
+      promptTextEl.textContent = "Prompt failed (no text).";
+      btnRun.disabled = true;
+      log("prompt failed: no text returned");
+      return;
+    }
+
+    lastPrompt = prompt;
+    promptTextEl.textContent = prompt;
+    btnRun.disabled = false;
+    log("prompt ready ✅");
+  }
+
+  // ===== create an internal seed image (self-contained; no uploads) =====
+  function makeNoiseSeedDataURL(size=1024){
+    const c = document.createElement("canvas");
+    c.width = size; c.height = size;
+    const ctx = c.getContext("2d", { willReadFrequently: false });
+
+    const img = ctx.createImageData(size, size);
+    const data = img.data;
+
+    for (let i=0; i<data.length; i+=4){
+      const v = (Math.random() * 255) | 0;
+      data[i] = v; data[i+1] = v; data[i+2] = v; data[i+3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    return c.toDataURL("image/jpeg", 0.92);
+  }
+
+  // ===== generate image from prompt =====
+  async function generateImageFromPrompt(){
+    if (!lastPrompt) return;
+
+    btnRun.disabled = true;
+    btnNext.disabled = true;
+
+    log("building seed…");
+    const seed = makeNoiseSeedDataURL(1024);
+
+    log("sending to SDXL img2img…");
+    const { ct, raw } = await postJSON(EP_IMG2IMG, {
+      image: seed,
+      prompt: lastPrompt,
+      strength: 0.82
+    });
+
+    if (!ct.includes("application/json")){
+      log("img2img error: non-json");
+      btnRun.disabled = false; btnNext.disabled = false;
+      return;
+    }
+
+    const j = JSON.parse(raw);
+    if (!j.ok || !j.prediction || !j.prediction.id){
+      log("img2img error: no prediction id");
+      btnRun.disabled = false; btnNext.disabled = false;
+      return;
+    }
+
+    const pid = j.prediction.id;
+    log(`image prediction id: ${pid}`);
+
+    const polled = await pollPrediction(pid);
+    if (!polled.ok){
+      log("image poll error: " + polled.error);
+      btnRun.disabled = false; btnNext.disabled = false;
+      return;
+    }
+
+    const out = polled.prediction.output;
+    const url = Array.isArray(out) ? out[0] : out;
+
+    if (!url){
+      log("image ok but no output url");
+      btnRun.disabled = false; btnNext.disabled = false;
+      return;
+    }
+
+    imgOut.onload = () => {
+      imgOut.style.display = "block";
+      log("image displayed ✅");
+      btnRun.disabled = false;
+      btnNext.disabled = false;
+    };
+    imgOut.onerror = () => {
+      log("image load failed");
+      btnRun.disabled = false;
+      btnNext.disabled = false;
+    };
+    imgOut.src = url;
+  }
+
+  // ===== auto cycle: ONLY advances headline + derives prompt (no auto image) =====
+  function startAuto(){
+    stopAuto();
+    autoOn = true;
+    btnAuto.textContent = "Auto: ON";
+    autoTimer = setInterval(async () => {
+      if (!items.length) return;
+      setHeadline(idx + 1);
+      await derivePromptFromHeadline();
+    }, 16000);
+  }
+
+  function stopAuto(){
+    if (autoTimer) clearInterval(autoTimer);
+    autoTimer = null;
+    autoOn = false;
+    btnAuto.textContent = "Auto: OFF";
+  }
+
+  // ===== UI events =====
+  btnNext.addEventListener("click", async () => {
+    if (!items.length) return;
+    setHeadline(idx + 1);
+    await derivePromptFromHeadline();
+  });
+
+  btnRun.addEventListener("click", async () => {
+    await generateImageFromPrompt();
+  });
+
+  btnAuto.addEventListener("click", () => {
+    if (autoOn) stopAuto();
+    else startAuto();
+  });
+
+  btnLog.addEventListener("click", () => {
+    tinyLogWrap.style.display = (tinyLogWrap.style.display === "none" || !tinyLogWrap.style.display) ? "block" : "none";
+  });
+
+  // ===== boot =====
+  async function boot(){
+    log("boot… fetching BBC");
+    const j = await getJSON(EP_BBC);
+
+    if (!j.ok || !Array.isArray(j.items) || !j.items.length){
+      headlineEl.textContent = "BBC feed error.";
+      promptTextEl.textContent = "—";
+      btnRun.disabled = true;
+      log("bbc error");
+      return;
+    }
+
+    items = j.items;
+    log(`bbc loaded ✅ (${items.length})`);
+
+    setHeadline(0);
+    await derivePromptFromHeadline();
+
+    startAuto();
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
