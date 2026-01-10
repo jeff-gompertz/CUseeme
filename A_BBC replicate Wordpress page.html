@@ -1,75 +1,76 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>BBC → Prompt → SDXL (One Headline at a Time)</title>
 <style>
-  :root{--acid:#e9ff32;--bg:#000;--glass:rgba(0,0,0,.72);--soft:rgba(255,255,255,.72);}
-  html,body{height:100%;margin:0;background:var(--bg);font-family:Arial,Helvetica,sans-serif;}
-  #stage{position:relative;height:100vh;overflow:hidden;background:#000;}
+  :root{
+    --acid:#e9ff32;
+    --bg:#000;
+    --glass:rgba(0,0,0,.72);
+    --soft:rgba(255,255,255,.72);
+  }
 
-  /* Fullscreen image result (dramatic) */
-  #imgOut{
+  /* IMPORTANT in WP: scope everything to #bbcStage so theme CSS doesn’t collide */
+  #bbcStage{
+    position:relative;
+    height:100vh;
+    overflow:hidden;
+    background:#000;
+    font-family:Arial,Helvetica,sans-serif;
+  }
+
+  #bbcStage #imgOut{
     position:absolute; inset:0;
     width:100%; height:100%;
     object-fit:cover;
-    opacity:.92;
+    opacity:1;
     filter:contrast(1.02) saturate(1.08);
     display:none;
+    z-index:0;
   }
-  /* Subtle dark veil so white text stays readable */
-  #veil{
-    position:absolute; inset:0;
-    background:radial-gradient(circle at 50% 35%, rgba(0,0,0,.25), rgba(0,0,0,.75) 70%, rgba(0,0,0,.85));
-    pointer-events:none;
-  }
+#bbcStage #veil{
+  display:none !important;
+}
 
-  /* Your ecran treatment (big, centered, narrow) */
-  #ecran{
+  #bbcStage #ecran{
     position:relative;
     height:100vh;
     overflow:hidden;
     width:80%;
     margin:0 auto;
     text-align:center;
-    color:white;
-    opacity:0.92;
-    display:flex;
-    align-items:center;
-    justify-content:center;
+    color:#fff;
+    opacity:.92;
+    z-index:2;
   }
-  #ecran-inner{
+
+  /* Plain scroller (NO flex) */
+  #bbcStage #ecran-inner{
     height:100%;
     width:100%;
     overflow-y:scroll;
     scrollbar-width:none;
     -ms-overflow-style:none;
     pointer-events:none !important;
-    display:flex;
-    align-items:center;
-    justify-content:center;
     padding:3vh 0;
+    box-sizing:border-box;
   }
-  #ecran-inner::-webkit-scrollbar{display:none;}
-  #headline{
+  #bbcStage #ecran-inner::-webkit-scrollbar{display:none;}
+
+  #bbcStage #ecranText{
     margin:0;
-    font-size:11rem;     /* keep your dramatic scale */
+    font-size:11rem;
     font-weight:800;
     line-height:1.05;
     letter-spacing:-0.02em;
+    white-space:pre-wrap;
     word-break:break-word;
   }
   @media (max-width:900px){
-    #headline{font-size:6.8rem;}
-    #ecran{width:92%;}
+    #bbcStage #ecranText{font-size:6.8rem;}
+    #bbcStage #ecran{width:92%;}
   }
   @media (max-width:520px){
-    #headline{font-size:4.2rem;}
+    #bbcStage #ecranText{font-size:4.2rem;}
   }
 
-  /* Prompt output box (white box you saw, but styled as “artifact”) */
-  #promptBox{
+  #bbcStage #promptBox{
     position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
     width:min(920px, calc(100% - 28px));
     background:rgba(255,255,255,.92);
@@ -79,21 +80,24 @@
     font-size:16px;
     line-height:1.25;
     box-shadow:0 18px 60px rgba(0,0,0,.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index:3;
   }
-  #promptBox b{color:#000;}
-  #promptText{margin-top:6px; font-weight:700;}
-  #statusRow{
+  #bbcStage #promptBox b{color:#000;}
+  #bbcStage #promptText{margin-top:6px; font-weight:700;}
+  #bbcStage #statusRow{
     margin-top:10px;
     display:flex; gap:10px; flex-wrap:wrap; align-items:center;
     font-size:12px; color:rgba(0,0,0,.72);
   }
-  .pill{
+  #bbcStage .pill{
     border:1px solid rgba(0,0,0,.16);
     padding:6px 10px;
     border-radius:999px;
     background:rgba(255,255,255,.7);
   }
-  .btn{
+  #bbcStage .btn{
     cursor:pointer;
     border-radius:999px;
     border:1px solid rgba(0,0,0,.22);
@@ -104,9 +108,10 @@
     text-transform:uppercase;
     font-size:11px;
   }
-  .btn:disabled{opacity:.45;cursor:default;}
-  #tinyLog{
-    margin-top:10px;
+  #bbcStage .btn:disabled{opacity:.45;cursor:default;}
+
+  #bbcStage #tinyLogWrap{display:none;margin-top:10px;}
+  #bbcStage #tinyLog{
     max-height:96px;
     overflow:auto;
     font:12px/1.35 ui-monospace, Menlo, Monaco, Consolas, monospace;
@@ -117,16 +122,14 @@
     white-space:pre-wrap;
   }
 </style>
-</head>
 
-<body>
-<div id="stage">
+<div id="bbcStage">
   <img id="imgOut" alt="SDXL output" />
   <div id="veil"></div>
 
   <div id="ecran">
     <div id="ecran-inner">
-      <p id="headline">Loading BBC…</p>
+      <p id="ecranText">Loading BBC…</p>
     </div>
   </div>
 
@@ -137,66 +140,75 @@
     <div id="statusRow">
       <span class="pill">Headline <b id="hIndex">0</b>/<b id="hTotal">0</b></span>
       <span class="pill">Mode: <b>BBC → Prompt → SDXL</b></span>
-      <button class="btn" id="btnNext">Next Headline</button>
-      <button class="btn" id="btnRun" disabled>Generate Image</button>
-      <button class="btn" id="btnAuto">Auto: ON</button>
+
+      <button class="btn" id="btnNext" type="button">Next Headline</button>
+      <button class="btn" id="btnRun" type="button" disabled>Generate Image</button>
+      <button class="btn" id="btnAuto" type="button">Auto: ON</button>
+      <button class="btn" id="btnLog" type="button">Log</button>
     </div>
 
-    <div id="tinyLog"></div>
+    <div id="tinyLogWrap">
+      <div id="tinyLog"></div>
+    </div>
   </div>
 </div>
 
 <script>
-(() => {
+document.addEventListener("DOMContentLoaded", () => {
   const API_BASE = "https://art.jeffgompertz.site";
-
-  // Existing endpoints you already have
   const EP_BBC     = new URL("/wp-json/ganemulator/v1/bbc", API_BASE).toString();
   const EP_NEWS    = new URL("/wp-json/ganemulator/v1/news_prompt", API_BASE).toString();
   const EP_IMG2IMG = new URL("/wp-json/ganemulator/v1/img2img", API_BASE).toString();
   const EP_POLL    = new URL("/wp-json/ganemulator/v1/poll", API_BASE).toString();
 
   const $ = (id)=>document.getElementById(id);
-  const headlineEl = $("headline");
-  const promptEl   = $("promptText");
-  const hIndexEl   = $("hIndex");
-  const hTotalEl   = $("hTotal");
-  const logEl      = $("tinyLog");
-  const imgOut     = $("imgOut");
+
+  const ecranInner   = $("ecran-inner");
+  const ecranTextEl  = $("ecranText");
+
+  const promptTextEl = $("promptText");
+  const hIndexEl     = $("hIndex");
+  const hTotalEl     = $("hTotal");
+  const imgOut       = $("imgOut");
 
   const btnNext = $("btnNext");
   const btnRun  = $("btnRun");
   const btnAuto = $("btnAuto");
+  const btnLog  = $("btnLog");
 
-  // ===== tiny logger =====
+  const tinyLogWrap = $("tinyLogWrap");
+  const logEl = $("tinyLog");
+
   const L = [];
   function log(line){
     const ts = new Date().toISOString().slice(11,19);
     L.push(`[${ts}] ${line}`);
-    while(L.length>60) L.shift();
+    while (L.length > 60) L.shift();
     logEl.textContent = L.join("\n");
     logEl.scrollTop = logEl.scrollHeight;
     console.log(line);
   }
 
-  // ===== BBC state =====
   let items = [];
   let idx = 0;
   let autoOn = true;
   let autoTimer = null;
 
-  // ===== prompt state =====
+  let currentHeadline = "";
   let lastPrompt = "";
-  let lastHeadlineText = "";
 
-  // ===== image generation state =====
-  let lastPredictionId = null;
+  // SCROLL: independent, never touched elsewhere
+  function ScrollDiv(){
+    const inner = ecranInner;
+    const max = inner.scrollHeight - inner.clientHeight;
+    if (max <= 2) return;
+    inner.scrollTop = (inner.scrollTop + 1 >= max) ? 0 : (inner.scrollTop + 1);
+  }
+  setInterval(ScrollDiv, 12);
 
-  // ===== helpers =====
   async function getJSON(url){
     const r = await fetch(url, { cache: "no-store" });
-    const j = await r.json();
-    return j;
+    return await r.json();
   }
 
   async function postJSON(url, obj){
@@ -208,38 +220,42 @@
     const ct = (r.headers.get("content-type") || "").toLowerCase();
     const raw = await r.text();
     log(`POST ${new URL(url).pathname} → http ${r.status}`);
-    return { r, ct, raw };
+    return { ct, raw };
   }
 
   function headlineToText(it){
     const t = (it && it.title) ? it.title.trim() : "";
     const d = (it && it.desc)  ? it.desc.trim()  : "";
-    // Keep it deliberate: one headline + (optional) one sentence of context.
     const one = d ? `${t}. ${d}` : t;
     return one.replace(/\s+/g, " ").trim();
   }
 
-  // Create a “seed image” so SDXL img2img can run without user uploads.
-  // This keeps the piece self-contained.
-  function makeNoiseSeedDataURL(size=1024){
-    const c = document.createElement("canvas");
-    c.width = size; c.height = size;
-    const ctx = c.getContext("2d");
-    const img = ctx.createImageData(size, size);
-    const data = img.data;
+  function buildScrollTextOnce(){
+    const lines = items.map(headlineToText).filter(Boolean);
+    const block = lines.join("\n\n");
+    ecranTextEl.textContent = block ? (block + "\n\n—\n\n" + block) : "—";
+    log("ecran scroll text built (stable) ✅");
+  }
 
-    // Grainy monochrome noise (fast enough for 1024 once per run)
-    for (let i=0; i<data.length; i+=4){
-      const v = (Math.random()*255)|0;
-      data[i] = v; data[i+1] = v; data[i+2] = v; data[i+3] = 255;
-    }
-    ctx.putImageData(img, 0, 0);
-    return c.toDataURL("image/jpeg", 0.92);
+  function setCurrentHeadline(i){
+    if (!items.length) return;
+
+    idx = (i + items.length) % items.length;
+    currentHeadline = headlineToText(items[idx]) || "";
+
+    hIndexEl.textContent = String(idx + 1);
+    hTotalEl.textContent = String(items.length);
+
+    lastPrompt = "";
+    promptTextEl.textContent = "—";
+    btnRun.disabled = true;
+
+    log(`current headline set (for prompt): ${idx + 1}/${items.length}`);
   }
 
   async function pollPrediction(id){
-    for (let i=0;i<60;i++){
-      await new Promise(r=>setTimeout(r, 1500));
+    for (let i=0;i<70;i++){
+      await new Promise(r=>setTimeout(r, 900));
       const { ct, raw } = await postJSON(EP_POLL, { id });
       if (!ct.includes("application/json")) return { ok:false, error:"bad_json_head" };
       const j = JSON.parse(raw);
@@ -252,83 +268,82 @@
     return { ok:false, error:"poll_timeout" };
   }
 
-  function setHeadline(i){
-    if (!items.length) return;
-    idx = (i + items.length) % items.length;
-    const it = items[idx];
-    const text = headlineToText(it);
-
-    headlineEl.textContent = text || "—";
-    hIndexEl.textContent = String(idx+1);
-    hTotalEl.textContent = String(items.length);
-
-    // keep a scrolling “ecran” motion (your original strategy)
-    // we keep the inner div scroll, but the content is one big block,
-    // so we simulate “motion” by nudging scrollTop.
-    $("ecran-inner").scrollTop = 0;
-
-    lastHeadlineText = text;
-    btnRun.disabled = true;
-    promptEl.textContent = "—";
-    lastPrompt = "";
-    log(`headline set: ${idx+1}/${items.length}`);
+  function normalizePromptOutput(out){
+    let s = "";
+    if (typeof out === "string") s = out;
+    else if (Array.isArray(out)) s = out.map(x => String(x || "")).join("");
+    else s = String(out || "");
+    s = s.replace(/\u0000/g, "").replace(/^\s+/, "").replace(/\s+$/g, "");
+    s = s.replace(/^["'“”]+|["'“”]+$/g, "");
+    s = s.replace(/\s+/g, " ").trim();
+    return s;
   }
 
-  // ===== B + C core: one headline → prompt → SDXL =====
-  async function derivePromptFromHeadline(){
-    if (!lastHeadlineText) return;
+  async function derivePromptFromCurrentHeadline(){
+    if (!currentHeadline){
+      promptTextEl.textContent = "—";
+      btnRun.disabled = true;
+      return;
+    }
+
+    promptTextEl.textContent = "Deriving…";
+    btnRun.disabled = true;
+
     log("deriving prompt…");
-    const payload = { text: lastHeadlineText };
+    const { ct, raw } = await postJSON(EP_NEWS, { text: currentHeadline });
 
-    const { ct, raw } = await postJSON(EP_NEWS, payload);
-
-    // Two possible server behaviors:
-    // (1) returns a string directly
-    // (2) returns a Replicate prediction id (then we poll /poll)
-    let promptText = null;
-
+    let prompt = "";
     if (ct.includes("application/json")){
       const j = JSON.parse(raw);
 
-      // case (1): server returns { ok:true, prompt:"..." } or { ok:true, text:"..." }
       if (j && j.ok && (typeof j.prompt === "string" || typeof j.text === "string")){
-        promptText = (j.prompt || j.text).trim();
+        prompt = (j.prompt || j.text || "").trim();
       }
 
-      // case (2): server returns { ok:true, prediction:{ id:"..." } }
-      if (!promptText && j && j.ok && j.prediction && j.prediction.id){
+      if (!prompt && j && j.ok && j.prediction && j.prediction.id){
         const pid = j.prediction.id;
         log(`prompt prediction id: ${pid}`);
         const polled = await pollPrediction(pid);
-        if (polled.ok){
-          const out = polled.prediction.output;
-          // many LLMs return string or array of strings
-          if (typeof out === "string") promptText = out.trim();
-          if (Array.isArray(out) && out.length) promptText = String(out[0]).trim();
-        }
+        if (polled.ok) prompt = normalizePromptOutput(polled.prediction.output);
       }
     } else {
-      // Some setups might return plain text
-      promptText = String(raw || "").trim();
+      prompt = normalizePromptOutput(raw);
     }
 
-    if (!promptText){
-      promptEl.textContent = "Prompt failed (no text).";
+    if (!prompt){
+      promptTextEl.textContent = "Prompt failed (no text).";
+      btnRun.disabled = true;
       log("prompt failed: no text returned");
       return;
     }
 
-    // normalize: remove surrounding quotes/labels if any
-    promptText = promptText.replace(/^["'“”]+|["'“”]+$/g, "").trim();
-
-    lastPrompt = promptText;
-    promptEl.textContent = promptText;
+    lastPrompt = prompt;
+    promptTextEl.textContent = prompt;
     btnRun.disabled = false;
     log("prompt ready ✅");
   }
 
+function makeNoiseSeedDataURL(size=1024){
+  const c = document.createElement("canvas");
+  c.width = size; c.height = size;
+  const ctx = c.getContext("2d");
+  const img = ctx.createImageData(size, size);
+  const data = img.data;
+
+  for (let i=0; i<data.length; i+=4){
+    data[i]   = (Math.random() * 255) | 0; // R
+    data[i+1] = (Math.random() * 255) | 0; // G
+    data[i+2] = (Math.random() * 255) | 0; // B
+    data[i+3] = 255;
+  }
+
+  ctx.putImageData(img, 0, 0);
+  return c.toDataURL("image/jpeg", 0.92);
+}
+
   async function generateImageFromPrompt(){
     if (!lastPrompt) return;
+
     btnRun.disabled = true;
     btnNext.disabled = true;
 
@@ -336,15 +351,8 @@
     const seed = makeNoiseSeedDataURL(1024);
 
     log("sending to SDXL img2img…");
-    const payload = {
-      image: seed,
-      prompt: lastPrompt,
-      // use your intensity preset server-side; strength is optional.
-      // If your PHP uses $body['strength'], keep it here:
-      strength: 0.82
-    };
+    const { ct, raw } = await postJSON(EP_IMG2IMG, { image: seed, prompt: lastPrompt, strength: 0.65 });
 
-    const { ct, raw } = await postJSON(EP_IMG2IMG, payload);
     if (!ct.includes("application/json")){
       log("img2img error: non-json");
       btnRun.disabled = false; btnNext.disabled = false;
@@ -358,10 +366,10 @@
       return;
     }
 
-    lastPredictionId = j.prediction.id;
-    log(`image prediction id: ${lastPredictionId}`);
+    const pid = j.prediction.id;
+    log(`image prediction id: ${pid}`);
 
-    const polled = await pollPrediction(lastPredictionId);
+    const polled = await pollPrediction(pid);
     if (!polled.ok){
       log("image poll error: " + polled.error);
       btnRun.disabled = false; btnNext.disabled = false;
@@ -379,28 +387,26 @@
     imgOut.onload = () => {
       imgOut.style.display = "block";
       log("image displayed ✅");
-      btnRun.disabled = false; btnNext.disabled = false;
+      btnRun.disabled = false;
+      btnNext.disabled = false;
     };
     imgOut.onerror = () => {
       log("image load failed");
-      btnRun.disabled = false; btnNext.disabled = false;
+      btnRun.disabled = false;
+      btnNext.disabled = false;
     };
     imgOut.src = url;
   }
 
-  // ===== auto cycle (C) =====
   function startAuto(){
     stopAuto();
     autoOn = true;
     btnAuto.textContent = "Auto: ON";
-    // every 18s: next headline → prompt → (optional auto-generate)
     autoTimer = setInterval(async () => {
-      idx = (idx + 1) % items.length;
-      setHeadline(idx);
-      await derivePromptFromHeadline();
-      // comment this line out if you *don’t* want auto image generation:
-      await generateImageFromPrompt();
-    }, 18000);
+      if (!items.length) return;
+      setCurrentHeadline(idx + 1);
+      await derivePromptFromCurrentHeadline();
+    }, 16000);
   }
   function stopAuto(){
     if (autoTimer) clearInterval(autoTimer);
@@ -409,54 +415,40 @@
     btnAuto.textContent = "Auto: OFF";
   }
 
-  // ===== UI events =====
   btnNext.addEventListener("click", async () => {
     if (!items.length) return;
-    setHeadline(idx + 1);
-    await derivePromptFromHeadline();
+    setCurrentHeadline(idx + 1);
+    await derivePromptFromCurrentHeadline();
   });
 
-  btnRun.addEventListener("click", async () => {
-    await generateImageFromPrompt();
-  });
+  btnRun.addEventListener("click", generateImageFromPrompt);
 
   btnAuto.addEventListener("click", () => {
-    if (autoOn) stopAuto();
-    else startAuto();
+    if (autoOn) stopAuto(); else startAuto();
   });
 
-    // Auto-scroll loop (your original behavior)
-  function startScroll(){
-    setInterval(() => {
-      if (inner.scrollTop < inner.scrollHeight - inner.offsetHeight) {
-        inner.scrollTop += 1;
-      } else {
-        inner.scrollTop = 0;
-      }
-    }, 12);
-  }
+  btnLog.addEventListener("click", () => {
+    tinyLogWrap.style.display = (!tinyLogWrap.style.display || tinyLogWrap.style.display === "none") ? "block" : "none";
+  });
 
-  // ===== boot =====
-  async function boot(){
+  (async function boot(){
     log("boot… fetching BBC");
     const j = await getJSON(EP_BBC);
     if (!j.ok || !Array.isArray(j.items) || !j.items.length){
-      headlineEl.textContent = "BBC feed error.";
+      ecranTextEl.textContent = "BBC feed error.";
+      promptTextEl.textContent = "—";
+      btnRun.disabled = true;
       log("bbc error");
       return;
     }
+
     items = j.items;
     log(`bbc loaded ✅ (${items.length})`);
 
-    setHeadline(0);
-    await derivePromptFromHeadline();
-
-    // auto on by default
+    buildScrollTextOnce();
+    setCurrentHeadline(0);
+    await derivePromptFromCurrentHeadline();
     startAuto();
-  }
-
-  boot();
-})();
+  })();
+});
 </script>
-</body>
-</html>
