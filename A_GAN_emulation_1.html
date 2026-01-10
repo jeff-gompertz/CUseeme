@@ -1,417 +1,67 @@
-<style>
-  :root{
-    --acid:#e9ff32;
-    --line:rgba(255,255,255,.14);
-    --soft:rgba(255,255,255,.68);
-    --glass:rgba(0,0,0,.72);
-  }
-  #ganAppWrap{position:relative;z-index:999999;background:#000;color:#fff;font-family:Helvetica,Arial,sans-serif;}
-  #ganApp{height:100vh;display:flex;gap:14px;padding:14px;box-sizing:border-box;}
-  .panel{border:1px solid rgba(233,255,50,.22);background:var(--glass);border-radius:16px;box-shadow:0 18px 60px rgba(0,0,0,.55);overflow:hidden;min-height:0;display:flex;flex-direction:column;}
-  #ganLeft{flex:0 0 min(420px, 40vw);}
-  #ganMid{flex:1 1 auto;}
-  #ganRight{flex:0 0 min(520px, 42vw);}
-  .head{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.10);flex:0 0 auto;}
-  .title{letter-spacing:.18em;text-transform:uppercase;color:rgba(233,255,50,.75);font-size:12px;margin:0 0 6px;}
-  .big{margin:0;color:var(--acid);font-size:22px;font-weight:900;line-height:1.1;}
-  .meta{margin-top:8px;color:var(--soft);font-size:13px;line-height:1.4;}
-  .meta code{color:rgba(233,255,50,.92);}
-  .body{padding:12px 14px;overflow:auto;min-height:0;flex:1 1 auto;}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px;}
-  .gbtn{display:inline-flex;align-items:center;justify-content:center;cursor:pointer;border-radius:14px;padding:12px 14px;border:1px solid rgba(255,255,255,.22);background:rgba(0,0,0,.6);color:#fff;font-weight:900;letter-spacing:.12em;text-transform:uppercase;font-size:12px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;}
-  .gbtn.primary{border-color:rgba(233,255,50,.45);color:var(--acid);}
-  .gbtn:disabled{opacity:.45;cursor:default;}
-  .pill{font-size:12px;color:rgba(255,255,255,.70);border:1px solid rgba(255,255,255,.18);padding:6px 10px;border-radius:999px;}
-  .pill strong{color:var(--acid);}
-  .kv{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;}
-  .kv label{font-size:12px;color:rgba(255,255,255,0.70);letter-spacing:0.04em;}
-  .kv input[type="range"]{width:160px;}
-  #ganDrop{margin-top:12px;border:1px dashed rgba(233,255,50,.35);border-radius:14px;padding:12px;color:rgba(233,255,50,.78);background:rgba(0,0,0,.35);font-size:12px;line-height:1.35;}
-  #ganDrop.on{border-color:rgba(233,255,50,.85);box-shadow:0 0 0 1px rgba(233,255,50,.10) inset;}
-  #ganFile{position:absolute;left:-9999px;top:auto;width:1px;height:1px;opacity:0;}
-  canvas{width:100%;height:auto;display:block;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.03);}
+if (!function_exists('ganemulator_img2img')) {
+  function ganemulator_img2img(WP_REST_Request $req) {
 
-  /* Copyable log */
-  #ganLog{
-    width:100%;
-    min-height:160px;
-    resize:vertical;
-    box-sizing:border-box;
-    padding:10px 10px;
-    border-radius:14px;
-    border:1px solid rgba(255,255,255,.18);
-    background:rgba(0,0,0,.55);
-    color:rgba(233,255,50,.90);
-    font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-    font-size:12px;
-    line-height:1.35;
-  }
+    list($body, $err) = ganemulator_read_json_body($req);
+    if ($err) return ganemulator_json(['ok'=>false,'error'=>$err], 400);
 
-  @media (max-width: 980px){
-    #ganApp{flex-direction:column;height:auto;min-height:100vh;}
-    #ganLeft,#ganMid,#ganRight{flex:0 0 auto;}
-  }
-</style>
-
-<div id="ganAppWrap">
-  <div id="ganApp">
-    <div id="ganLeft" class="panel">
-      <div class="head">
-        <div class="title">GAN Emulator — Handshake Mode</div>
-        <div class="big" id="ganStatus">Awaiting ZIP</div>
-        <div class="meta">ZIP → contact sheet → Run POSTs to <code>/img2img</code>. Logs are copyable below.</div>
-      </div>
-      <div class="body">
-        <div class="row">
-          <label class="gbtn primary" for="ganFile">Choose ZIP</label>
-          <button class="gbtn" id="ganRunBtn" type="button" disabled>Run</button>
-          <button class="gbtn" id="ganStopBtn" type="button" disabled>Stop</button>
-        </div>
-
-        <div class="row">
-          <span class="pill">Count: <strong id="ganCount">0</strong></span>
-          <span class="pill">Step: <strong id="ganStep">0</strong></span>
-          <span class="pill">Mode: <strong id="ganMode">GPU</strong></span>
-        </div>
-
-        <div class="kv">
-          <label>Strength</label>
-          <input id="ganStrength" type="range" min="5" max="95" value="70">
-          <span class="pill"><strong id="ganStrengthVal">0.70</strong></span>
-        </div>
-
-        <div id="ganDrop">Drop ZIP here (images inside). Or tap “Choose ZIP”.</div>
-        <input id="ganFile" type="file" accept=".zip,application/zip" />
-
-        <div class="meta" style="margin-top:12px;">
-          Endpoints:<br>
-          <code id="ganEp1"></code><br>
-          <code id="ganEp2"></code>
-        </div>
-
-        <div class="row" style="margin-top:12px;">
-          <button class="gbtn" id="ganCopyBtn" type="button">Copy Log</button>
-          <button class="gbtn" id="ganClearBtn" type="button">Clear</button>
-        </div>
-
-        <textarea id="ganLog" readonly></textarea>
-      </div>
-    </div>
-
-    <div id="ganMid" class="panel">
-      <div class="head">
-        <div class="title">Contact sheet</div>
-        <div class="big" id="ganCsTitle">No dataset yet</div>
-        <div class="meta" id="ganCsMeta">Load a ZIP and the contact sheet appears here.</div>
-      </div>
-      <div class="body">
-        <canvas id="ganContact" width="1400" height="1400"></canvas>
-      </div>
-    </div>
-
-    <div id="ganRight" class="panel">
-      <div class="head">
-        <div class="title">Output</div>
-        <div class="big" id="ganRunTitle">Idle</div>
-        <div class="meta" id="ganRunMeta">Load a ZIP to enable Run.</div>
-      </div>
-      <div class="body">
-        <canvas id="ganMain" width="1024" height="1024"></canvas>
-        <div class="meta" style="margin-top:10px;">
-          If it fails, copy/paste the log text here.
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-
-<script>
-(() => {
-  const $ = (id)=>document.getElementById(id);
-
-  const EP_IMG2IMG = "/wp-json/ganemulator/v1/img2img";
-  const EP_POLL    = "/wp-json/ganemulator/v1/poll";
-
-  $('ganEp1').textContent = EP_IMG2IMG;
-  $('ganEp2').textContent = EP_POLL;
-
-  const logEl = $('ganLog');
-  function log(line){
-    const ts = new Date().toISOString().slice(11,19);
-    logEl.value += `[${ts}] ${line}\n`;
-    logEl.scrollTop = logEl.scrollHeight;
-    console.log(line);
-  }
-
-  $('ganCopyBtn').addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(logEl.value);
-      log("copied log to clipboard ✅");
-    } catch(e) {
-      // iOS fallback: select text so user can copy
-      logEl.focus();
-      logEl.select();
-      log("clipboard blocked — selected log; use Copy");
-    }
-  });
-
-  $('ganClearBtn').addEventListener('click', () => {
-    logEl.value = "";
-    log("log cleared");
-  });
-
-  const status = $('ganStatus');
-  const countEl = $('ganCount');
-  const stepEl = $('ganStep');
-  const modeEl = $('ganMode');
-
-  const csTitle = $('ganCsTitle');
-  const csMeta  = $('ganCsMeta');
-
-  const runBtn  = $('ganRunBtn');
-  const stopBtn = $('ganStopBtn');
-
-  const runTitle = $('ganRunTitle');
-  const runMeta  = $('ganRunMeta');
-
-  const strengthEl = $('ganStrength');
-  const strengthVal = $('ganStrengthVal');
-
-  const fileEl = $('ganFile');
-  const drop = $('ganDrop');
-
-  const contact = $('ganContact');
-  const cctx = contact.getContext('2d', { willReadFrequently:true });
-
-  const main = $('ganMain');
-  const mctx = main.getContext('2d', { willReadFrequently:true });
-
-  const sync = () => strengthVal.textContent = (strengthEl.value/100).toFixed(2);
-  strengthEl.addEventListener('input', sync);
-  sync();
-
-  let datasetImages = [];
-  let running = false;
-  let step = 0;
-
-  async function blobToSquareBitmap(blob, size=256){
-    try{
-      const img = await createImageBitmap(blob);
-      const c = document.createElement('canvas');
-      c.width=size; c.height=size;
-      const ctx=c.getContext('2d');
-      const s=Math.min(img.width,img.height);
-      const sx=(img.width-s)/2, sy=(img.height-s)/2;
-      ctx.drawImage(img,sx,sy,s,s,0,0,size,size);
-      const outBlob = await new Promise(r=>c.toBlob(r,'image/jpeg',0.92));
-      return await createImageBitmap(outBlob);
-    }catch(e){ return null; }
-  }
-
-  function chooseGrid(count){
-    if (count>=256) return 16;
-    if (count>=144) return 12;
-    if (count>=100) return 10;
-    if (count>=64)  return 8;
-    return 6;
-  }
-
-  function renderContactSheet(images, grid=12){
-    const n = Math.min(images.length, grid*grid);
-    const W = contact.width;
-    const cell = Math.floor(W/grid);
-    contact.height = W;
-    cctx.fillStyle="#000";
-    cctx.fillRect(0,0,W,W);
-    for (let i=0;i<n;i++){
-      const x=(i%grid)*cell;
-      const y=Math.floor(i/grid)*cell;
-      cctx.drawImage(images[i],x,y,cell,cell);
-    }
-  }
-
-  async function ingestZip(zipFile){
-    status.textContent = "Reading ZIP…";
-    runTitle.textContent = "Idle";
-    runMeta.textContent = "Decoding images…";
-    runBtn.disabled = true;
-    stopBtn.disabled = true;
-    countEl.textContent = "0";
-    stepEl.textContent = "0";
-
-    log("zip loaded: " + zipFile.name);
-
-    const ab = await zipFile.arrayBuffer();
-    const zip = await JSZip.loadAsync(ab);
-
-    const entries = [];
-    zip.forEach((path, file)=>{
-      if (file.dir) return;
-      const ext = path.split('.').pop().toLowerCase();
-      if (['jpg','jpeg','png','webp','gif'].includes(ext)) entries.push(file);
-    });
-
-    if (!entries.length){
-      status.textContent = "No images found";
-      log("zip contained no images");
-      return;
+    if (empty($body['image'])) {
+      return ganemulator_json(['ok'=>false,'error'=>'missing_image'], 400);
     }
 
-    datasetImages = [];
-    const picked = entries.slice(0, 500);
-
-    for (let i=0;i<picked.length;i++){
-      const blob = await picked[i].async('blob');
-      const bmp = await blobToSquareBitmap(blob, 256);
-      if (bmp) datasetImages.push(bmp);
-      if ((i+1) % 30 === 0) log(`decoded ${i+1}/${picked.length}`);
+    $api_key = ganemulator_require_key();
+    if (!$api_key) {
+      return ganemulator_json(['ok'=>false,'error'=>'replicate_api_key_not_set'], 400);
     }
 
-    if (!datasetImages.length){
-      status.textContent = "Decode failed";
-      log("decoded 0 images");
-      return;
+    // --- INTENSITY PRESET (GAN-like) ---
+    $prompt   = isset($body['prompt']) ? (string)$body['prompt'] : 'uncanny synthetic amalgamation';
+    $negative = 'text, watermark, logo, frame, UI, oversharpen, jpeg artifacts, plastic skin';
+
+    $strength = isset($body['strength']) ? floatval($body['strength']) : 0.82;
+    $strength = max(0.6, min(0.95, $strength));
+
+    $steps    = 42;
+    $guidance = 7.5;
+
+    // Optional seed (kept random if not provided)
+    $seed = isset($body['seed']) ? intval($body['seed']) : null;
+
+    $payload = [
+      "version" => GANEMULATOR_REPLICATE_VERSION,
+      "input" => [
+        "image" => $body['image'],
+        "prompt" => $prompt,
+        "negative_prompt" => $negative,
+        "strength" => $strength,
+        "num_inference_steps" => $steps,
+        "guidance_scale" => $guidance,
+      ]
+    ];
+
+    if ($seed !== null) {
+      $payload["input"]["seed"] = $seed;
     }
 
-    countEl.textContent = String(datasetImages.length);
-    status.textContent = "Dataset ready";
-    csTitle.textContent = "Dataset: " + zipFile.name.replace(/\.[^.]+$/, "");
-    csMeta.innerHTML = `Contact sheet from <code>${datasetImages.length}</code> images.`;
-    renderContactSheet(datasetImages, chooseGrid(datasetImages.length));
-    log("contact sheet rendered ✅");
+    $resp = wp_remote_post('https://api.replicate.com/v1/predictions', [
+      'headers' => [
+        'Authorization' => 'Token ' . $api_key,
+        'Content-Type'  => 'application/json',
+      ],
+      'body'    => wp_json_encode($payload),
+      'timeout' => 60,
+    ]);
 
-    // seed output as contact sheet (so you see “something” immediately)
-    mctx.clearRect(0,0,main.width,main.height);
-    mctx.drawImage(contact, 0, 0, main.width, main.height);
+    if (is_wp_error($resp)) {
+      return ganemulator_json(['ok'=>false,'error'=>$resp->get_error_message()], 500);
+    }
 
-    runBtn.disabled = false;
-    runTitle.textContent = "Ready";
-    runMeta.textContent = "Click Run (calls /img2img).";
+    $raw  = wp_remote_retrieve_body($resp);
+    $json = json_decode($raw, true);
+
+    if (!is_array($json)) {
+      return ganemulator_json(['ok'=>false,'error'=>'replicate_non_json'], 502);
+    }
+
+    return ganemulator_json(['ok'=>true,'prediction'=>$json], 200);
   }
-
-  fileEl.addEventListener('change', async () => {
-    const f = fileEl.files && fileEl.files[0];
-    if (!f) return;
-    await ingestZip(f);
-    fileEl.value = "";
-  });
-
-  ['dragenter','dragover'].forEach(evt=>{
-    drop.addEventListener(evt, (e)=>{ e.preventDefault(); e.stopPropagation(); drop.classList.add('on'); });
-  });
-  ['dragleave','drop'].forEach(evt=>{
-    drop.addEventListener(evt, (e)=>{ e.preventDefault(); e.stopPropagation(); drop.classList.remove('on'); });
-  });
-  drop.addEventListener('drop', async (e)=>{
-    const f = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (!f) return;
-    await ingestZip(f);
-  });
-
-  function canvasToDataURLResized(srcCanvas, outW=512, outH=512, quality=0.88){
-    const c = document.createElement('canvas');
-    c.width = outW; c.height = outH;
-    const ctx = c.getContext('2d');
-    const sw = srcCanvas.width, sh = srcCanvas.height;
-    const s = Math.min(sw, sh);
-    const sx = (sw - s)/2;
-    const sy = (sh - s)/2;
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0,0,outW,outH);
-    ctx.drawImage(srcCanvas, sx, sy, s, s, 0, 0, outW, outH);
-    return c.toDataURL("image/jpeg", quality);
-  }
-
-  async function postJSON(url, payload){
-    const res = await fetch(url, {
-      method:"POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify(payload)
-    });
-
-    const txt = await res.text();
-    const ct = (res.headers.get("content-type") || "").toLowerCase();
-
-    log(`POST ${url} → http ${res.status} ct=${ct}`);
-
-    let json = null;
-    try { json = JSON.parse(txt); } catch(e) {}
-
-    if (!json){
-      // show head of response
-      throw new Error("bad_json_head: " + txt.slice(0, 300).replace(/\s+/g," ").trim());
-    }
-    if (!res.ok){
-      throw new Error("http_" + res.status + ": " + JSON.stringify(json).slice(0, 500));
-    }
-    return json;
-  }
-
-  function stopRun(){
-    running = false;
-    stopBtn.disabled = true;
-    runBtn.disabled = !datasetImages.length;
-    runTitle.textContent = "Idle";
-    runMeta.textContent = datasetImages.length ? "Dataset loaded. Click Run." : "Load ZIP.";
-    log("run stopped");
-  }
-
-  stopBtn.addEventListener('click', stopRun);
-
-  runBtn.addEventListener('click', async () => {
-    if (running || !datasetImages.length) return;
-
-    running = true;
-    step = 0;
-    stepEl.textContent = "0";
-    runBtn.disabled = true;
-    stopBtn.disabled = false;
-
-    modeEl.textContent = "GPU";
-    runTitle.textContent = "Running";
-    runMeta.textContent = "Calling /img2img…";
-    log("endpoints: img2img=" + EP_IMG2IMG);
-    log("endpoints: poll=" + EP_POLL);
-
-    try {
-      step++;
-      stepEl.textContent = String(step);
-
-      const image = canvasToDataURLResized(contact, 512, 512, 0.86);
-      const strength = parseFloat(strengthEl.value)/100;
-
-      const start = await postJSON(EP_IMG2IMG, {
-        image,
-        prompt: "uncanny synthetic amalgamation, latent drift, face memory, emergent texture",
-        strength
-      });
-
-      // This is the key diagnostic:
-      log("server response keys: " + Object.keys(start).join(","));
-      if (start.prediction) log("prediction keys: " + Object.keys(start.prediction).join(","));
-
-      if (!start.ok) throw new Error("server_ok_false: " + (start.error || "unknown"));
-      if (!start.prediction || !start.prediction.id) {
-        // Dump the whole object (copyable)
-        log("FULL RESPONSE: " + JSON.stringify(start).slice(0, 2500));
-        throw new Error("no_prediction_id");
-      }
-
-      log("prediction id: " + start.prediction.id);
-      runMeta.textContent = "Good: got prediction id. Next step is poll+render (we’ll add right after id is stable).";
-      runTitle.textContent = "Handshake OK";
-      stopRun();
-
-    } catch(e) {
-      runTitle.textContent = "GPU error";
-      runMeta.textContent = (e && e.message) ? e.message : String(e);
-      log("GPU error: " + ((e && e.message) ? e.message : String(e)));
-      stopRun();
-    }
-  });
-
-  log("client ready: Choose ZIP");
-})();
-</script>
+}
