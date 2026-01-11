@@ -1,0 +1,240 @@
+<?php
+/**
+ * Plugin Name: GAN Emulator – BBC Routes (Safe + news_image)
+ */
+
+if (!defined('ABSPATH')) { exit; }
+
+/** Safe JSON responder */
+if (!function_exists('ganemu_safe_json')) {
+  function ganemu_safe_json($data, $status = 200) {
+    if (function_exists('ganemulator_json')) {
+      return ganemulator_json($data, $status);
+    }
+    return new WP_REST_Response($data, $status);
+  }
+}
+
+/** Safe JSON body reader */
+if (!function_exists('ganemu_safe_read_json_body')) {
+  function ganemu_safe_read_json_body(WP_REST_Request $req) {
+    if (function_exists('ganemulator_read_json_body')) {
+      return ganemulator_read_json_body($req);
+    }
+    $raw = $req->get_body();
+    if (!is_string($raw) || $raw === '') return [[], 'empty_body'];
+    $body = json_decode($raw, true);
+    if (!is_array($body)) return [[], 'bad_json'];
+    return [$body, null];
+  }
+}
+
+/** Safe API key getter */
+if (!function_exists('ganemu_safe_require_key')) {
+  function ganemu_safe_require_key() {
+    if (function_exists('ganemulator_require_key')) {
+      return ganemulator_require_key();
+    }
+    // Change this option name ONLY if your key is stored under a different option.
+    $k = get_option('ganemulator_replicate_api_key', '');
+    $k = is_string($k) ? trim($k) : '';
+    return $k ?: null;
+  }
+}
+
+add_action('rest_api_init', function () {
+
+  // 1) BBC RSS proxy
+  register_rest_route('ganemulator/v1', '/bbc', [
+    'methods'  => 'GET',
+    'callback' => function () {
+
+      include_once ABSPATH . WPINC . '/feed.php';
+
+      $feed_url = 'https://feeds.bbci.co.uk/news/world/rss.xml';
+      $feed = fetch_feed($feed_url);
+
+      if (is_wp_error($feed)) {
+        return ganemu_safe_json([
+          'ok' => false,
+          'error' => 'feed_error',
+          'detail' => $feed->get_error_message()
+        ], 500);
+      }
+
+      $max = 40;
+      $items = $feed->get_items(0, $max);
+      $out = [];
+
+      foreach ($items as $it) {
+        $title = wp_strip_all_tags($it->get_title());
+        $desc  = wp_strip_all_tags($it->get_description());
+        $link  = (string) $it->get_link();
+
+        $title = html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $desc  = html_entity_decode($desc,  ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $link  = html_entity_decode($link,  ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        $out[] = [
+          'title' => $title,
+          'desc'  => $desc,
+          'link'  => esc_url_raw($link),
+          'date'  => $it->get_date('c'),
+        ];
+      }
+
+      return ganemu_safe_json([
+        'ok' => true,
+        'source' => 'BBC World',
+        'count' => count($out),
+        'items' => $out
+      ], 200);
+    },
+    'permission_callback' => '__return_true',
+  ]);
+
+  // 2) News -> Prompt (Replicate LLM)
+  register_rest_route('ganemulator/v1', '/news_prompt', [
+    'methods'  => 'POST',
+    'callback' => function (WP_REST_Request $req) {
+
+      list($body, $err) = ganemu_safe_read_json_body($req);
+      if ($err) return ganemu_safe_json(['ok'=>false,'error'=>$err], 400);
+
+      $text = isset($body['text']) ? trim((string)$body['text']) : '';
+      if ($text === '') return ganemu_safe_json(['ok'=>false,'error'=>'missing_text'], 400);
+
+      $api_key = ganemu_safe_require_key();
+      if (!$api_key) return ganemu_safe_json(['ok'=>false,'error'=>'replicate_api_key_not_set'], 400);
+
+      $text = mb_substr($text, 0, 9000);
+
+      $style = isset($body['style'])
+        ? (string)$body['style']
+        : 'full color, vivid lighting, natural color photography';
+      $style = mb_substr($style, 0, 240);
+
+      $model_owner = 'meta';
+      $model_name  = 'meta-llama-3-70b-instruct';
+
+      $system = "You write Stable Diffusion prompts.";
+      $user =
+        "NEWS INPUT:\n" . $text . "\n\n" .
+        "TASK:\nCreate ONE image prompt derived from the news.\n" .
+        "Rules:\n" .
+        "- Output ONLY the prompt text (no quotes, no labels).\n" .
+        "- 1–2 sentences max.\n" .
+        "- Add visual style tags: {$style}.\n" .
+        "- No politics commentary; only depict scenes/metaphors.\n";
+
+      $payload = [
+        "input" => [
+          "prompt" => $system . "\n\n" . $user,
+          "max_tokens" => 220,
+          "temperature" => 0.9,
+        ]
+      ];
+
+      $url = 'https://api.replicate.com/v1/models/' . $model_owner . '/' . $model_name . '/predictions';
+
+      $resp = wp_remote_post($url, [
+        'headers' => [
+          'Authorization' => 'Token ' . $api_key,
+          'Content-Type'  => 'application/json',
+        ],
+        'body'    => wp_json_encode($payload),
+        'timeout' => 60,
+      ]);
+
+      if (is_wp_error($resp)) {
+        return ganemu_safe_json(['ok'=>false,'error'=>$resp->get_error_message()], 500);
+      }
+
+      $code = wp_remote_retrieve_response_code($resp);
+      $raw  = wp_remote_retrieve_body($resp);
+      $json = json_decode($raw, true);
+
+      if (!is_array($json) || $code < 200 || $code >= 300) {
+        return ganemu_safe_json([
+          'ok'=>false,
+          'error'=>'replicate_llm_http_error',
+          'http_code'=>$code,
+          'raw_head'=>substr((string)$raw, 0, 400)
+        ], 502);
+      }
+
+      return ganemu_safe_json(['ok'=>true,'prediction'=>$json], 200);
+    },
+    'permission_callback' => '__return_true',
+  ]);
+
+  // 3) News Prompt -> Image (Replicate SDXL Lightning 4-step)
+  // POST /wp-json/ganemulator/v1/news_image  { prompt:"...", negative?:"...", w?:1024, h?:1024, steps?:4 }
+  register_rest_route('ganemulator/v1', '/news_image', [
+    'methods'  => 'POST',
+    'callback' => function (WP_REST_Request $req) {
+
+      list($body, $err) = ganemu_safe_read_json_body($req);
+      if ($err) return ganemu_safe_json(['ok'=>false,'error'=>$err], 400);
+
+      $prompt = isset($body['prompt']) ? trim((string)$body['prompt']) : '';
+      if ($prompt === '') return ganemu_safe_json(['ok'=>false,'error'=>'missing_prompt'], 400);
+
+      $api_key = ganemu_safe_require_key();
+      if (!$api_key) return ganemu_safe_json(['ok'=>false,'error'=>'replicate_api_key_not_set'], 400);
+
+      $prompt = mb_substr($prompt, 0, 1800);
+
+      $neg   = isset($body['negative']) ? mb_substr((string)$body['negative'], 0, 600) : 'worst quality, low quality';
+      $w     = isset($body['w']) ? max(256, min(1280, (int)$body['w'])) : 1024;
+      $h     = isset($body['h']) ? max(256, min(1280, (int)$body['h'])) : 1024;
+      $steps = isset($body['steps']) ? max(1, min(10, (int)$body['steps'])) : 4;
+
+      // bytedance/sdxl-lightning-4step version hash
+      $version = '5599ed30703defd1d160a25a63321b4dec97101d98b4674bcc56e41f62f35637';
+
+      $payload = [
+        "version" => $version,
+        "input" => [
+          "prompt" => $prompt,
+          "negative_prompt" => $neg,
+          "width"  => $w,
+          "height" => $h,
+          "num_inference_steps" => $steps,
+          "guidance_scale" => 0,
+          "num_outputs" => 1
+        ]
+      ];
+
+      $resp = wp_remote_post('https://api.replicate.com/v1/predictions', [
+        'headers' => [
+          'Authorization' => 'Token ' . $api_key,
+          'Content-Type'  => 'application/json',
+        ],
+        'body'    => wp_json_encode($payload),
+        'timeout' => 60,
+      ]);
+
+      if (is_wp_error($resp)) {
+        return ganemu_safe_json(['ok'=>false,'error'=>$resp->get_error_message()], 500);
+      }
+
+      $code = wp_remote_retrieve_response_code($resp);
+      $raw  = wp_remote_retrieve_body($resp);
+      $json = json_decode($raw, true);
+
+      if (!is_array($json) || $code < 200 || $code >= 300) {
+        return ganemu_safe_json([
+          'ok'=>false,
+          'error'=>'replicate_t2i_http_error',
+          'http_code'=>$code,
+          'raw_head'=>substr((string)$raw, 0, 400)
+        ], 502);
+      }
+
+      return ganemu_safe_json(['ok'=>true,'prediction'=>$json], 200);
+    },
+    'permission_callback' => '__return_true',
+  ]);
+
+});
