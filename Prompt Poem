@@ -1,0 +1,785 @@
+<!-- WP Custom HTML Block: Prompt Poem + MicroNav (three dots) -->
+<style>
+  /* page base (WP-safe) */
+  #ppWrap, #ppWrap *{box-sizing:border-box;}
+  #ppWrap{
+    position:relative;
+    min-height:100vh;
+    background:#000;
+    font-family:Helvetica,Arial,sans-serif;
+    overflow:hidden;
+  }
+
+  /* original styles (scoped) */
+  #ppWrap html, #ppWrap body{margin:0;padding:0;}
+  #ppWrap #poemField{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:1;}
+  #ppWrap #poemBelt{position:absolute;left:0;right:0;bottom:-10%;padding:6vh 8vw;will-change:transform;}
+  #ppWrap .beltInner{will-change:transform;}
+  #ppWrap .entry{
+    font-weight:800;letter-spacing:-0.02em;
+    font-size:clamp(42px,6.4vmin,92px);
+    line-height:1.05;margin:0 0 6rem 0;
+    opacity:0.86;color:rgba(255,255,255,0.92);
+  }
+  #ppWrap .entry.prelude{opacity:0.55;}
+  #ppWrap .entry.liveAdd{
+    opacity:1;
+    color:rgba(255,255,255,0.98);
+    text-shadow:0 0 22px rgba(233,255,50,0.20), 0 0 2px rgba(0,0,0,0.50);
+    position:relative;
+  }
+  #ppWrap .entry.liveAdd::before{
+    content:"LIVE ADD";
+    position:absolute;
+    left:0;
+    top:-1.5rem;
+    font-size:12px;
+    letter-spacing:0.22em;
+    text-transform:uppercase;
+    color:rgba(233,255,50,0.92);
+  }
+  @keyframes liveIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+  #ppWrap .entry.liveAdd{animation:liveIn 900ms ease both;}
+
+  #ppWrap #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0;}
+  #ppWrap #frame{
+    width:min(92vmin,980px);
+    height:min(92vmin,980px);
+    border-radius:18px;
+    border:1px solid rgba(255,255,255,0.18);
+    background:rgba(0,0,0,0.25);
+    box-shadow:0 22px 60px rgba(0,0,0,0.60);
+    overflow:hidden;position:relative;
+  }
+  #ppWrap #centerImg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 700ms ease;}
+  #ppWrap #centerImg.on{opacity:0.92;}
+  #ppWrap #centerImg.fade{opacity:0;}
+  #ppWrap #centerImg img{width:100%;height:100%;object-fit:contain;display:block;}
+
+  #ppWrap #overlay{
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    text-align:center;padding:0 6vw;
+    pointer-events:none;
+    opacity:0;transition:opacity 260ms ease;
+    z-index:3;
+  }
+  #ppWrap #overlay.on{opacity:1;}
+  #ppWrap #text{
+    font-size:clamp(42px,6.4vmin,92px);
+    font-weight:900;line-height:1.02;color:#fff;
+    letter-spacing:-0.02em;
+    text-shadow:0 0 18px rgba(255,255,255,0.22),0 0 2px rgba(0,0,0,0.50);
+    opacity:0.98;
+  }
+
+  #ppWrap #stamp{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;z-index:4;}
+  #ppWrap #stamp.show{animation: stampPop 820ms ease forwards;}
+  #ppWrap #stampInner{
+    padding:14px 18px;border-radius:16px;
+    border:1px solid rgba(233,255,50,0.40);
+    background:rgba(0,0,0,0.60);
+    color:#e9ff32;font-weight:900;
+    letter-spacing:0.10em;text-transform:uppercase;
+    font-size: clamp(18px, 2.2vmin, 28px);
+  }
+  @keyframes stampPop{
+    0%{opacity:0; transform:translateY(12px) scale(0.98);}
+    20%{opacity:1; transform:translateY(0) scale(1);}
+    80%{opacity:1; transform:translateY(0) scale(1);}
+    100%{opacity:0; transform:translateY(-10px) scale(1.01);}
+  }
+
+  #ppWrap #controls{
+    position:fixed;top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    z-index:10;display:flex;gap:12px;align-items:center;
+    pointer-events:auto;
+  }
+  #ppWrap .btn{
+    cursor:pointer;padding:18px 26px;border-radius:16px;
+    border:1px solid rgba(255,255,255,0.35);
+    background:rgba(0,0,0,0.6);
+    color:#fff;font-size:16px;
+    letter-spacing:0.08em;text-transform:uppercase;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+  }
+  #ppWrap .btn[disabled]{opacity:0.45;cursor:default;}
+  #ppWrap #generateBtn{display:none;border-color:rgba(233,255,50,0.55);}
+
+  #ppWrap #ticker{
+    position:fixed;left:14px;bottom:14px;
+    width:min(44vw,520px);
+    max-height:42vh;
+    overflow:hidden;
+    pointer-events:none;
+    z-index:9;
+    font-size:15px;line-height:1.45;color:#e9ff32;
+  }
+  #ppWrap .tline{margin:0 0 8px 0;opacity:0;transform:translateY(6px);animation:tIn 240ms ease forwards;white-space:pre-wrap;}
+  @keyframes tIn{to{opacity:1;transform:translateY(0);}}
+  #ppWrap .tDim{color:rgba(233,255,50,0.55);} #ppWrap .tSig{color:rgba(233,255,50,0.78);} #ppWrap .tHot{color:rgba(233,255,50,0.95);}
+
+  /* IMPORTANT CHANGE: move thumbnails down to make room for MicroNav at top-right */
+  #ppWrap #pile{
+    position:fixed;
+    right:14px;
+    top:64px;               /* was 14px */
+    width:min(36vw,340px);height:min(36vh,340px);
+    border-radius:16px;border:1px solid rgba(255,255,255,0.18);
+    background:rgba(0,0,0,0.35);
+    overflow:hidden;z-index:900;pointer-events:none;
+  }
+  #ppWrap #pileInner{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:6px;padding:10px;
+    pointer-events:auto;
+  }
+  #ppWrap .thumb{width:100%;aspect-ratio:1/1;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.10);background:rgba(255,255,255,0.04);}
+  #ppWrap .thumb button{all:unset;display:block;width:100%;height:100%;cursor:pointer;}
+  #ppWrap .thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:0.92;}
+
+  #ppWrap #file{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;}
+
+  #ppWrap #console{
+    position:fixed;left:50%;bottom:18px;
+    transform:translateX(-50%);
+    width:min(94vw,980px);
+    border-radius:18px;
+    border:1px solid rgba(233,255,50,0.28);
+    background:rgba(0,0,0,0.78);
+    box-shadow:0 18px 60px rgba(0,0,0,0.75);
+    z-index:999;
+    pointer-events:auto;
+  }
+  #ppWrap #consoleInner{padding:14px 16px;}
+  #ppWrap #consoleTitle{
+    font-size:12px;letter-spacing:0.16em;text-transform:uppercase;
+    color:rgba(233,255,50,0.75);
+    margin:0 0 6px 0;
+  }
+  #ppWrap #consoleMsg{
+    font-size:24px;font-weight:900;
+    letter-spacing:-0.01em;line-height:1.1;
+    color:#e9ff32;margin:0 0 10px 0;
+  }
+  #ppWrap #consoleMeta{font-size:13px;color:rgba(255,255,255,0.70);line-height:1.35;}
+  #ppWrap #consoleMeta code{color:rgba(233,255,50,0.9);}
+  #ppWrap .consoleBad{border-color:rgba(255,120,120,0.40)!important;}
+  #ppWrap .consoleBad #consoleMsg{color:rgba(255,170,170,0.95)!important;}
+
+  #ppWrap #voiceDock{position:fixed;right:14px;bottom:14px;z-index:1000;pointer-events:auto;}
+  #ppWrap #voiceBtn{
+    padding:10px 14px;border-radius:14px;
+    border:1px solid rgba(233,255,50,0.28);
+    background:rgba(0,0,0,0.62);
+    color:rgba(233,255,50,0.88);
+    font-weight:900;letter-spacing:0.14em;
+    text-transform:uppercase;font-size:12px;
+    cursor:pointer;-webkit-tap-highlight-color:transparent;
+  }
+  #ppWrap #voiceBtn.on{
+    border-color:rgba(233,255,50,0.55);
+    color:#e9ff32;
+    box-shadow:0 0 0 1px rgba(233,255,50,0.10) inset;
+  }
+
+  /* MICRO NAV — three dots (fixed top-right, consistent with other pages) */
+  #ppWrap #microNav{
+    position:fixed;
+    top:14px;
+    right:14px;
+    z-index:9999999;
+    font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+    pointer-events:auto;
+  }
+  #ppWrap #microNavBtn{
+    width:36px;height:36px;border-radius:999px;border:0;
+    background:rgba(255,255,255,.18);
+    color:#fff;font-size:20px;line-height:1;
+    cursor:pointer;
+    backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);
+    -webkit-tap-highlight-color:transparent;
+  }
+  #ppWrap #microNavMenu{
+    position:absolute;
+    top:44px;
+    right:0;
+    min-width:170px;
+    background:rgba(255,255,255,.92);
+    color:#000;
+    border-radius:12px;
+    box-shadow:0 12px 40px rgba(0,0,0,.35);
+    padding:6px 0;
+    display:none;
+    overflow:hidden;
+  }
+  #ppWrap #microNavMenu a{
+    display:block;
+    padding:11px 14px;
+    font-size:14px;
+    text-decoration:none;
+    color:#000;
+  }
+  #ppWrap #microNavMenu a:hover{background:rgba(0,0,0,.06);}
+</style>
+
+<div id="ppWrap">
+  <!-- MicroNav -->
+  <div id="microNav">
+    <button id="microNavBtn" type="button" aria-label="Open navigation">⋯</button>
+    <div id="microNavMenu" role="menu" aria-label="Site navigation">
+      <a role="menuitem" href="https://art.jeffgompertz.site/bbc-one-headline-at-a-time-v1-9b/">One Headline</a>
+      <a role="menuitem" href="https://art.jeffgompertz.site/gan/">GAN Sandbox</a>
+      <a role="menuitem" href="https://art.jeffgompertz.site/a_prompt-poem_v9-7_replicate/">A Prompt Poem</a>
+    </div>
+  </div>
+
+  <div id="stage">
+    <div id="frame">
+      <div id="centerImg"><img id="centerImgEl" alt=""></div>
+      <div id="overlay"><div id="text"></div></div>
+      <div id="stamp"><div id="stampInner">ADDED TO THE POEM</div></div>
+    </div>
+  </div>
+
+  <div id="poemField">
+    <div id="poemBelt">
+      <div id="beltA" class="beltInner"></div>
+      <div id="beltB" class="beltInner"></div>
+    </div>
+  </div>
+
+  <div id="pile"><div id="pileInner"></div></div>
+  <div id="ticker"></div>
+
+  <div id="controls">
+    <button id="submitBtn" class="btn">Submit Image</button>
+    <button id="generateBtn" class="btn">Generate</button>
+  </div>
+
+  <div id="voiceDock">
+    <button id="voiceBtn" type="button">VOICE</button>
+  </div>
+
+  <input id="file" type="file" accept="image/*">
+
+  <div id="console" aria-live="polite">
+    <div id="consoleInner">
+      <div id="consoleTitle">System console</div>
+      <div id="consoleMsg">LOADING…</div>
+      <div id="consoleMeta">Warming Act 1…</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* MicroNav toggle */
+(() => {
+  const btn  = document.getElementById("microNavBtn");
+  const menu = document.getElementById("microNavMenu");
+  if (!btn || !menu) return;
+
+  const close = () => { menu.style.display = "none"; };
+
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    menu.style.display = (menu.style.display === "block") ? "none" : "block";
+  });
+
+  document.addEventListener("click", close);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+})();
+</script>
+
+<script>
+/* ----------------------------
+   Prompt Poem v9.9.1 (original logic, unchanged)
+----------------------------- */
+const GET_LINES  = (limit=240) => `/wp-json/promptpoem/v2/lines?limit=${limit}`;
+const POST_LINE  = `/wp-json/promptpoem/v2/line`;
+
+const GET_THUMBS = (limit=24)  => `/wp-json/promptpoem/v1/thumbs?limit=${limit}`;
+const POST_THUMB = `/wp-json/promptpoem/v1/thumb`;
+
+const POST_START = `/wp-json/promptpoem/v1/interrogate_start`;
+const GET_STATUS = (id) => `/wp-json/promptpoem/v1/interrogate_status?id=${encodeURIComponent(id)}`;
+
+const POEM_SPEED = 0.70;
+const POEM_POLL_MS = 6000;
+const THUMB_POLL_MS = 8000;
+const TICKER_INTERVAL_MS = 1900;
+
+const POLL_INTERVAL_MS = 1400;
+const POLL_MAX_MS = 240000;
+const HEARTBEAT_MS = 8500;
+
+const LOCAL_REWRITE_MS = 3800;
+
+const PROMPT_FADE_AFTER_MS = 12000;
+const IMAGE_FADE_AFTER_MS  = 8000;
+const IMAGE_CLEAR_PAD_MS   = 900;
+
+const TEMP_SLOW_MS = 2800;
+const TEMP_SLOW_FACTOR = 0.55;
+
+const VOICE_READ_SCROLL_MS = 18000;
+
+const submitBtn = document.getElementById('submitBtn');
+const generateBtn = document.getElementById('generateBtn');
+const file = document.getElementById('file');
+const beltA = document.getElementById('beltA');
+const beltB = document.getElementById('beltB');
+const centerImg = document.getElementById('centerImg');
+const centerImgEl = document.getElementById('centerImgEl');
+const overlay = document.getElementById('overlay');
+const textEl = document.getElementById('text');
+const stamp = document.getElementById('stamp');
+const ticker = document.getElementById('ticker');
+const pileInner = document.getElementById('pileInner');
+const consoleEl = document.getElementById('console');
+const consoleMsg = document.getElementById('consoleMsg');
+const consoleMeta = document.getElementById('consoleMeta');
+const voiceBtn = document.getElementById('voiceBtn');
+
+let hasImage=false, selectedFile=null, inflight=false, inflightId=null;
+let poemHeight=0, y=0, speedMul=1;
+let lastKnownLineCount = 0;
+
+const LOCAL_ADDS = [];
+const LOCAL_ADD_TTL_MS = 180000;
+
+const PRELUDE_LINES = [
+  {text:""},
+  {text:"submit an image — a reverse prompt will be generated"},
+  {text:"new prompts can take up to 4 minutes to run (blame CLIP interrogator)"},
+  {text:"previous image uploads are stored in the thumbnail stack"}
+];
+
+function escapeHtml(str){
+  return (str||"").replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function setConsole(msg, meta="", bad=false){
+  consoleEl.classList.toggle("consoleBad", !!bad);
+  consoleMsg.textContent = msg;
+  consoleMeta.innerHTML = meta || "";
+}
+
+const BACKGROUND = ["routing pixels into language","sampling candidate space","holding ambiguity in suspension","compressing interpretation","keeping the poem alive"];
+function addTicker(text, cls="tDim"){
+  const el=document.createElement("div");
+  el.className=`tline ${cls}`.trim();
+  el.textContent=text;
+  ticker.appendChild(el);
+  while(ticker.children.length>28) ticker.removeChild(ticker.firstChild);
+}
+setInterval(()=>addTicker(BACKGROUND[Math.floor(Math.random()*BACKGROUND.length)],"tDim"),TICKER_INTERVAL_MS);
+
+function localPrompt(){
+  const a = ["reading image","sampling structure","holding frame","extracting details","waiting for network read"];
+  const b = ["processing","analyzing","building prompt","assembling language","interpreting"];
+  return `${a[Math.floor(Math.random()*a.length)]} — ${b[Math.floor(Math.random()*b.length)]}…`;
+}
+
+function setBeltContent(fetchedLines){
+  const now = Date.now();
+  for(let i=LOCAL_ADDS.length-1;i>=0;i--){
+    if(now - LOCAL_ADDS[i].t > LOCAL_ADD_TTL_MS) LOCAL_ADDS.splice(i,1);
+  }
+
+  const makeFrag=()=>{
+    const frag=document.createDocumentFragment();
+
+    for(const item of PRELUDE_LINES){
+      const div=document.createElement("div");
+      div.className="entry prelude";
+      div.textContent=item.text;
+      frag.appendChild(div);
+    }
+
+    for(const item of LOCAL_ADDS){
+      const div=document.createElement("div");
+      div.className="entry liveAdd";
+      div.textContent=item.text;
+      frag.appendChild(div);
+    }
+
+    if(fetchedLines && fetchedLines.length){
+      for(const item of fetchedLines){
+        const div=document.createElement("div");
+        div.className="entry";
+        div.textContent=item.text;
+        frag.appendChild(div);
+      }
+    } else {
+      const div=document.createElement("div");
+      div.className="entry prelude";
+      div.textContent="(no public lines yet — submit an image to seed the new stream)";
+      frag.appendChild(div);
+    }
+    return frag;
+  };
+
+  beltA.innerHTML=""; beltB.innerHTML="";
+  beltA.appendChild(makeFrag());
+  beltB.appendChild(makeFrag());
+
+  requestAnimationFrame(()=>{
+    poemHeight=beltA.getBoundingClientRect().height;
+    beltA.style.transform=`translateY(0px)`;
+    beltB.style.transform=`translateY(${poemHeight}px)`;
+  });
+}
+
+async function fetchPoem(){
+  try{
+    const res=await fetch(GET_LINES(240),{cache:"no-store"});
+    const data=await res.json();
+    const lines=Array.isArray(data.lines)?data.lines:[];
+    lastKnownLineCount = lines.length || lastKnownLineCount;
+
+    setBeltContent(lines);
+    if(consoleMsg.textContent==="LOADING…"){
+      setConsole("READY", "Prelude + poem running. Submit an image anytime.");
+    }
+  }catch(e){
+    setBeltContent([]);
+    if(consoleMsg.textContent==="LOADING…"){
+      setConsole("READY", "Prelude running. (Poem endpoint unreachable.)");
+    }
+  }
+}
+
+function poemTick(){
+  y += (POEM_SPEED * speedMul);
+  if(poemHeight>0 && y>=poemHeight) y-=poemHeight;
+  beltA.style.transform=`translateY(${-y}px)`;
+  beltB.style.transform=`translateY(${poemHeight - y}px)`;
+  requestAnimationFrame(poemTick);
+}
+requestAnimationFrame(poemTick);
+
+function ceremonialSlow(){ speedMul = TEMP_SLOW_FACTOR; setTimeout(()=>speedMul=1, TEMP_SLOW_MS); }
+function showStamp(){ stamp.classList.remove("show"); void stamp.offsetWidth; stamp.classList.add("show"); }
+
+let lastThumbHash="";
+function hashThumbs(arr){return arr.map(x=>(x.t||"")+":"+(x.data||"").slice(0,40)).join("|").slice(-6000);}
+function renderThumbs(thumbs){
+  const h=hashThumbs(thumbs);
+  if(h===lastThumbHash) return;
+  lastThumbHash=h;
+  pileInner.innerHTML="";
+  for(const item of thumbs){
+    const cell=document.createElement("div"); cell.className="thumb";
+    const btn=document.createElement("button"); btn.type="button";
+    const im=document.createElement("img"); im.src=item.data;
+    btn.appendChild(im); cell.appendChild(btn); pileInner.appendChild(cell);
+    btn.addEventListener("click", ()=>{
+      showCenterImage(item.data);
+      addTicker("replaying prior image","tSig");
+      setConsole("REPLAY", "Showing a prior image from the pile.");
+    });
+  }
+}
+async function fetchThumbs(){
+  try{
+    const res=await fetch(GET_THUMBS(24),{cache:"no-store"});
+    const data=await res.json();
+    renderThumbs(Array.isArray(data.thumbs)?data.thumbs:[]);
+  }catch(e){}
+}
+
+async function makeThumbDataURL(fileObj){
+  return new Promise((resolve)=>{
+    const fr=new FileReader();
+    fr.onload=()=>{
+      const im=new Image();
+      im.onload=()=>{
+        const size=320;
+        const c=document.createElement("canvas");
+        c.width=size; c.height=size;
+        const ctx=c.getContext("2d");
+        const s=Math.min(im.width, im.height);
+        const sx=(im.width-s)/2;
+        const sy=(im.height-s)/2;
+        ctx.drawImage(im,sx,sy,s,s,0,0,size,size);
+        resolve(c.toDataURL("image/jpeg",0.85));
+      };
+      im.src=fr.result;
+    };
+    fr.readAsDataURL(fileObj);
+  });
+}
+async function postThumb(dataUrl){
+  try{
+    await fetch(POST_THUMB,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({data:dataUrl})
+    });
+  }catch(e){}
+}
+
+function showCenterImage(src){
+  centerImg.classList.remove("fade");
+  centerImg.classList.add("on");
+  centerImgEl.src = src;
+}
+function fadeAndClearImage(){
+  centerImg.classList.add("fade");
+  setTimeout(()=>{
+    centerImg.classList.remove("on");
+    centerImg.classList.remove("fade");
+    centerImgEl.src = "";
+  }, IMAGE_CLEAR_PAD_MS);
+}
+
+let overlayFadeTimer=null;
+function scheduleOverlayFade(){
+  if(overlayFadeTimer) clearTimeout(overlayFadeTimer);
+  overlayFadeTimer = setTimeout(()=>{ overlay.classList.remove("on"); }, PROMPT_FADE_AFTER_MS);
+}
+
+async function compressForReplicate(fileObj){
+  const img=await new Promise((resolve,reject)=>{
+    const fr=new FileReader();
+    fr.onload=()=>{
+      const im=new Image();
+      im.onload=()=>resolve(im);
+      im.onerror=reject;
+      im.src=fr.result;
+    };
+    fr.onerror=reject;
+    fr.readAsDataURL(fileObj);
+  });
+  const MAX=768;
+  let w=img.width,h=img.height;
+  const scale=Math.min(1,MAX/Math.max(w,h));
+  w=Math.round(w*scale); h=Math.round(h*scale);
+  const c=document.createElement("canvas");
+  c.width=w; c.height=h;
+  const ctx=c.getContext("2d");
+  ctx.drawImage(img,0,0,w,h);
+  let q=0.82;
+  let out=c.toDataURL("image/jpeg",q);
+  while(out.length>1200000 && q>0.55){ q-=0.07; out=c.toDataURL("image/jpeg",q); }
+  return out;
+}
+async function startPrediction(dataUri, mode="fast"){
+  const res=await fetch(POST_START,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({image:dataUri,mode})
+  });
+  const json=await res.json();
+  if(!json.ok) throw new Error(json.error||"start_failed");
+  return {id:json.id,reused:!!json.reused};
+}
+async function pollPrediction(id){
+  const t0=Date.now();
+  while(true){
+    if(Date.now()-t0>POLL_MAX_MS) throw new Error("poll_timeout");
+    const res=await fetch(GET_STATUS(id),{cache:"no-store"});
+    const json=await res.json();
+    if(json.ok && (json.status==="starting"||json.status==="processing")){
+      setConsole("ANALYZING…", `status: <code>${json.status}</code><br>prediction id: <code>${id}</code>`);
+    }else if(json.ok && json.status==="succeeded"){
+      return (json.prompt||"").trim();
+    }else{
+      throw new Error((json && (json.error||json.status)) ? (json.error||json.status) : "status_failed");
+    }
+    await new Promise(r=>setTimeout(r, POLL_INTERVAL_MS));
+  }
+}
+
+async function postLine(text){
+  try{
+    const res = await fetch(POST_LINE,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({text})
+    });
+    const json = await res.json().catch(()=>({ok:true}));
+    if(json && json.ok === false) return false;
+    return res.ok;
+  }catch(e){
+    return false;
+  }
+}
+
+let voiceArmed = false;
+let voiceUnlocked = false;
+let voiceTimer = null;
+let voiceIndex = 0;
+
+function unlockVoiceOnce(){
+  voiceUnlocked = true;
+  try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
+}
+function speak(text){
+  if(!voiceArmed || !voiceUnlocked) return;
+  if(!window.speechSynthesis || !text) return;
+  try{
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.92;
+    u.pitch = 0.92;
+    u.volume = 0.85;
+    window.speechSynthesis.resume && window.speechSynthesis.resume();
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function startVoiceReading(){
+  stopVoiceReading();
+  voiceTimer = setInterval(()=>{
+    if(!voiceArmed) return;
+    const nodes = [...beltA.querySelectorAll(".entry:not(.prelude)")];
+    if(!nodes.length) return;
+    const idx = (voiceIndex % nodes.length);
+    voiceIndex++;
+    const t = (nodes[idx] && nodes[idx].textContent) ? nodes[idx].textContent : "";
+    if(t) speak(t);
+  }, VOICE_READ_SCROLL_MS);
+}
+function stopVoiceReading(){
+  if(voiceTimer){ clearInterval(voiceTimer); voiceTimer=null; }
+}
+
+voiceBtn.addEventListener("click", ()=>{
+  unlockVoiceOnce();
+  voiceArmed = !voiceArmed;
+  voiceBtn.classList.toggle("on", voiceArmed);
+  addTicker(voiceArmed ? "voice armed (reads poem)" : "voice off", "tSig");
+  setConsole(voiceArmed ? "VOICE ON" : "VOICE OFF", voiceArmed ? "Reading the poem intermittently + speaking commits." : "Audio disabled.");
+  if(voiceArmed){
+    speak("Voice on.");
+    startVoiceReading();
+  }else{
+    stopVoiceReading();
+    try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
+  }
+});
+
+async function locallyAccumulate(line){
+  LOCAL_ADDS.unshift({text: line, t: Date.now()});
+  setBeltContent(null);
+  ceremonialSlow();
+  showStamp();
+  if(voiceArmed){
+    speak(line);
+    startVoiceReading();
+  }
+}
+
+submitBtn.addEventListener("click", ()=> file.click());
+file.addEventListener("change", async ()=>{
+  const f=file.files && file.files[0];
+  if(!f) return;
+  selectedFile=f;
+  hasImage=true;
+  generateBtn.style.display="inline-block";
+  showCenterImage(URL.createObjectURL(f));
+  setConsole("IMAGE RECEIVED", "Tap Generate.");
+  addTicker("image received","tSig");
+  try{
+    const thumb=await makeThumbDataURL(f);
+    await postThumb(thumb);
+    fetchThumbs();
+  }catch(e){}
+  file.value="";
+});
+
+generateBtn.addEventListener("click", async ()=>{
+  if(!hasImage || !selectedFile){ setConsole("NO IMAGE LOADED","Tap Submit Image first.",true); return; }
+  if(inflight){ setConsole("ALREADY ANALYZING", inflightId?`prediction id: <code>${inflightId}</code>`:""); return; }
+
+  inflight=true;
+  generateBtn.disabled=true;
+  submitBtn.disabled=true;
+
+  let provisional = localPrompt();
+  overlay.classList.add("on");
+  textEl.textContent = provisional;
+  setConsole("LOCAL READ (PROVISIONAL)", "Network read pending…");
+  addTicker("local read generated","tHot");
+
+  const localTimer = setInterval(()=>{
+    provisional = localPrompt();
+    textEl.textContent = provisional;
+    addTicker("local read reshuffled","tDim");
+  }, LOCAL_REWRITE_MS);
+
+  const hb = setInterval(()=>{
+    addTicker("still processing…","tSig");
+    if(inflightId) setConsole("ANALYZING…", `prediction id: <code>${inflightId}</code><br>still processing…`);
+  }, HEARTBEAT_MS);
+
+  try{
+    const dataUri = await compressForReplicate(selectedFile);
+    const started = await startPrediction(dataUri,"fast");
+    inflightId = started.id;
+
+    setConsole("RUN STARTED", `prediction id: <code>${inflightId}</code><br>Provisional line active while waiting…`);
+    addTicker("network run started","tHot");
+
+    const networkPrompt = await pollPrediction(inflightId);
+    if(!networkPrompt) throw new Error("empty_prompt");
+
+    clearInterval(localTimer);
+
+    textEl.textContent = networkPrompt;
+    setConsole("NETWORK RECEIVED", `prediction id: <code>${inflightId}</code>`);
+    addTicker("network read received","tHot");
+    scheduleOverlayFade();
+
+    await locallyAccumulate(networkPrompt);
+
+    const approxNextLine = (lastKnownLineCount || 0) + 1;
+    const ok = await postLine(networkPrompt);
+
+    if(!ok){
+      setConsole("COMMIT FAILED", "Network error saving the line to the poem.", true);
+      addTicker("commit failed (poem)","tHot");
+    }else{
+      lastKnownLineCount = approxNextLine;
+      setConsole(`SUCCESS • line #${approxNextLine}`, "Added to the public poem (v2).");
+      addTicker(`committed • line #${approxNextLine}`,"tHot");
+    }
+
+    setTimeout(()=>fadeAndClearImage(), IMAGE_FADE_AFTER_MS);
+
+  }catch(e){
+    clearInterval(localTimer);
+    scheduleOverlayFade();
+
+    setConsole("NETWORK FAILED", `error: <code>${escapeHtml(e.message)}</code><br>No fallback line saved.`, true);
+    addTicker(`network failed: ${e.message}`,"tHot");
+    setTimeout(()=>fadeAndClearImage(), IMAGE_FADE_AFTER_MS);
+
+  }finally{
+    clearInterval(hb);
+    inflight=false;
+    inflightId=null;
+
+    generateBtn.disabled=false;
+    submitBtn.disabled=false;
+
+    generateBtn.style.display="none";
+    hasImage=false;
+    selectedFile=null;
+
+    fetchPoem();
+    fetchThumbs();
+  }
+});
+
+setConsole("LOADING…", "Warming Act 1…");
+fetchPoem();
+fetchThumbs();
+setInterval(fetchPoem, POEM_POLL_MS);
+setInterval(fetchThumbs, THUMB_POLL_MS);
+</script>
