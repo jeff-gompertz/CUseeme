@@ -1,67 +1,141 @@
-if (!function_exists('ganemulator_img2img')) {
-  function ganemulator_img2img(WP_REST_Request $req) {
+// --- BBC RSS proxy + News->Prompt (Replicate LLM) ---
+// Adds:
+//   GET  /wp-json/ganemulator/v1/bbc
+//   POST /wp-json/ganemulator/v1/news_prompt  { text: "...", style?: "..." }
+//
+// Notes:
+// - Uses Replicate "model-based" endpoint (no version hash).
+// - Uses the SAME auth style as your existing img2img/poll: Authorization: Token <key>
+// - Returns { ok:true, prediction: {...} } so your existing /poll route can read it.
 
-    list($body, $err) = ganemulator_read_json_body($req);
-    if ($err) return ganemulator_json(['ok'=>false,'error'=>$err], 400);
+add_action('rest_api_init', function () {
 
-    if (empty($body['image'])) {
-      return ganemulator_json(['ok'=>false,'error'=>'missing_image'], 400);
-    }
+  // 1) BBC RSS proxy
+  register_rest_route('ganemulator/v1', '/bbc', [
+    'methods'  => 'GET',
+    'callback' => function () {
 
-    $api_key = ganemulator_require_key();
-    if (!$api_key) {
-      return ganemulator_json(['ok'=>false,'error'=>'replicate_api_key_not_set'], 400);
-    }
+      include_once ABSPATH . WPINC . '/feed.php';
 
-    // --- INTENSITY PRESET (GAN-like) ---
-    $prompt   = isset($body['prompt']) ? (string)$body['prompt'] : 'uncanny synthetic amalgamation';
-    $negative = 'text, watermark, logo, frame, UI, oversharpen, jpeg artifacts, plastic skin';
+      $feed_url = 'https://feeds.bbci.co.uk/news/world/rss.xml';
+      $feed = fetch_feed($feed_url);
 
-    $strength = isset($body['strength']) ? floatval($body['strength']) : 0.82;
-    $strength = max(0.6, min(0.95, $strength));
+      if (is_wp_error($feed)) {
+        return ganemulator_json([
+          'ok' => false,
+          'error' => 'feed_error',
+          'detail' => $feed->get_error_message()
+        ], 500);
+      }
 
-    $steps    = 42;
-    $guidance = 7.5;
+      $max = 40;
+      $items = $feed->get_items(0, $max);
+      $out = [];
 
-    // Optional seed (kept random if not provided)
-    $seed = isset($body['seed']) ? intval($body['seed']) : null;
+      foreach ($items as $it) {
 
-    $payload = [
-      "version" => GANEMULATOR_REPLICATE_VERSION,
-      "input" => [
-        "image" => $body['image'],
-        "prompt" => $prompt,
-        "negative_prompt" => $negative,
-        "strength" => $strength,
-        "num_inference_steps" => $steps,
-        "guidance_scale" => $guidance,
-      ]
-    ];
+        $title = wp_strip_all_tags($it->get_title());
+        $desc  = wp_strip_all_tags($it->get_description());
+        $link  = (string) $it->get_link();
 
-    if ($seed !== null) {
-      $payload["input"]["seed"] = $seed;
-    }
+        // Decode RSS HTML entities (&#039; &amp; etc.)
+        $title = html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $desc  = html_entity_decode($desc,  ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $link  = html_entity_decode($link,  ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-    $resp = wp_remote_post('https://api.replicate.com/v1/predictions', [
-      'headers' => [
-        'Authorization' => 'Token ' . $api_key,
-        'Content-Type'  => 'application/json',
-      ],
-      'body'    => wp_json_encode($payload),
-      'timeout' => 60,
-    ]);
+        $out[] = [
+          'title' => $title,
+          'desc'  => $desc,
+          'link'  => esc_url_raw($link),
+          'date'  => $it->get_date('c'),
+        ];
+      }
 
-    if (is_wp_error($resp)) {
-      return ganemulator_json(['ok'=>false,'error'=>$resp->get_error_message()], 500);
-    }
+      return ganemulator_json([
+        'ok' => true,
+        'source' => 'BBC World',
+        'count' => count($out),
+        'items' => $out
+      ], 200);
+    },
+    'permission_callback' => '__return_true',
+  ]);
 
-    $raw  = wp_remote_retrieve_body($resp);
-    $json = json_decode($raw, true);
+  // 2) News -> Prompt (Replicate LLM)
+  register_rest_route('ganemulator/v1', '/news_prompt', [
+    'methods'  => 'POST',
+    'callback' => function (WP_REST_Request $req) {
 
-    if (!is_array($json)) {
-      return ganemulator_json(['ok'=>false,'error'=>'replicate_non_json'], 502);
-    }
+      list($body, $err) = ganemulator_read_json_body($req);
+      if ($err) return ganemulator_json(['ok'=>false,'error'=>$err], 400);
 
-    return ganemulator_json(['ok'=>true,'prediction'=>$json], 200);
-  }
-}
+      $text = isset($body['text']) ? trim((string)$body['text']) : '';
+      if ($text === '') return ganemulator_json(['ok'=>false,'error'=>'missing_text'], 400);
+
+      $api_key = ganemulator_require_key();
+      if (!$api_key) return ganemulator_json(['ok'=>false,'error'=>'replicate_api_key_not_set'], 400);
+
+      // Bound input sizes
+      $text = mb_substr($text, 0, 9000);
+
+      $style = isset($body['style']) ? (string)$body['style'] : 'cinematic, high-contrast, documentary';
+      $style = mb_substr($style, 0, 240);
+
+      // Choose Replicate LLM (model-based; no version hash)
+      // IMPORTANT: these identifiers must match Replicate's model slug.
+      $model_owner = 'meta';
+      $model_name  = 'meta-llama-3-70b-instruct';
+
+      $system = "You write Stable Diffusion prompts.";
+      $user =
+        "NEWS INPUT:\n" . $text . "\n\n" .
+        "TASK:\nCreate ONE image prompt derived from the news.\n" .
+        "Rules:\n" .
+        "- Output ONLY the prompt text (no quotes, no labels).\n" .
+        "- 1–2 sentences max.\n" .
+        "- Add visual style tags: {$style}.\n" .
+        "- No politics commentary; only depict scenes/metaphors.\n";
+
+      $payload = [
+        "input" => [
+          "prompt" => $system . "\n\n" . $user,
+          "max_tokens" => 220,
+          "temperature" => 0.9,
+        ]
+      ];
+
+      $url = 'https://api.replicate.com/v1/models/' . $model_owner . '/' . $model_name . '/predictions';
+
+      $resp = wp_remote_post($url, [
+        'headers' => [
+          'Authorization' => 'Token ' . $api_key,
+          'Content-Type'  => 'application/json',
+        ],
+        'body'    => wp_json_encode($payload),
+        'timeout' => 60,
+      ]);
+
+      if (is_wp_error($resp)) {
+        return ganemulator_json(['ok'=>false,'error'=>$resp->get_error_message()], 500);
+      }
+
+      $code = wp_remote_retrieve_response_code($resp);
+      $raw  = wp_remote_retrieve_body($resp);
+      $json = json_decode($raw, true);
+
+      if (!is_array($json) || $code < 200 || $code >= 300) {
+        return ganemulator_json([
+          'ok'=>false,
+          'error'=>'replicate_llm_http_error',
+          'http_code'=>$code,
+          'raw_head'=>substr((string)$raw, 0, 400)
+        ], 502);
+      }
+
+      // Client will poll this prediction id using your existing /poll route.
+      return ganemulator_json(['ok'=>true,'prediction'=>$json], 200);
+    },
+    'permission_callback' => '__return_true',
+  ]);
+
+});
