@@ -1,594 +1,67 @@
-// --- BBC RSS proxy + News->Prompt (Replicate LLM) ---
-// Adds:
-//   GET  /wp-json/ganemulator/v1/bbc
-//   POST /wp-json/ganemulator/v1/news_prompt  { text: "...", style?: "..." }
-//
-// Notes:
-// - Uses Replicate "model-based" endpoint (no version hash).
-// - Uses the SAME auth style as your existing img2img/poll: Authorization: Token <key>
-// - Returns { ok:true, prediction: {...} } so your existing /poll route can read it.
+if (!function_exists('ganemulator_img2img')) {
+  function ganemulator_img2img(WP_REST_Request $req) {
 
-add_action('rest_api_init', function () {
+    list($body, $err) = ganemulator_read_json_body($req);
+    if ($err) return ganemulator_json(['ok'=>false,'error'=>$err], 400);
 
-  // 1) BBC RSS proxy
-  register_rest_route('ganemulator/v1', '/bbc', [
-    'methods'  => 'GET',
-    'callback' => function () {
+    if (empty($body['image'])) {
+      return ganemulator_json(['ok'=>false,'error'=>'missing_image'], 400);
+    }
 
-      include_once ABSPATH . WPINC . '/feed.php';
+    $api_key = ganemulator_require_key();
+    if (!$api_key) {
+      return ganemulator_json(['ok'=>false,'error'=>'replicate_api_key_not_set'], 400);
+    }
 
-      $feed_url = 'https://feeds.bbci.co.uk/news/world/rss.xml';
-      $feed = fetch_feed($feed_url);
+    // --- INTENSITY PRESET (GAN-like) ---
+    $prompt   = isset($body['prompt']) ? (string)$body['prompt'] : 'uncanny synthetic amalgamation';
+    $negative = 'text, watermark, logo, frame, UI, oversharpen, jpeg artifacts, plastic skin';
 
-      if (is_wp_error($feed)) {
-        return ganemulator_json([
-          'ok' => false,
-          'error' => 'feed_error',
-          'detail' => $feed->get_error_message()
-        ], 500);
-      }
+    $strength = isset($body['strength']) ? floatval($body['strength']) : 0.82;
+    $strength = max(0.6, min(0.95, $strength));
 
-      $max = 40;
-      $items = $feed->get_items(0, $max);
-      $out = [];
+    $steps    = 42;
+    $guidance = 7.5;
 
-      foreach ($items as $it) {
-        $out[] = [
-          'title' => wp_strip_all_tags($it->get_title()),
-          'desc'  => wp_strip_all_tags($it->get_description()),
-          'link'  => $it->get_link(),
-          'date'  => $it->get_date('c'),
-        ];
-      }
+    // Optional seed (kept random if not provided)
+    $seed = isset($body['seed']) ? intval($body['seed']) : null;
 
-      return ganemulator_json([
-        'ok' => true,
-        'source' => 'BBC World',
-        'count' => count($out),
-        'items' => $out
-      ], 200);
-    },
-    'permission_callback' => '__return_true',
-  ]);
+    $payload = [
+      "version" => GANEMULATOR_REPLICATE_VERSION,
+      "input" => [
+        "image" => $body['image'],
+        "prompt" => $prompt,
+        "negative_prompt" => $negative,
+        "strength" => $strength,
+        "num_inference_steps" => $steps,
+        "guidance_scale" => $guidance,
+      ]
+    ];
 
-  // 2) News -> Prompt (Replicate LLM)
-  register_rest_route('ganemulator/v1', '/news_prompt', [
-    'methods'  => 'POST',
-    'callback' => function (WP_REST_Request $req) {
+    if ($seed !== null) {
+      $payload["input"]["seed"] = $seed;
+    }
 
-      list($body, $err) = ganemulator_read_json_body($req);
-      if ($err) return ganemulator_json(['ok'=>false,'error'=>$err], 400);
+    $resp = wp_remote_post('https://api.replicate.com/v1/predictions', [
+      'headers' => [
+        'Authorization' => 'Token ' . $api_key,
+        'Content-Type'  => 'application/json',
+      ],
+      'body'    => wp_json_encode($payload),
+      'timeout' => 60,
+    ]);
 
-      $text = isset($body['text']) ? trim((string)$body['text']) : '';
-      if ($text === '') return ganemulator_json(['ok'=>false,'error'=>'missing_text'], 400);
+    if (is_wp_error($resp)) {
+      return ganemulator_json(['ok'=>false,'error'=>$resp->get_error_message()], 500);
+    }
 
-      $api_key = ganemulator_require_key();
-      if (!$api_key) return ganemulator_json(['ok'=>false,'error'=>'replicate_api_key_not_set'], 400);
+    $raw  = wp_remote_retrieve_body($resp);
+    $json = json_decode($raw, true);
 
-      // Bound input sizes
-      $text = mb_substr($text, 0, 9000);
+    if (!is_array($json)) {
+      return ganemulator_json(['ok'=>false,'error'=>'replicate_non_json'], 502);
+    }
 
-      $style = isset($body['style']) ? (string)$body['style'] : 'cinematic, high-contrast, uncanny, documentary surrealism';
-      $style = mb_substr($style, 0, 240);
-
-      // Choose Replicate LLM (model-based; no version hash)
-      // IMPORTANT: these identifiers must match Replicate's model slug.
-      $model_owner = 'meta';
-      $model_name  = 'meta-llama-3-70b-instruct';
-
-      $system = "You write Stable Diffusion prompts.";
-      $user =
-        "NEWS INPUT:\n" . $text . "\n\n" .
-        "TASK:\nCreate ONE image prompt derived from the news.\n" .
-        "Rules:\n" .
-        "- Output ONLY the prompt text (no quotes, no labels).\n" .
-        "- 1–2 sentences max.\n" .
-        "- Add visual style tags: {$style}.\n" .
-        "- No politics commentary; only depict scenes/metaphors.\n";
-
-      $payload = [
-        "input" => [
-          "prompt" => $system . "\n\n" . $user,
-          "max_tokens" => 220,
-          "temperature" => 0.9,
-        ]
-      ];
-
-      $url = 'https://api.replicate.com/v1/models/' . $model_owner . '/' . $model_name . '/predictions';
-
-      $resp = wp_remote_post($url, [
-        'headers' => [
-          'Authorization' => 'Token ' . $api_key,
-          'Content-Type'  => 'application/json',
-        ],
-        'body'    => wp_json_encode($payload),
-        'timeout' => 60,
-      ]);
-
-      if (is_wp_error($resp)) {
-        return ganemulator_json(['ok'=>false,'error'=>$resp->get_error_message()], 500);
-      }
-
-      $code = wp_remote_retrieve_response_code($resp);
-      $raw  = wp_remote_retrieve_body($resp);
-      $json = json_decode($raw, true);
-
-      if (!is_array($json) || $code < 200 || $code >= 300) {
-        return ganemulator_json([
-          'ok'=>false,
-          'error'=>'replicate_llm_http_error',
-          'http_code'=>$code,
-          'raw_head'=>substr((string)$raw, 0, 400)
-        ], 502);
-      }
-
-      // Client will poll this prediction id using your existing /poll route.
-      return ganemulator_json(['ok'=>true,'prediction'=>$json], 200);
-    },
-    'permission_callback' => '__return_true',
-  ]);
-
-});
-
-
-
-
-
-
-
-
-
-<style>
-  :root{
-    --acid:#e9ff32;
-    --bg:#000;
-    --glass:rgba(0,0,0,.72);
-    --soft:rgba(255,255,255,.72);
+    return ganemulator_json(['ok'=>true,'prediction'=>$json], 200);
   }
-
-  /* IMPORTANT in WP: scope everything to #bbcStage so theme CSS doesn’t collide */
-  #bbcStage{
-    position:relative;
-    height:100vh;
-    overflow:hidden;
-    background:#000;
-    font-family:Arial,Helvetica,sans-serif;
-  }
-
-  #bbcStage #imgOut{
-    position:absolute; inset:0;
-    width:100%; height:100%;
-    object-fit:cover;
-    opacity:1;
-    filter:contrast(1.02) saturate(1.08);
-    display:none;
-    z-index:0;
-  }
-#bbcStage #veil{
-  display:none !important;
 }
-
-  #bbcStage #ecran{
-    position:relative;
-    height:100vh;
-    overflow:hidden;
-    width:80%;
-    margin:0 auto;
-    text-align:center;
-    color:#fff;
-    opacity:.92;
-    z-index:2;
-  }
-
-  /* Plain scroller (NO flex) */
-  #bbcStage #ecran-inner{
-    height:100%;
-    width:100%;
-    overflow-y:scroll;
-    scrollbar-width:none;
-    -ms-overflow-style:none;
-    pointer-events:none !important;
-    padding:3vh 0;
-    box-sizing:border-box;
-  }
-  #bbcStage #ecran-inner::-webkit-scrollbar{display:none;}
-
-  #bbcStage #ecranText{
-    margin:0;
-    font-size:11rem;
-    font-weight:800;
-    line-height:1.05;
-    letter-spacing:-0.02em;
-    white-space:pre-wrap;
-    word-break:break-word;
-  }
-  @media (max-width:900px){
-    #bbcStage #ecranText{font-size:6.8rem;}
-    #bbcStage #ecran{width:92%;}
-  }
-  @media (max-width:520px){
-    #bbcStage #ecranText{font-size:4.2rem;}
-  }
-
-  #bbcStage #promptBox{
-    position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
-    width:min(920px, calc(100% - 28px));
-    background:rgba(255,255,255,.92);
-    color:#000;
-    border-radius:14px;
-    padding:12px 14px;
-    font-size:16px;
-    line-height:1.25;
-    box-shadow:0 18px 60px rgba(0,0,0,.55);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    z-index:3;
-  }
-  #bbcStage #promptBox b{color:#000;}
-  #bbcStage #promptText{margin-top:6px; font-weight:700;}
-  #bbcStage #statusRow{
-    margin-top:10px;
-    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
-    font-size:12px; color:rgba(0,0,0,.72);
-  }
-  #bbcStage .pill{
-    border:1px solid rgba(0,0,0,.16);
-    padding:6px 10px;
-    border-radius:999px;
-    background:rgba(255,255,255,.7);
-  }
-  #bbcStage .btn{
-    cursor:pointer;
-    border-radius:999px;
-    border:1px solid rgba(0,0,0,.22);
-    padding:8px 12px;
-    background:#fff;
-    font-weight:900;
-    letter-spacing:.08em;
-    text-transform:uppercase;
-    font-size:11px;
-  }
-  #bbcStage .btn:disabled{opacity:.45;cursor:default;}
-
-  #bbcStage #tinyLogWrap{display:none;margin-top:10px;}
-  #bbcStage #tinyLog{
-    max-height:96px;
-    overflow:auto;
-    font:12px/1.35 ui-monospace, Menlo, Monaco, Consolas, monospace;
-    color:rgba(0,0,0,.65);
-    background:rgba(0,0,0,.04);
-    border-radius:10px;
-    padding:8px 10px;
-    white-space:pre-wrap;
-  }
-</style>
-
-<div id="bbcStage">
-  <img id="imgOut" alt="SDXL output" />
-  <div id="veil"></div>
-
-  <div id="ecran">
-    <div id="ecran-inner">
-      <p id="ecranText">Loading BBC…</p>
-    </div>
-  </div>
-
-  <div id="promptBox">
-    <div><b>Derived prompt (one headline)</b></div>
-    <div id="promptText">—</div>
-
-    <div id="statusRow">
-      <span class="pill">Headline <b id="hIndex">0</b>/<b id="hTotal">0</b></span>
-      <span class="pill">Mode: <b>BBC → Prompt → SDXL</b></span>
-
-      <button class="btn" id="btnNext" type="button">Next Headline</button>
-      <button class="btn" id="btnRun" type="button" disabled>Generate Image</button>
-      <button class="btn" id="btnAuto" type="button">Auto: ON</button>
-      <button class="btn" id="btnLog" type="button">Log</button>
-    </div>
-
-    <div id="tinyLogWrap">
-      <div id="tinyLog"></div>
-    </div>
-  </div>
-</div>
-
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const API_BASE = "https://art.jeffgompertz.site";
-  const EP_BBC     = new URL("/wp-json/ganemulator/v1/bbc", API_BASE).toString();
-  const EP_NEWS    = new URL("/wp-json/ganemulator/v1/news_prompt", API_BASE).toString();
-  const EP_IMG2IMG = new URL("/wp-json/ganemulator/v1/img2img", API_BASE).toString();
-  const EP_POLL    = new URL("/wp-json/ganemulator/v1/poll", API_BASE).toString();
-
-  const $ = (id)=>document.getElementById(id);
-
-  const ecranInner   = $("ecran-inner");
-  const ecranTextEl  = $("ecranText");
-
-  const promptTextEl = $("promptText");
-  const hIndexEl     = $("hIndex");
-  const hTotalEl     = $("hTotal");
-  const imgOut       = $("imgOut");
-
-  const btnNext = $("btnNext");
-  const btnRun  = $("btnRun");
-  const btnAuto = $("btnAuto");
-  const btnLog  = $("btnLog");
-
-  const tinyLogWrap = $("tinyLogWrap");
-  const logEl = $("tinyLog");
-
-  const L = [];
-  function log(line){
-    const ts = new Date().toISOString().slice(11,19);
-    L.push(`[${ts}] ${line}`);
-    while (L.length > 60) L.shift();
-    logEl.textContent = L.join("\n");
-    logEl.scrollTop = logEl.scrollHeight;
-    console.log(line);
-  }
-
-  let items = [];
-  let idx = 0;
-  let autoOn = true;
-  let autoTimer = null;
-
-  let currentHeadline = "";
-  let lastPrompt = "";
-
-  // SCROLL: independent, never touched elsewhere
-  function ScrollDiv(){
-    const inner = ecranInner;
-    const max = inner.scrollHeight - inner.clientHeight;
-    if (max <= 2) return;
-    inner.scrollTop = (inner.scrollTop + 1 >= max) ? 0 : (inner.scrollTop + 1);
-  }
-  setInterval(ScrollDiv, 12);
-
-  async function getJSON(url){
-    const r = await fetch(url, { cache: "no-store" });
-    return await r.json();
-  }
-
-  async function postJSON(url, obj){
-    const r = await fetch(url, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify(obj)
-    });
-    const ct = (r.headers.get("content-type") || "").toLowerCase();
-    const raw = await r.text();
-    log(`POST ${new URL(url).pathname} → http ${r.status}`);
-    return { ct, raw };
-  }
-
-  function headlineToText(it){
-    const t = (it && it.title) ? it.title.trim() : "";
-    const d = (it && it.desc)  ? it.desc.trim()  : "";
-    const one = d ? `${t}. ${d}` : t;
-    return one.replace(/\s+/g, " ").trim();
-  }
-
-  function buildScrollTextOnce(){
-    const lines = items.map(headlineToText).filter(Boolean);
-    const block = lines.join("\n\n");
-    ecranTextEl.textContent = block ? (block + "\n\n—\n\n" + block) : "—";
-    log("ecran scroll text built (stable) ✅");
-  }
-
-  function setCurrentHeadline(i){
-    if (!items.length) return;
-
-    idx = (i + items.length) % items.length;
-    currentHeadline = headlineToText(items[idx]) || "";
-
-    hIndexEl.textContent = String(idx + 1);
-    hTotalEl.textContent = String(items.length);
-
-    lastPrompt = "";
-    promptTextEl.textContent = "—";
-    btnRun.disabled = true;
-
-    log(`current headline set (for prompt): ${idx + 1}/${items.length}`);
-  }
-
-  async function pollPrediction(id){
-    for (let i=0;i<70;i++){
-      await new Promise(r=>setTimeout(r, 900));
-      const { ct, raw } = await postJSON(EP_POLL, { id });
-      if (!ct.includes("application/json")) return { ok:false, error:"bad_json_head" };
-      const j = JSON.parse(raw);
-      if (!j.ok) return { ok:false, error:j.error || "poll_failed" };
-      const p = j.prediction;
-      if (p && p.status) log(`status: ${p.status}`);
-      if (p && p.status === "succeeded") return { ok:true, prediction:p };
-      if (p && p.status === "failed") return { ok:false, error:"prediction_failed" };
-    }
-    return { ok:false, error:"poll_timeout" };
-  }
-
-  function normalizePromptOutput(out){
-    let s = "";
-    if (typeof out === "string") s = out;
-    else if (Array.isArray(out)) s = out.map(x => String(x || "")).join("");
-    else s = String(out || "");
-    s = s.replace(/\u0000/g, "").replace(/^\s+/, "").replace(/\s+$/g, "");
-    s = s.replace(/^["'“”]+|["'“”]+$/g, "");
-    s = s.replace(/\s+/g, " ").trim();
-    return s;
-  }
-
-  async function derivePromptFromCurrentHeadline(){
-    if (!currentHeadline){
-      promptTextEl.textContent = "—";
-      btnRun.disabled = true;
-      return;
-    }
-
-    promptTextEl.textContent = "Deriving…";
-    btnRun.disabled = true;
-
-    log("deriving prompt…");
-    const { ct, raw } = await postJSON(EP_NEWS, { text: currentHeadline });
-
-    let prompt = "";
-    if (ct.includes("application/json")){
-      const j = JSON.parse(raw);
-
-      if (j && j.ok && (typeof j.prompt === "string" || typeof j.text === "string")){
-        prompt = (j.prompt || j.text || "").trim();
-      }
-
-      if (!prompt && j && j.ok && j.prediction && j.prediction.id){
-        const pid = j.prediction.id;
-        log(`prompt prediction id: ${pid}`);
-        const polled = await pollPrediction(pid);
-        if (polled.ok) prompt = normalizePromptOutput(polled.prediction.output);
-      }
-    } else {
-      prompt = normalizePromptOutput(raw);
-    }
-
-    if (!prompt){
-      promptTextEl.textContent = "Prompt failed (no text).";
-      btnRun.disabled = true;
-      log("prompt failed: no text returned");
-      return;
-    }
-
-    lastPrompt = prompt;
-    promptTextEl.textContent = prompt;
-    btnRun.disabled = false;
-    log("prompt ready ✅");
-  }
-
-function makeNoiseSeedDataURL(size=1024){
-  const c = document.createElement("canvas");
-  c.width = size; c.height = size;
-  const ctx = c.getContext("2d");
-  const img = ctx.createImageData(size, size);
-  const data = img.data;
-
-  for (let i=0; i<data.length; i+=4){
-    data[i]   = (Math.random() * 255) | 0; // R
-    data[i+1] = (Math.random() * 255) | 0; // G
-    data[i+2] = (Math.random() * 255) | 0; // B
-    data[i+3] = 255;
-  }
-
-  ctx.putImageData(img, 0, 0);
-  return c.toDataURL("image/jpeg", 0.92);
-}
-
-  async function generateImageFromPrompt(){
-    if (!lastPrompt) return;
-
-    btnRun.disabled = true;
-    btnNext.disabled = true;
-
-    log("building seed…");
-    const seed = makeNoiseSeedDataURL(1024);
-
-    log("sending to SDXL img2img…");
-    const { ct, raw } = await postJSON(EP_IMG2IMG, { image: seed, prompt: lastPrompt, strength: 0.65 });
-
-    if (!ct.includes("application/json")){
-      log("img2img error: non-json");
-      btnRun.disabled = false; btnNext.disabled = false;
-      return;
-    }
-
-    const j = JSON.parse(raw);
-    if (!j.ok || !j.prediction || !j.prediction.id){
-      log("img2img error: no prediction id");
-      btnRun.disabled = false; btnNext.disabled = false;
-      return;
-    }
-
-    const pid = j.prediction.id;
-    log(`image prediction id: ${pid}`);
-
-    const polled = await pollPrediction(pid);
-    if (!polled.ok){
-      log("image poll error: " + polled.error);
-      btnRun.disabled = false; btnNext.disabled = false;
-      return;
-    }
-
-    const out = polled.prediction.output;
-    const url = Array.isArray(out) ? out[0] : out;
-    if (!url){
-      log("image ok but no output url");
-      btnRun.disabled = false; btnNext.disabled = false;
-      return;
-    }
-
-    imgOut.onload = () => {
-      imgOut.style.display = "block";
-      log("image displayed ✅");
-      btnRun.disabled = false;
-      btnNext.disabled = false;
-    };
-    imgOut.onerror = () => {
-      log("image load failed");
-      btnRun.disabled = false;
-      btnNext.disabled = false;
-    };
-    imgOut.src = url;
-  }
-
-  function startAuto(){
-    stopAuto();
-    autoOn = true;
-    btnAuto.textContent = "Auto: ON";
-    autoTimer = setInterval(async () => {
-      if (!items.length) return;
-      setCurrentHeadline(idx + 1);
-      await derivePromptFromCurrentHeadline();
-    }, 16000);
-  }
-  function stopAuto(){
-    if (autoTimer) clearInterval(autoTimer);
-    autoTimer = null;
-    autoOn = false;
-    btnAuto.textContent = "Auto: OFF";
-  }
-
-  btnNext.addEventListener("click", async () => {
-    if (!items.length) return;
-    setCurrentHeadline(idx + 1);
-    await derivePromptFromCurrentHeadline();
-  });
-
-  btnRun.addEventListener("click", generateImageFromPrompt);
-
-  btnAuto.addEventListener("click", () => {
-    if (autoOn) stopAuto(); else startAuto();
-  });
-
-  btnLog.addEventListener("click", () => {
-    tinyLogWrap.style.display = (!tinyLogWrap.style.display || tinyLogWrap.style.display === "none") ? "block" : "none";
-  });
-
-  (async function boot(){
-    log("boot… fetching BBC");
-    const j = await getJSON(EP_BBC);
-    if (!j.ok || !Array.isArray(j.items) || !j.items.length){
-      ecranTextEl.textContent = "BBC feed error.";
-      promptTextEl.textContent = "—";
-      btnRun.disabled = true;
-      log("bbc error");
-      return;
-    }
-
-    items = j.items;
-    log(`bbc loaded ✅ (${items.length})`);
-
-    buildScrollTextOnce();
-    setCurrentHeadline(0);
-    await derivePromptFromCurrentHeadline();
-    startAuto();
-  })();
-});
-</script>
