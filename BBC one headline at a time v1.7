@@ -1,20 +1,19 @@
 <style>
   :root{
-    --acid:#e9ff32;
     --bg:#000;
-    --glass:rgba(0,0,0,.72);
-    --soft:rgba(255,255,255,.72);
   }
 
-  /* IMPORTANT in WP: scope everything to #bbcStage so theme CSS doesn’t collide */
+  /* Scope everything to our stage */
   #bbcStage{
     position:relative;
     height:100vh;
     overflow:hidden;
-    background:#000;
+    background:var(--bg);
     font-family:Arial,Helvetica,sans-serif;
+    isolation:isolate;
   }
 
+  /* Fullscreen image result (behind text) */
   #bbcStage #imgOut{
     position:absolute; inset:0;
     width:100%; height:100%;
@@ -24,13 +23,11 @@
     display:none;
     z-index:0;
   }
-  #bbcStage #veil{
-    position:absolute; inset:0;
-    background:radial-gradient(circle at 50% 35%, rgba(0,0,0,.25), rgba(0,0,0,.75) 70%, rgba(0,0,0,.85));
-    pointer-events:none;
-    z-index:1;
-  }
 
+  /* Veil OFF */
+  #bbcStage #veil{ display:none !important; }
+
+  /* Ecran */
   #bbcStage #ecran{
     position:relative;
     height:100vh;
@@ -73,6 +70,7 @@
     #bbcStage #ecranText{font-size:4.2rem;}
   }
 
+  /* Prompt box (beautiful version) */
   #bbcStage #promptBox{
     position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
     width:min(920px, calc(100% - 28px));
@@ -86,7 +84,11 @@
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     z-index:3;
+    overflow:hidden;
   }
+  #bbcStage #promptBox::before,
+  #bbcStage #promptBox::after{ content:none !important; }
+
   #bbcStage #promptBox b{color:#000;}
   #bbcStage #promptText{margin-top:6px; font-weight:700;}
   #bbcStage #statusRow{
@@ -124,7 +126,93 @@
     padding:8px 10px;
     white-space:pre-wrap;
   }
+
+  /* Collapse toggle button */
+  #bbcStage #promptToggle{
+    position:absolute;
+    top:8px;
+    right:10px;
+    border:1px solid rgba(0,0,0,.18);
+    background:rgba(255,255,255,.55);
+    color:#000;
+    font-size:14px;
+    line-height:1;
+    border-radius:999px;
+    padding:6px 10px;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  /* Collapsed state */
+  #bbcStage #promptBox.is-collapsed{
+    padding:10px 14px;
+  }
+  #bbcStage #promptBox.is-collapsed #promptBody{
+    display:none;
+  }
+  #bbcStage #promptBox.is-collapsed #statusRow{
+    margin-top:0;
+  }
+
+  @media (max-width:520px){
+    #bbcStage #promptBox{ bottom:10px; }
+  }
+
+  /* MICRO NAV — three dots */
+  #microNav{
+    position:fixed;
+    top:14px;
+    right:14px;
+    z-index:9999;
+    font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+  }
+  #microNavBtn{
+    width:36px;
+    height:36px;
+    border-radius:999px;
+    border:0;
+    background:rgba(255,255,255,.18);
+    color:#fff;
+    font-size:20px;
+    line-height:1;
+    cursor:pointer;
+    backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);
+    -webkit-tap-highlight-color:transparent;
+  }
+  #microNavMenu{
+    position:absolute;
+    top:44px;
+    right:0;
+    min-width:170px;
+    background:rgba(255,255,255,.92);
+    color:#000;
+    border-radius:12px;
+    box-shadow:0 12px 40px rgba(0,0,0,.35);
+    padding:6px 0;
+    display:none;
+    overflow:hidden;
+  }
+  #microNavMenu a{
+    display:block;
+    padding:11px 14px;
+    font-size:14px;
+    text-decoration:none;
+    color:#000;
+  }
+  #microNavMenu a:hover{
+    background:rgba(0,0,0,.06);
+  }
 </style>
+
+<div id="microNav">
+  <button id="microNavBtn" type="button" aria-label="Open navigation">⋯</button>
+  <div id="microNavMenu" role="menu" aria-label="BBC navigation">
+    <a role="menuitem" href="https://art.jeffgompertz.site/bbc-one-headline-at-a-time-v1-9b/">One Headline</a>
+    <a role="menuitem" href="https://art.jeffgompertz.site/gan//">GAN Sandbox</a>
+    <a role="menuitem" href="https://art.jeffgompertz.site/a_prompt-poem_v9-7_replicate/">a Promprt Poem</a>
+  </div>
+</div>
 
 <div id="bbcStage">
   <img id="imgOut" alt="SDXL output" />
@@ -137,8 +225,12 @@
   </div>
 
   <div id="promptBox">
-    <div><b>Derived prompt (one headline)</b></div>
-    <div id="promptText">—</div>
+    <button id="promptToggle" type="button" aria-label="Toggle prompt box" aria-expanded="true">▾</button>
+
+    <div id="promptBody">
+      <div><b>Derived prompt (one headline)</b></div>
+      <div id="promptText">—</div>
+    </div>
 
     <div id="statusRow">
       <span class="pill">Headline <b id="hIndex">0</b>/<b id="hTotal">0</b></span>
@@ -169,6 +261,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const ecranInner   = $("ecran-inner");
   const ecranTextEl  = $("ecranText");
 
+  const promptBox    = $("promptBox");
+  const promptToggle = $("promptToggle");
+
   const promptTextEl = $("promptText");
   const hIndexEl     = $("hIndex");
   const hTotalEl     = $("hTotal");
@@ -182,14 +277,53 @@ document.addEventListener("DOMContentLoaded", () => {
   const tinyLogWrap = $("tinyLogWrap");
   const logEl = $("tinyLog");
 
+  /* ---------- prompt collapse (mobile default) ---------- */
+  function setCollapsed(on){
+    if (!promptBox) return;
+    promptBox.classList.toggle("is-collapsed", !!on);
+    if (promptToggle){
+      promptToggle.textContent = on ? "▴" : "▾";
+      promptToggle.setAttribute("aria-expanded", on ? "false" : "true");
+    }
+  }
+  setCollapsed(window.matchMedia("(max-width:520px)").matches);
+
+  if (promptToggle){
+    promptToggle.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setCollapsed(!promptBox.classList.contains("is-collapsed"));
+    });
+  }
+
+  /* ---------- micro nav (three dots) ---------- */
+  (function(){
+    const btn  = document.getElementById("microNavBtn");
+    const menu = document.getElementById("microNavMenu");
+    if (!btn || !menu) return;
+
+    function close(){ menu.style.display = "none"; }
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      menu.style.display = (menu.style.display === "block") ? "none" : "block";
+    });
+
+    document.addEventListener("click", close);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  })();
+
+  /* ---------- logger ---------- */
   const L = [];
   function log(line){
     const ts = new Date().toISOString().slice(11,19);
     L.push(`[${ts}] ${line}`);
     while (L.length > 60) L.shift();
-    logEl.textContent = L.join("\n");
-    logEl.scrollTop = logEl.scrollHeight;
-    console.log(line);
+    if (logEl){
+      logEl.textContent = L.join("\n");
+      logEl.scrollTop = logEl.scrollHeight;
+    }
   }
 
   let items = [];
@@ -200,12 +334,12 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentHeadline = "";
   let lastPrompt = "";
 
-  // SCROLL: independent, never touched elsewhere
+  /* ---------- scrolling ---------- */
   function ScrollDiv(){
-    const inner = ecranInner;
-    const max = inner.scrollHeight - inner.clientHeight;
+    if (!ecranInner) return;
+    const max = ecranInner.scrollHeight - ecranInner.clientHeight;
     if (max <= 2) return;
-    inner.scrollTop = (inner.scrollTop + 1 >= max) ? 0 : (inner.scrollTop + 1);
+    ecranInner.scrollTop = (ecranInner.scrollTop + 1 >= max) ? 0 : (ecranInner.scrollTop + 1);
   }
   setInterval(ScrollDiv, 12);
 
@@ -237,7 +371,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const lines = items.map(headlineToText).filter(Boolean);
     const block = lines.join("\n\n");
     ecranTextEl.textContent = block ? (block + "\n\n—\n\n" + block) : "—";
-    log("ecran scroll text built (stable) ✅");
+    log("ecran scroll text built ✅");
   }
 
   function setCurrentHeadline(i){
@@ -252,8 +386,6 @@ document.addEventListener("DOMContentLoaded", () => {
     lastPrompt = "";
     promptTextEl.textContent = "—";
     btnRun.disabled = true;
-
-    log(`current headline set (for prompt): ${idx + 1}/${items.length}`);
   }
 
   async function pollPrediction(id){
@@ -264,7 +396,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const j = JSON.parse(raw);
       if (!j.ok) return { ok:false, error:j.error || "poll_failed" };
       const p = j.prediction;
-      if (p && p.status) log(`status: ${p.status}`);
       if (p && p.status === "succeeded") return { ok:true, prediction:p };
       if (p && p.status === "failed") return { ok:false, error:"prediction_failed" };
     }
@@ -292,7 +423,6 @@ document.addEventListener("DOMContentLoaded", () => {
     promptTextEl.textContent = "Deriving…";
     btnRun.disabled = true;
 
-    log("deriving prompt…");
     const { ct, raw } = await postJSON(EP_NEWS, { text: currentHeadline });
 
     let prompt = "";
@@ -304,9 +434,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (!prompt && j && j.ok && j.prediction && j.prediction.id){
-        const pid = j.prediction.id;
-        log(`prompt prediction id: ${pid}`);
-        const polled = await pollPrediction(pid);
+        const polled = await pollPrediction(j.prediction.id);
         if (polled.ok) prompt = normalizePromptOutput(polled.prediction.output);
       }
     } else {
@@ -314,16 +442,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (!prompt){
-      promptTextEl.textContent = "Prompt failed (no text).";
+      promptTextEl.textContent = "Prompt failed.";
       btnRun.disabled = true;
-      log("prompt failed: no text returned");
       return;
     }
 
     lastPrompt = prompt;
     promptTextEl.textContent = prompt;
     btnRun.disabled = false;
-    log("prompt ready ✅");
   }
 
   function makeNoiseSeedDataURL(size=1024){
@@ -332,10 +458,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const ctx = c.getContext("2d");
     const img = ctx.createImageData(size, size);
     const data = img.data;
+
     for (let i=0; i<data.length; i+=4){
       const v = (Math.random() * 255) | 0;
       data[i] = v; data[i+1] = v; data[i+2] = v; data[i+3] = 255;
     }
+
     ctx.putImageData(img, 0, 0);
     return c.toDataURL("image/jpeg", 0.92);
   }
@@ -346,31 +474,26 @@ document.addEventListener("DOMContentLoaded", () => {
     btnRun.disabled = true;
     btnNext.disabled = true;
 
-    log("building seed…");
     const seed = makeNoiseSeedDataURL(1024);
-
-    log("sending to SDXL img2img…");
-    const { ct, raw } = await postJSON(EP_IMG2IMG, { image: seed, prompt: lastPrompt, strength: 0.82 });
+    const { ct, raw } = await postJSON(EP_IMG2IMG, {
+      image: seed,
+      prompt: lastPrompt,
+      strength: 0.65
+    });
 
     if (!ct.includes("application/json")){
-      log("img2img error: non-json");
       btnRun.disabled = false; btnNext.disabled = false;
       return;
     }
 
     const j = JSON.parse(raw);
     if (!j.ok || !j.prediction || !j.prediction.id){
-      log("img2img error: no prediction id");
       btnRun.disabled = false; btnNext.disabled = false;
       return;
     }
 
-    const pid = j.prediction.id;
-    log(`image prediction id: ${pid}`);
-
-    const polled = await pollPrediction(pid);
+    const polled = await pollPrediction(j.prediction.id);
     if (!polled.ok){
-      log("image poll error: " + polled.error);
       btnRun.disabled = false; btnNext.disabled = false;
       return;
     }
@@ -378,21 +501,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const out = polled.prediction.output;
     const url = Array.isArray(out) ? out[0] : out;
     if (!url){
-      log("image ok but no output url");
       btnRun.disabled = false; btnNext.disabled = false;
       return;
     }
 
     imgOut.onload = () => {
       imgOut.style.display = "block";
-      log("image displayed ✅");
       btnRun.disabled = false;
       btnNext.disabled = false;
+      log("image displayed ✅");
     };
     imgOut.onerror = () => {
-      log("image load failed");
       btnRun.disabled = false;
       btnNext.disabled = false;
+      log("image load failed");
     };
     imgOut.src = url;
   }
@@ -427,27 +549,31 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   btnLog.addEventListener("click", () => {
-    tinyLogWrap.style.display = (!tinyLogWrap.style.display || tinyLogWrap.style.display === "none") ? "block" : "none";
+    tinyLogWrap.style.display =
+      (!tinyLogWrap.style.display || tinyLogWrap.style.display === "none") ? "block" : "none";
   });
 
   (async function boot(){
-    log("boot… fetching BBC");
-    const j = await getJSON(EP_BBC);
-    if (!j.ok || !Array.isArray(j.items) || !j.items.length){
-      ecranTextEl.textContent = "BBC feed error.";
+    try{
+      const j = await getJSON(EP_BBC);
+      if (!j.ok || !Array.isArray(j.items) || !j.items.length){
+        ecranTextEl.textContent = "BBC feed error.";
+        promptTextEl.textContent = "—";
+        btnRun.disabled = true;
+        return;
+      }
+
+      items = j.items;
+      buildScrollTextOnce();
+      setCurrentHeadline(0);
+      await derivePromptFromCurrentHeadline();
+      startAuto();
+    } catch (e){
+      ecranTextEl.textContent = "BBC fetch failed.";
       promptTextEl.textContent = "—";
       btnRun.disabled = true;
-      log("bbc error");
-      return;
+      log("boot error");
     }
-
-    items = j.items;
-    log(`bbc loaded ✅ (${items.length})`);
-
-    buildScrollTextOnce();
-    setCurrentHeadline(0);
-    await derivePromptFromCurrentHeadline();
-    startAuto();
   })();
 });
 </script>
