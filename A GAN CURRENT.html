@@ -1,0 +1,843 @@
+<!-- WP Custom HTML Block: GAN Sandbox + MicroNav (three dots) -->
+<style>
+  :root{--acid:#e9ff32;--line:rgba(255,255,255,.14);--soft:rgba(255,255,255,.68);--glass:rgba(0,0,0,.72);--bg:#000;}
+
+  /* Scope */
+  #ganWrap{background:var(--bg);color:#fff;font-family:Helvetica,Arial,sans-serif;}
+  #ganWrap, #ganWrap *{pointer-events:auto !important;}
+  #ganWrap{position:relative;z-index:999999 !important;}
+
+  #ganPage{min-height:100vh;display:flex;flex-direction:column;gap:14px;padding:14px;box-sizing:border-box;}
+  .panel{border:1px solid rgba(233,255,50,.22);background:var(--glass);border-radius:16px;box-shadow:0 18px 60px rgba(0,0,0,.55);overflow:hidden;min-height:0;}
+  .head{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.10);}
+  .title{letter-spacing:.18em;text-transform:uppercase;color:rgba(233,255,50,.75);font-size:12px;margin:0 0 6px;}
+  .big{margin:0;color:var(--acid);font-size:22px;font-weight:900;line-height:1.1;}
+  .meta{margin-top:8px;color:var(--soft);font-size:13px;line-height:1.4;}
+  .body{padding:12px 14px;overflow:auto;min-height:0;}
+
+  /* Residue landing grid */
+  #residuePanel .body{padding:12px;}
+  #residueStrip{
+    display:grid;
+    grid-template-columns:repeat(10, minmax(0, 1fr));
+    gap:10px;
+    width:100%;
+  }
+  @media (max-width:1200px){ #residueStrip{grid-template-columns:repeat(8, minmax(0,1fr));} }
+  @media (max-width:980px){  #residueStrip{grid-template-columns:repeat(6, minmax(0,1fr));} }
+  @media (max-width:720px){  #residueStrip{grid-template-columns:repeat(4, minmax(0,1fr));} }
+  @media (max-width:420px){  #residueStrip{grid-template-columns:repeat(3, minmax(0,1fr));} }
+
+  .rItem{
+    width:100%;
+    aspect-ratio:1/1;
+    border-radius:14px; border:1px solid rgba(255,255,255,.14);
+    background:rgba(255,255,255,.04);
+    overflow:hidden; cursor:pointer;
+    position:relative;
+  }
+  .rItem img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.02);}
+  .rCap{
+    position:absolute; left:0; right:0; bottom:0;
+    padding:6px 8px;
+    font-size:11px;
+    background:linear-gradient(to top, rgba(0,0,0,.78), rgba(0,0,0,0));
+    color:rgba(233,255,50,.9);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  #residueEmpty{color:rgba(233,255,50,.65);font-size:13px;padding:10px 2px;}
+
+  /* App grid */
+  #ganAppGrid{
+    display:grid;
+    grid-template-columns: minmax(320px, 420px) 1fr minmax(360px, 520px);
+    gap:14px;
+    min-height:0;
+  }
+
+  /* Controls */
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px;}
+  button.gbtn{
+    cursor:pointer;border-radius:14px;padding:12px 14px;border:1px solid rgba(255,255,255,.22);
+    background:rgba(0,0,0,.6);color:#fff;font-weight:900;letter-spacing:.12em;text-transform:uppercase;
+    font-size:12px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;
+  }
+  button.gbtn.primary{border-color:rgba(233,255,50,.45);color:var(--acid);}
+  button.gbtn[disabled]{opacity:.45;cursor:default;}
+
+  input[type="text"]{
+    width:100%;box-sizing:border-box;border-radius:12px;border:1px solid rgba(255,255,255,.18);
+    background:rgba(0,0,0,.45);color:#fff;padding:10px;font-size:13px;outline:none;
+  }
+
+  canvas{width:100%;height:auto;display:block;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.03);}
+
+  /* Full line-by-line ticker */
+  #ticker{
+    margin-top:12px;
+    border:1px solid rgba(233,255,50,.22);
+    background:rgba(0,0,0,.55);
+    border-radius:12px;
+    padding:10px 12px;
+    color:rgba(233,255,50,.88);
+    font:12px/1.35 ui-monospace, Menlo, Monaco, Consolas, monospace;
+    white-space:pre-wrap;
+    word-break:break-word;
+    max-height:170px;
+    overflow:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  /* Hidden inputs */
+  #ganFile, #ganImgFile{position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;}
+
+  @media (max-width: 1100px){
+    #ganAppGrid{grid-template-columns:1fr; }
+  }
+
+  /* MICRO NAV — three dots */
+  #microNav{
+    position:fixed;
+    top:14px;
+    right:14px;
+    z-index:9999999;
+    font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+  }
+  #microNavBtn{
+    width:36px;
+    height:36px;
+    border-radius:999px;
+    border:0;
+    background:rgba(255,255,255,.18);
+    color:#fff;
+    font-size:20px;
+    line-height:1;
+    cursor:pointer;
+    backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);
+    -webkit-tap-highlight-color:transparent;
+  }
+  #microNavMenu{
+    position:absolute;
+    top:44px;
+    right:0;
+    min-width:170px;
+    background:rgba(255,255,255,.92);
+    color:#000;
+    border-radius:12px;
+    box-shadow:0 12px 40px rgba(0,0,0,.35);
+    padding:6px 0;
+    display:none;
+    overflow:hidden;
+  }
+  #microNavMenu a{
+    display:block;
+    padding:11px 14px;
+    font-size:14px;
+    text-decoration:none;
+    color:#000;
+  }
+  #microNavMenu a:hover{ background:rgba(0,0,0,.06); }
+</style>
+
+<!-- MicroNav (independent of WP nav) -->
+<div id="microNav">
+  <button id="microNavBtn" type="button" aria-label="Open navigation">⋯</button>
+  <div id="microNavMenu" role="menu" aria-label="Site navigation">
+    <a role="menuitem" href="https://art.jeffgompertz.site/bbc-to-sdxl-v1-3/">One Headline</a>
+    <a role="menuitem" href="https://art.jeffgompertz.site/gan/">GAN Sandbox</a>
+    <a role="menuitem" href="https://art.jeffgompertz.site/a_prompt-poem_v9-7_replicate/">A Prompt Poem</a>
+  </div>
+</div>
+
+<div id="ganWrap">
+  <div id="ganPage">
+
+    <div id="residuePanel" class="panel">
+      <div class="head">
+        <div class="title"></div>
+        <div class="big">GAN SANDBOX</div>
+        <div class="meta"></div>
+      </div>
+      <div class="body">
+        <div id="residueStrip"></div>
+        <div id="residueEmpty" style="display:none;">No residue yet. Publish a selection to seed the pile.</div>
+      </div>
+    </div>
+
+    <div id="ganAppGrid">
+
+      <!-- LEFT -->
+      <div class="panel">
+        <div class="head">
+          <div class="title">Inputs</div>
+          <div class="big" id="ganStatus">upload ZIP or Image</div>
+          <div class="meta"></div>
+        </div>
+        <div class="body">
+
+          <div class="row">
+            <button class="gbtn primary" id="ganChooseBtn" type="button">Choose ZIP</button>
+            <button class="gbtn primary" id="ganChooseImgBtn" type="button">Choose Image</button>
+            <button class="gbtn" id="ganRunBtn" type="button" disabled>Run</button>
+            <button class="gbtn" id="ganStopBtn" type="button" disabled>Stop</button>
+          </div>
+
+          <div class="meta" style="margin-top:12px;">Prompt</div>
+          <input id="ganPrompt" type="text" value="uncanny, latent, identity, memory, liminal portrait" />
+
+          <div id="ticker" aria-live="polite"></div>
+
+          <input id="ganFile" type="file" accept=".zip,application/zip" />
+          <input id="ganImgFile" type="file" accept="image/*" />
+
+        </div>
+      </div>
+
+      <!-- MID -->
+      <div class="panel">
+        <div class="head">
+          <div class="title">Contact sheet</div>
+          <div class="big" id="ganCsTitle">No dataset yet</div>
+          <div class="meta" id="ganCsMeta">Load a ZIP or a single image.</div>
+        </div>
+        <div class="body">
+          <canvas id="ganContact" width="1400" height="1400"></canvas>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="panel">
+        <div class="head">
+          <div class="title">Output + selection</div>
+          <div class="big" id="ganRunTitle">Idle</div>
+          <div class="meta" id="ganRunMeta">Run sends seed to GPU. Tap output to select.</div>
+        </div>
+        <div class="body">
+          <div class="meta">Output (tap to select):</div>
+          <canvas id="ganMain" width="1024" height="1024"></canvas>
+
+          <div class="meta" style="margin-top:12px;">Selected (foreground):</div>
+          <canvas id="ganSelected" width="1024" height="1024"></canvas>
+
+          <div class="row" style="margin-top:10px;">
+            <button class="gbtn" id="ganDownloadSel" type="button" disabled>Download Selected</button>
+            <button class="gbtn primary" id="ganPublishSel" type="button" disabled>Publish Selected</button>
+            <button class="gbtn primary" id="ganHiRes" type="button" disabled>Hi-Res from Selected</button>
+            <button class="gbtn" id="ganPublishHi" type="button" disabled>Publish Hi-Res</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+<script>
+/* MicroNav toggle (kept separate + tiny) */
+(() => {
+  const btn  = document.getElementById("microNavBtn");
+  const menu = document.getElementById("microNavMenu");
+  if (!btn || !menu) return;
+
+  const close = () => { menu.style.display = "none"; };
+
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    menu.style.display = (menu.style.display === "block") ? "none" : "block";
+  });
+
+  document.addEventListener("click", close);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+})();
+</script>
+
+<script>
+/* GAN Sandbox app */
+(() => {
+  const $ = (id)=>document.getElementById(id);
+
+  const API_BASE = "https://art.jeffgompertz.site";
+
+  const EP_IMG2IMG = new URL("/wp-json/ganemulator/v1/img2img", API_BASE || window.location.origin).toString();
+  const EP_POLL    = new URL("/wp-json/ganemulator/v1/poll",    API_BASE || window.location.origin).toString();
+  const EP_RESIDUE = new URL("/wp-json/ganemulator/v1/residue?limit=60", API_BASE || window.location.origin).toString();
+  const EP_SAVE    = new URL("/wp-json/ganemulator/v1/save",            API_BASE || window.location.origin).toString();
+  const EP_SAVE_HI = new URL("/wp-json/ganemulator/v1/save_hi",         API_BASE || window.location.origin).toString();
+
+  const ticker = $('ticker');
+  const TICK_MAX_LINES = 90;
+  const tickLines = [];
+  function tick(line){
+    const ts = new Date().toISOString().slice(11,19);
+    tickLines.push(`[${ts}] ${line}`);
+    while (tickLines.length > TICK_MAX_LINES) tickLines.shift();
+    if (ticker){
+      ticker.textContent = tickLines.join("\n");
+      ticker.scrollTop = ticker.scrollHeight;
+    }
+    console.log(line);
+  }
+
+  const chooseBtn    = $('ganChooseBtn');
+  const chooseImgBtn = $('ganChooseImgBtn');
+  const runBtn       = $('ganRunBtn');
+  const stopBtn      = $('ganStopBtn');
+  const fileEl       = $('ganFile');
+  const imgFileEl    = $('ganImgFile');
+
+  const status    = $('ganStatus');
+  const csTitle   = $('ganCsTitle');
+  const csMeta    = $('ganCsMeta');
+  const runTitle  = $('ganRunTitle');
+  const runMeta   = $('ganRunMeta');
+
+  const promptEl  = $('ganPrompt');
+
+  const contact   = $('ganContact');
+  const cctx      = contact.getContext('2d', { willReadFrequently:true });
+
+  const main      = $('ganMain');
+  const mctx      = main.getContext('2d', { willReadFrequently:true });
+
+  const selected  = $('ganSelected');
+  const sctx      = selected.getContext('2d', { willReadFrequently:true });
+
+  const btnDL     = $('ganDownloadSel');
+  const btnPub    = $('ganPublishSel');
+  const btnHi     = $('ganHiRes');
+  const btnPubHi  = $('ganPublishHi');
+
+  const FIXED_STRENGTH = 0.75;
+  let lastDraw = null; // { ox, oy, w, h }
+
+  function cleanId(name){
+    const base = (name||"dataset").toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+    return ("ds_" + base).slice(0, 40);
+  }
+  function dsIdForSingle(name){
+    const base = (name||"image").toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0, 24);
+    return ("ds_single_" + base + "_" + String(Date.now()).slice(-6)).slice(0, 40);
+  }
+
+  async function blobToSquareBitmap(blob, size=256){
+    try{
+      const img = await createImageBitmap(blob);
+      const c = document.createElement('canvas');
+      c.width=size; c.height=size;
+      const ctx=c.getContext('2d');
+      const s=Math.min(img.width,img.height);
+      const sx=(img.width-s)/2, sy=(img.height-s)/2;
+      ctx.drawImage(img,sx,sy,s,s,0,0,size,size);
+      const outBlob = await new Promise(r=>c.toBlob(r,'image/jpeg',0.92));
+      return await createImageBitmap(outBlob);
+    }catch(e){ return null; }
+  }
+
+  function chooseGrid(count){
+    if (count>=256) return 16;
+    if (count>=144) return 12;
+    if (count>=100) return 10;
+    if (count>=64)  return 8;
+    return 6;
+  }
+
+  function renderContactSheet(images, grid=12){
+    const n = Math.min(images.length, grid*grid);
+    const W = contact.width;
+    const cell = Math.floor(W/grid);
+    contact.height = W;
+    cctx.fillStyle="#000";
+    cctx.fillRect(0,0,W,W);
+    for (let i=0;i<n;i++){
+      const x=(i%grid)*cell;
+      const y=Math.floor(i/grid)*cell;
+      cctx.drawImage(images[i],x,y,cell,cell);
+    }
+  }
+
+  async function postJson(url, obj){
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(obj)
+    });
+    const ct = (res.headers.get("content-type") || "").toLowerCase();
+    const raw = await res.text();
+    tick(`POST ${new URL(url).pathname} → http ${res.status}`);
+    return { res, ct, raw };
+  }
+
+  async function pollPrediction(id){
+    for (let i=0;i<50;i++){
+      await new Promise(r=>setTimeout(r, 1500));
+      const { ct, raw } = await postJson(EP_POLL, { id });
+      if (!ct.includes("application/json")) return { ok:false, error:"bad_json_head", head: raw.slice(0,200) };
+      const json = JSON.parse(raw);
+      if (!json.ok) return { ok:false, error: json.error || "poll_failed", json };
+      const pred = json.prediction;
+      if (pred && pred.status) tick(`status: ${pred.status}`);
+      if (pred && pred.status === "succeeded") return { ok:true, prediction: pred };
+      if (pred && pred.status === "failed") return { ok:false, error:"prediction_failed", prediction: pred };
+    }
+    return { ok:false, error:"poll_timeout" };
+  }
+
+  async function drawReturnedImage(url){
+    return new Promise((resolve)=>{
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = ()=>{
+        mctx.setTransform(1,0,0,1,0,0);
+        mctx.clearRect(0,0,main.width,main.height);
+
+        const scale = Math.min(main.width / img.width, main.height / img.height);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const ox = Math.round((main.width - w) / 2);
+        const oy = Math.round((main.height - h) / 2);
+
+        mctx.fillStyle = "#000";
+        mctx.fillRect(0,0,main.width,main.height);
+        mctx.drawImage(img, ox, oy, w, h);
+
+        lastDraw = { ox, oy, w, h };
+        tick("GPU image drawn ✅");
+        resolve(true);
+      };
+      img.onerror = ()=>{ tick("GPU image load failed"); resolve(false); };
+      img.src = url;
+    });
+  }
+
+  function downloadDataURL(dataURL, filename){
+    const a = document.createElement('a');
+    a.href = dataURL;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  async function urlToDataURL(url){
+    const r = await fetch(url);
+    const b = await r.blob();
+    return await new Promise(resolve=>{
+      const fr = new FileReader();
+      fr.onload = ()=>resolve(fr.result);
+      fr.readAsDataURL(b);
+    });
+  }
+
+  async function drawToSelected(dataURL){
+    return new Promise((resolve)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        sctx.setTransform(1,0,0,1,0,0);
+        sctx.clearRect(0,0,selected.width,selected.height);
+
+        const scale = Math.min(selected.width/img.width, selected.height/img.height);
+        const w = img.width*scale;
+        const h = img.height*scale;
+        const ox = (selected.width-w)/2;
+        const oy = (selected.height-h)/2;
+
+        sctx.fillStyle="#000";
+        sctx.fillRect(0,0,selected.width,selected.height);
+        sctx.drawImage(img, ox, oy, w, h);
+        resolve(true);
+      };
+      img.src = dataURL;
+    });
+  }
+
+  function cropMainRegionToDataURL(sx, sy, sw, sh, outSize=1024, quality=0.92){
+    const crop = document.createElement('canvas');
+    crop.width = outSize; crop.height = outSize;
+    const cx = crop.getContext('2d');
+    cx.imageSmoothingEnabled = true;
+    cx.fillStyle = "#000";
+    cx.fillRect(0,0,outSize,outSize);
+    cx.drawImage(main, sx, sy, sw, sh, 0, 0, outSize, outSize);
+    return crop.toDataURL("image/jpeg", quality);
+  }
+
+  function bitmapToSeedDataURL(bmp, size=1024, quality=0.92){
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d');
+    const scale = Math.max(size / bmp.width, size / bmp.height);
+    const w = bmp.width * scale;
+    const h = bmp.height * scale;
+    const ox = (size - w) / 2;
+    const oy = (size - h) / 2;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0,0,size,size);
+    ctx.drawImage(bmp, ox, oy, w, h);
+    return c.toDataURL("image/jpeg", quality);
+  }
+
+  let datasetId="", datasetName="", datasetImages=[];
+  let lastSeedDataURL=null;
+  let selectedTileDataURL=null;
+  let hiResDataURL=null;
+  let ingestMode = "none"; // "zip" | "image" | "none"
+
+  function enableSelectionButtons(on){
+    btnDL.disabled  = !on;
+    btnPub.disabled = !on;
+    btnHi.disabled  = !on;
+  }
+  function enableHiButtons(on){
+    btnPubHi.disabled = !on;
+  }
+
+  async function loadResidue(){
+    try{
+      const r = await fetch(EP_RESIDUE);
+      const j = await r.json();
+      if (!j.ok) throw new Error("residue_not_ok");
+
+      const strip = document.getElementById('residueStrip');
+      const empty = document.getElementById('residueEmpty');
+      strip.innerHTML = "";
+
+      if (!j.items || !j.items.length){
+        empty.style.display = "block";
+        return;
+      }
+      empty.style.display = "none";
+
+      j.items.forEach(item=>{
+        const d = document.createElement('div');
+        d.className = "rItem";
+        const img = document.createElement('img');
+        img.src = item.url;
+        img.alt = item.dataset_id || "residue";
+        const cap = document.createElement('div');
+        cap.className = "rCap";
+        cap.textContent = (item.kind ? item.kind.toUpperCase() : "RESIDUE") + " • " + (item.dataset_id || "ds");
+        d.appendChild(img);
+        d.appendChild(cap);
+
+        d.addEventListener('click', async ()=>{
+          const data = await urlToDataURL(item.url);
+          selectedTileDataURL = data;
+          hiResDataURL = null;
+          await drawToSelected(selectedTileDataURL);
+          enableSelectionButtons(true);
+          enableHiButtons(false);
+          runTitle.textContent = "Selected";
+          runMeta.textContent = "From residue pile (public).";
+          tick("selected from residue ✅");
+        });
+
+        strip.appendChild(d);
+      });
+
+      tick(`residue loaded ✅ (${j.items.length})`);
+    } catch(e){
+      tick("residue load failed");
+    }
+  }
+
+  main.addEventListener('click', async ()=>{
+    if (lastDraw && lastDraw.w > 0 && lastDraw.h > 0){
+      selectedTileDataURL = cropMainRegionToDataURL(lastDraw.ox, lastDraw.oy, lastDraw.w, lastDraw.h, 1024, 0.92);
+    } else {
+      selectedTileDataURL = main.toDataURL("image/jpeg", 0.92);
+    }
+    hiResDataURL = null;
+    await drawToSelected(selectedTileDataURL);
+    enableSelectionButtons(true);
+    enableHiButtons(false);
+    tick("selected full output ✅");
+  });
+
+  btnPub.addEventListener('click', async ()=>{
+    if (!selectedTileDataURL) return;
+    btnPub.disabled = true;
+    tick("publishing selected…");
+    const payload = { dataset_id: datasetId || "ds_public", kind: "selected", note: "user selected", data: selectedTileDataURL };
+    const { ct, raw } = await postJson(EP_SAVE, payload);
+    if (!ct.includes("application/json")) { tick("publish failed: bad_json"); btnPub.disabled=false; return; }
+    const j = JSON.parse(raw);
+    if (!j.ok) { tick("publish failed"); btnPub.disabled=false; return; }
+    tick("published ✅");
+    btnPub.disabled = false;
+    loadResidue();
+  });
+
+  btnDL.addEventListener('click', ()=>{
+    if (!selectedTileDataURL) return;
+    downloadDataURL(selectedTileDataURL, `gan_selected_${Date.now()}.jpg`);
+    tick("downloaded selected ✅");
+  });
+
+  btnHi.addEventListener('click', async ()=>{
+    if (!selectedTileDataURL) return;
+    btnHi.disabled = true;
+    runTitle.textContent = "Hi-Res";
+    runMeta.textContent = "Sending selected to GPU…";
+    tick("hi-res request…");
+
+    const payload = {
+      image: selectedTileDataURL,
+      prompt: (promptEl.value || "uncanny latent hybrid"),
+      strength: FIXED_STRENGTH,
+      width: 1024,
+      height: 1024,
+      num_inference_steps: 40
+    };
+
+    const { ct, raw } = await postJson(EP_IMG2IMG, payload);
+    if (!ct.includes("application/json")) { tick("hi-res error: bad_json"); btnHi.disabled=false; return; }
+    const j = JSON.parse(raw);
+    if (!j.ok || !j.prediction || !j.prediction.id){
+      tick("hi-res error: no prediction id");
+      btnHi.disabled=false;
+      return;
+    }
+
+    tick("hi-res polling…");
+    const polled = await pollPrediction(j.prediction.id);
+    if (!polled.ok){ tick("hi-res poll error: " + polled.error); btnHi.disabled=false; return; }
+
+    const out = polled.prediction.output;
+    const url = Array.isArray(out) ? out[0] : out;
+    if (!url){ tick("hi-res no output url"); btnHi.disabled=false; return; }
+
+    hiResDataURL = await urlToDataURL(url);
+    await drawToSelected(hiResDataURL);
+    enableHiButtons(true);
+    tick("hi-res ready ✅");
+    btnHi.disabled=false;
+  });
+
+  btnPubHi.addEventListener('click', async ()=>{
+    if (!hiResDataURL) return;
+    btnPubHi.disabled = true;
+    tick("publishing hi-res…");
+    const payload = { dataset_id: datasetId || "ds_public", kind: "hires", note: "hi-res from selected", data: hiResDataURL };
+    const { ct, raw } = await postJson(EP_SAVE_HI, payload);
+    if (!ct.includes("application/json")) { tick("publish hi failed: bad_json"); btnPubHi.disabled=false; return; }
+    const j = JSON.parse(raw);
+    if (!j.ok) { tick("publish hi failed"); btnPubHi.disabled=false; return; }
+    tick("published hi ✅");
+    btnPubHi.disabled = false;
+    loadResidue();
+  });
+
+  stopBtn.addEventListener('click', ()=>{
+    runTitle.textContent="Idle";
+    runMeta.textContent="Stopped.";
+    tick("stopped");
+  });
+
+  chooseBtn.addEventListener('click', (e)=>{
+    e.preventDefault(); e.stopPropagation();
+    fileEl.value="";
+    fileEl.click();
+    tick("choose zip");
+  }, { capture:true });
+
+  chooseImgBtn.addEventListener('click', (e)=>{
+    e.preventDefault(); e.stopPropagation();
+    imgFileEl.value="";
+    imgFileEl.click();
+    tick("choose image");
+  }, { capture:true });
+
+  fileEl.addEventListener('change', async ()=>{
+    const f = fileEl.files && fileEl.files[0];
+    if (!f){ tick("zip canceled"); return; }
+    await ingestZip(f);
+    fileEl.value="";
+  });
+
+  imgFileEl.addEventListener('change', async ()=>{
+    const f = imgFileEl.files && imgFileEl.files[0];
+    if (!f){ tick("image canceled"); return; }
+    await ingestSingleImage(f);
+    imgFileEl.value="";
+  });
+
+  async function ingestZip(zipFile){
+    ingestMode = "zip";
+    lastDraw = null;
+    status.textContent="Reading ZIP…";
+    runTitle.textContent="Idle";
+    runMeta.textContent="Decoding images…";
+    tick(`zip loaded: ${zipFile.name}`);
+
+    const ab = await zipFile.arrayBuffer();
+    const zip = await JSZip.loadAsync(ab);
+
+    const entries=[];
+    zip.forEach((path,file)=>{
+      if (file.dir) return;
+      const ext = path.split('.').pop().toLowerCase();
+      if (['jpg','jpeg','png','webp','gif'].includes(ext)) entries.push(file);
+    });
+
+    if (!entries.length){
+      status.textContent="No images found";
+      tick("zip contained no images");
+      return;
+    }
+
+    const picked=entries.slice(0,500);
+    datasetName = zipFile.name.replace(/\.[^.]+$/,'');
+    datasetId = cleanId(datasetName);
+    datasetImages=[];
+
+    for (let i=0;i<picked.length;i++){
+      const blob = await picked[i].async('blob');
+      const bmp = await blobToSquareBitmap(blob,256);
+      if (bmp) datasetImages.push(bmp);
+      if ((i+1)%30===0) tick(`decoded ${i+1}/${picked.length}`);
+    }
+
+    status.textContent="Dataset ready";
+    csTitle.textContent = `Dataset: ${datasetName}`;
+    csMeta.textContent = `Contact sheet from ${datasetImages.length} images.`;
+
+    renderContactSheet(datasetImages, chooseGrid(datasetImages.length));
+    tick("contact sheet rendered ✅");
+
+    lastSeedDataURL = null;
+    runBtn.textContent = "Spin";
+    runBtn.disabled=false;
+    stopBtn.disabled=false;
+    runMeta.textContent="Spin picks one image from your ZIP (roulette) and sends it to GPU.";
+  }
+
+  async function ingestSingleImage(imgFile){
+    ingestMode = "image";
+    lastDraw = null;
+    status.textContent="Reading image…";
+    runTitle.textContent="Idle";
+    runMeta.textContent="Preparing seed…";
+    tick(`image loaded: ${imgFile.name || "(unnamed)"}`);
+
+    datasetName = (imgFile.name || "image").replace(/\.[^.]+$/,'');
+    datasetId = dsIdForSingle(datasetName);
+    datasetImages = [];
+
+    const bmp = await blobToSquareBitmap(imgFile, 256);
+    if (!bmp){
+      status.textContent="Image decode failed";
+      tick("image decode failed");
+      return;
+    }
+    datasetImages = [bmp];
+
+    status.textContent="Image ready";
+    csTitle.textContent = `Image: ${datasetName}`;
+    csMeta.textContent = "Single-image seed.";
+
+    const W = contact.width;
+    contact.height = W;
+    cctx.fillStyle="#000";
+    cctx.fillRect(0,0,W,W);
+    cctx.drawImage(bmp, 0, 0, W, W);
+
+    tick("contact sheet rendered ✅");
+    lastSeedDataURL = contact.toDataURL("image/jpeg", 0.90);
+
+    runBtn.textContent = "Run Once";
+    runBtn.disabled=false;
+    stopBtn.disabled=false;
+    runMeta.textContent="Run sends seed to GPU.";
+  }
+
+  runBtn.addEventListener('click', async ()=>{
+    if (ingestMode === "zip"){
+      if (!datasetImages || !datasetImages.length){
+        tick("no images decoded yet");
+        return;
+      }
+      const rix = Math.floor(Math.random() * datasetImages.length);
+      lastSeedDataURL = bitmapToSeedDataURL(datasetImages[rix], 1024, 0.92);
+      tick(`roulette seed chosen (${rix+1}/${datasetImages.length})`);
+    }
+
+    if (!lastSeedDataURL){
+      tick("no seed yet");
+      return;
+    }
+
+    lastDraw = null;
+
+    runBtn.disabled=true;
+    runTitle.textContent="Running";
+    runMeta.textContent="Sending seed to GPU…";
+    status.textContent="Running…";
+
+    const payload = {
+      image: lastSeedDataURL,
+      prompt: (promptEl.value || "uncanny latent hybrid"),
+      strength: FIXED_STRENGTH
+    };
+
+    tick("Sending POST request…");
+    const { ct, raw } = await postJson(EP_IMG2IMG, payload);
+
+    if (!ct.includes("application/json")){
+      runTitle.textContent="GPU error";
+      runMeta.textContent="bad_json";
+      tick("GPU error: bad_json_head: " + (raw||"").slice(0,200));
+      runBtn.disabled=false;
+      return;
+    }
+
+    const j = JSON.parse(raw);
+    if (!j.ok || !j.prediction || !j.prediction.id){
+      runTitle.textContent="GPU error";
+      runMeta.textContent="No prediction ID";
+      tick("GPU error: No prediction ID");
+      runBtn.disabled=false;
+      return;
+    }
+
+    tick("Prediction id: " + j.prediction.id);
+    runMeta.textContent="Polling…";
+    const polled = await pollPrediction(j.prediction.id);
+
+    if (!polled.ok){
+      runTitle.textContent="GPU error";
+      runMeta.textContent=polled.error;
+      tick("GPU error: " + polled.error);
+      runBtn.disabled=false;
+      return;
+    }
+
+    const out = polled.prediction.output;
+    const url = Array.isArray(out) ? out[0] : out;
+    if (!url){
+      runTitle.textContent="GPU error";
+      runMeta.textContent="No output URL";
+      tick("GPU error: no output url");
+      runBtn.disabled=false;
+      return;
+    }
+
+    await drawReturnedImage(url);
+
+    runTitle.textContent="Done";
+    runMeta.textContent="Tap output to select.";
+    status.textContent="Ready";
+
+    lastSeedDataURL = await urlToDataURL(url);
+    tick("seed updated = last GPU output ✅");
+
+    runBtn.disabled=false;
+  });
+
+  tick("client ready");
+  loadResidue();
+})();
+</script>
