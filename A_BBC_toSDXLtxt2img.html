@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>BBC → Prompt → Image (v0.1)</title>
+
+<style>
+  :root{
+    --acid:#e9ff32; --soft:rgba(255,255,255,.72); --line:rgba(255,255,255,.14);
+    --glass:rgba(0,0,0,.72); --bg:#000;
+  }
+  html,body{margin:0;padding:0;background:var(--bg);color:#fff;font-family:Helvetica,Arial,sans-serif;}
+  #wrap{min-height:100vh;display:flex;flex-direction:column;gap:14px;padding:14px;box-sizing:border-box;}
+  .panel{
+    border:1px solid rgba(233,255,50,.22);
+    background:var(--glass);
+    border-radius:16px;
+    box-shadow:0 18px 60px rgba(0,0,0,.55);
+    overflow:hidden;
+  }
+  .head{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.10);}
+  .title{letter-spacing:.18em;text-transform:uppercase;color:rgba(233,255,50,.75);font-size:12px;margin:0 0 6px;}
+  .big{margin:0;color:var(--acid);font-size:22px;font-weight:900;line-height:1.1;}
+  .meta{margin-top:8px;color:var(--soft);font-size:13px;line-height:1.35;}
+  .body{padding:12px 14px;}
+
+  /* BBC scroll (your e-cran concept) */
+  #ecran{
+    position:relative;
+    height:52vh; /* big presence, but not entire page */
+    overflow:hidden;
+    background:#000;
+    width:80%;
+    margin:0 auto;
+    text-align:center;
+    font-family:Arial,sans-serif;
+    font-size:11rem;
+    font-weight:900;
+    line-height:1.2;
+    color:#fff;
+    opacity:.92;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.14);
+  }
+  #ecran-inner{
+    height:100%;
+    width:100%;
+    overflow-y:scroll;
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+    pointer-events:none !important; /* stays touch-transparent */
+  }
+  #ecran-inner::-webkit-scrollbar{display:none;}
+  #ecran-inner p{margin:0;}
+
+  /* Overlay prompt + image */
+  #stage{
+    position:relative;
+    width:80%;
+    margin:0 auto;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.14);
+    background:rgba(0,0,0,.35);
+    overflow:hidden;
+  }
+  #heroImg{
+    width:100%;
+    display:block;
+    aspect-ratio: 16/10;
+    object-fit:cover;
+    background:#000;
+  }
+  #promptOverlay{
+    position:absolute;
+    left:0; right:0; bottom:0;
+    padding:12px 14px;
+    background:linear-gradient(to top, rgba(0,0,0,.82), rgba(0,0,0,0));
+    color:rgba(233,255,50,.92);
+    font:14px/1.35 ui-monospace, Menlo, Monaco, Consolas, monospace;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+
+  /* Controls */
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center;margin-top:12px;}
+  button.btn{
+    cursor:pointer;border-radius:14px;padding:12px 14px;border:1px solid rgba(255,255,255,.22);
+    background:rgba(0,0,0,.6);color:#fff;font-weight:900;letter-spacing:.12em;text-transform:uppercase;
+    font-size:12px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;
+  }
+  button.btn.primary{border-color:rgba(233,255,50,.45);color:var(--acid);}
+  button.btn[disabled]{opacity:.45;cursor:default;}
+
+  input[type="text"]{
+    width:min(80%, 1100px);
+    margin:0 auto;
+    display:block;
+    box-sizing:border-box;border-radius:12px;border:1px solid rgba(255,255,255,.18);
+    background:rgba(0,0,0,.45);color:#fff;padding:10px;font-size:13px;outline:none;
+  }
+
+  /* Ticker */
+  #ticker{
+    width:80%;
+    margin:12px auto 0;
+    border:1px solid rgba(233,255,50,.22);
+    background:rgba(0,0,0,.55);
+    border-radius:12px;
+    padding:10px 12px;
+    color:rgba(233,255,50,.88);
+    font:12px/1.35 ui-monospace, Menlo, Monaco, Consolas, monospace;
+    white-space:pre-wrap;
+    word-break:break-word;
+    max-height:180px;
+    overflow:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  /* Responsive font scaling for ecran */
+  @media (max-width: 980px){
+    #ecran{width:92%;font-size:7.5rem;}
+    #stage{width:92%;}
+    #ticker{width:92%;}
+    input[type="text"]{width:92%;}
+  }
+  @media (max-width: 720px){
+    #ecran{font-size:5.8rem;height:48vh;}
+  }
+  @media (max-width: 420px){
+    #ecran{font-size:4.2rem;height:46vh;}
+  }
+</style>
+</head>
+
+<body>
+<div id="wrap">
+
+  <div class="panel">
+    <div class="head">
+      <div class="title">BBC World → Replicate LLM → SDXL img2img</div>
+      <div class="big">News becomes a prompt</div>
+      <div class="meta">
+        One headline at a time. The page auto-scrolls the BBC feed while it “derives” a prompt and then generates an image.
+      </div>
+    </div>
+    <div class="body">
+
+      <!-- BIG BBC SCROLL -->
+      <div id="ecran">
+        <div id="ecran-inner"></div>
+      </div>
+
+      <!-- STYLE LINE (optional) -->
+      <div class="row" style="margin-top:14px;">
+        <div style="width:100%;text-align:center;color:rgba(255,255,255,.72);font-size:12px;letter-spacing:.10em;text-transform:uppercase;">
+          Style bias (optional)
+        </div>
+      </div>
+      <input id="styleLine" type="text" value="cinematic, high-contrast, uncanny, documentary surrealism" />
+
+      <!-- CONTROLS -->
+      <div class="row">
+        <button class="btn primary" id="btnPrev" type="button">◀ Prev</button>
+        <button class="btn primary" id="btnNext" type="button">Next ▶</button>
+        <button class="btn primary" id="btnDerive" type="button">Derive Prompt</button>
+        <button class="btn" id="btnGenerate" type="button" disabled>Generate Image</button>
+      </div>
+
+      <!-- HERO IMAGE + PROMPT OVERLAY -->
+      <div id="stage" style="margin-top:14px;">
+        <img id="heroImg" alt="" />
+        <div id="promptOverlay">—</div>
+      </div>
+
+      <!-- TICKER -->
+      <div id="ticker" aria-live="polite"></div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+(() => {
+  const API_BASE   = "https://art.jeffgompertz.site";
+  const EP_BBC     = new URL("/wp-json/ganemulator/v1/bbc", API_BASE).toString();
+  const EP_NEWS    = new URL("/wp-json/ganemulator/v1/news_prompt", API_BASE).toString();
+  const EP_IMG2IMG = new URL("/wp-json/ganemulator/v1/img2img", API_BASE).toString();
+  const EP_POLL    = new URL("/wp-json/ganemulator/v1/poll", API_BASE).toString();
+
+  const ecranInner = document.getElementById("ecran-inner");
+  const tickerEl   = document.getElementById("ticker");
+  const styleEl    = document.getElementById("styleLine");
+  const promptOverlay = document.getElementById("promptOverlay");
+  const heroImg    = document.getElementById("heroImg");
+
+  const btnPrev    = document.getElementById("btnPrev");
+  const btnNext    = document.getElementById("btnNext");
+  const btnDerive  = document.getElementById("btnDerive");
+  const btnGenerate= document.getElementById("btnGenerate");
+
+  // ticker
+  const TICK_MAX_LINES = 110;
+  const tickLines = [];
+  function tick(line){
+    const ts = new Date().toISOString().slice(11,19);
+    tickLines.push(`[${ts}] ${line}`);
+    while (tickLines.length > TICK_MAX_LINES) tickLines.shift();
+    tickerEl.textContent = tickLines.join("\n");
+    tickerEl.scrollTop = tickerEl.scrollHeight;
+    console.log(line);
+  }
+
+  async function postJson(url, obj){
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(obj)
+    });
+    const ct = (res.headers.get("content-type") || "").toLowerCase();
+    const raw = await res.text();
+    tick(`POST ${new URL(url).pathname} → http ${res.status}`);
+    return { res, ct, raw };
+  }
+
+  async function pollPrediction(id){
+    for (let i=0;i<60;i++){
+      await new Promise(r=>setTimeout(r, 900));
+      const { ct, raw } = await postJson(EP_POLL, { id });
+      if (!ct.includes("application/json")) return { ok:false, error:"bad_json_head", head: (raw||"").slice(0,200) };
+      const json = JSON.parse(raw);
+      if (!json.ok) return { ok:false, error: json.error || "poll_failed", json };
+      const pred = json.prediction;
+      if (pred && pred.status) tick(`status: ${pred.status}`);
+      if (pred && pred.status === "succeeded") return { ok:true, prediction: pred };
+      if (pred && pred.status === "failed") return { ok:false, error:"prediction_failed", prediction: pred };
+    }
+    return { ok:false, error:"poll_timeout" };
+  }
+
+  // IMPORTANT: fix for Replicate LLM token-array outputs
+  function extractPromptText(pred){
+    if (!pred) return "";
+    const out = pred.output;
+
+    // Many LLMs return arrays of tokens like ["\n\n","A"," del","ug",...]
+    if (Array.isArray(out)) return out.join("").trim();
+
+    if (typeof out === "string") return out.trim();
+
+    if (out && typeof out === "object") return JSON.stringify(out).trim();
+
+    return "";
+  }
+
+  async function urlToDataURL(url){
+    const r = await fetch(url);
+    const b = await r.blob();
+    return await new Promise(resolve=>{
+      const fr = new FileReader();
+      fr.onload = ()=>resolve(fr.result);
+      fr.readAsDataURL(b);
+    });
+  }
+
+  // Auto-scroll BBC text (your original behavior)
+  function ScrollDiv(){
+    const inner = ecranInner;
+    if (inner.scrollTop < inner.scrollHeight - inner.offsetHeight) inner.scrollTop += 1;
+    else inner.scrollTop = 0;
+  }
+  setInterval(ScrollDiv, 12);
+
+  // State
+  let items = [];
+  let idx = 0;
+  let currentHeadlineText = "";
+  let derivedPrompt = "";
+  let lastSeedDataURL = null;
+
+  function renderBBC(){
+    // render all headlines big (visual field)
+    const html = items.map((it)=>`<p>${escapeHtml(it.title)}</p>`).join("<br/>");
+    ecranInner.innerHTML = html || "<p>(No feed items)</p>";
+  }
+
+  function setHeadline(i){
+    if (!items.length) return;
+    idx = (i + items.length) % items.length;
+    const it = items[idx];
+
+    // ONE headline at a time (deliberate)
+    currentHeadlineText = it.title;
+
+    tick(`headline set: ${idx+1}/${items.length}`);
+    promptOverlay.textContent = `HEADLINE:\n${currentHeadlineText}\n\nPROMPT:\n—`;
+    derivedPrompt = "";
+    btnGenerate.disabled = true;
+  }
+
+  function escapeHtml(s){
+    return (s||"").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  }
+
+  async function fetchBBC(){
+    tick("boot… fetching BBC");
+    const r = await fetch(EP_BBC, { cache: "no-store" });
+    const j = await r.json();
+    if (!j.ok || !Array.isArray(j.items)) throw new Error("bbc_not_ok");
+    items = j.items;
+    tick(`bbc loaded ✅ (${items.length})`);
+    renderBBC();
+    setHeadline(0);
+  }
+
+  async function derivePrompt(){
+    if (!currentHeadlineText) return;
+    btnDerive.disabled = true;
+    btnGenerate.disabled = true;
+
+    tick("deriving prompt…");
+    const style = (styleEl.value || "").trim();
+    const payload = { text: currentHeadlineText, style };
+
+    const { ct, raw } = await postJson(EP_NEWS, payload);
+    if (!ct.includes("application/json")) {
+      tick("prompt error: bad_json");
+      btnDerive.disabled = false;
+      return;
+    }
+
+    const j = JSON.parse(raw);
+    if (!j.ok || !j.prediction || !j.prediction.id){
+      tick("prompt error: no prediction id");
+      btnDerive.disabled = false;
+      return;
+    }
+
+    tick("prompt prediction id: " + j.prediction.id);
+
+    const polled = await pollPrediction(j.prediction.id);
+    if (!polled.ok){
+      tick("prompt poll error: " + polled.error);
+      btnDerive.disabled = false;
+      return;
+    }
+
+    const text = extractPromptText(polled.prediction);
+    if (!text){
+      tick("prompt failed: no text returned");
+      btnDerive.disabled = false;
+      return;
+    }
+
+    derivedPrompt = text;
+    tick("prompt ✅ " + text.slice(0,120) + (text.length>120 ? "…" : ""));
+    promptOverlay.textContent = `HEADLINE:\n${currentHeadlineText}\n\nPROMPT:\n${derivedPrompt}`;
+
+    // Now enable image generation
+    btnGenerate.disabled = false;
+    btnDerive.disabled = false;
+  }
+
+  async function generateImage(){
+    if (!derivedPrompt) return;
+    btnGenerate.disabled = true;
+
+    tick("generating image… (SDXL img2img)");
+    // Seed strategy: use a plain black 1024x1024 image as the base,
+    // so SDXL has an img2img input even though this is “text-driven”.
+    // This keeps compatibility with your existing /img2img route.
+    if (!lastSeedDataURL){
+      const c = document.createElement("canvas");
+      c.width = 1024; c.height = 1024;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0,0,c.width,c.height);
+      lastSeedDataURL = c.toDataURL("image/jpeg", 0.92);
+    }
+
+    const payload = {
+      image: lastSeedDataURL,
+      prompt: derivedPrompt,
+      strength: 0.82,
+      num_inference_steps: 42,
+      guidance_scale: 7.5,
+      width: 1024,
+      height: 1024
+    };
+
+    const { ct, raw } = await postJson(EP_IMG2IMG, payload);
+    if (!ct.includes("application/json")){
+      tick("img2img error: bad_json");
+      btnGenerate.disabled = false;
+      return;
+    }
+
+    const j = JSON.parse(raw);
+    if (!j.ok || !j.prediction || !j.prediction.id){
+      tick("img2img error: no prediction id");
+      btnGenerate.disabled = false;
+      return;
+    }
+
+    tick("img2img prediction id: " + j.prediction.id);
+    const polled = await pollPrediction(j.prediction.id);
+    if (!polled.ok){
+      tick("img2img poll error: " + polled.error);
+      btnGenerate.disabled = false;
+      return;
+    }
+
+    const out = polled.prediction.output;
+    const url = Array.isArray(out) ? out[0] : out;
+    if (!url){
+      tick("img2img failed: no output url");
+      btnGenerate.disabled = false;
+      return;
+    }
+
+    heroImg.src = url;
+    tick("image ready ✅");
+
+    // Update seed so next generation has “memory” if you want to tap Generate again
+    lastSeedDataURL = await urlToDataURL(url);
+
+    btnGenerate.disabled = false;
+  }
+
+  btnPrev.addEventListener("click", ()=> setHeadline(idx-1));
+  btnNext.addEventListener("click", ()=> setHeadline(idx+1));
+  btnDerive.addEventListener("click", derivePrompt);
+  btnGenerate.addEventListener("click", generateImage);
+
+  // Boot
+  (async ()=>{
+    try{
+      await fetchBBC();
+      tick("ready");
+    } catch(e){
+      tick("boot failed");
+      tickerEl.textContent += "\n" + (e && e.message ? e.message : String(e));
+    }
+  })();
+
+})();
+</script>
+</body>
+</html>
