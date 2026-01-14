@@ -1,193 +1,143 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>MicroNav v2 Demo — Accordion Drawer</title>
+<!-- ==============================
+  WP GitHub Demo Shell + Nav
+  Paste as ONE Custom HTML block
+==================================-->
 
 <style>
-  /* =========================================================
-     001  PAGE DEMO BASE (so you can see the nav in context)
-     ========================================================= */
   :root{
     --acid:#e9ff32;
-    --soft:rgba(255,255,255,.70);
+    --soft:rgba(255,255,255,.72);
     --glass:rgba(0,0,0,.72);
-    --bg:#000;
     --line:rgba(255,255,255,.14);
   }
-  html,body{height:100%;}
-  body{
-    margin:0;
-    background:var(--bg);
-    color:#fff;
-    font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  }
-  .wrap{
-    min-height:100vh;
-    padding:14px;
-    box-sizing:border-box;
-    display:flex;
-    flex-direction:column;
-    gap:14px;
-  }
-  .panel{
-    border:1px solid rgba(233,255,50,.22);
-    background:var(--glass);
-    border-radius:16px;
-    box-shadow:0 18px 60px rgba(0,0,0,.55);
-    overflow:hidden;
-  }
-  .head{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.10);}
-  .title{
-    letter-spacing:.18em;
-    text-transform:uppercase;
-    color:rgba(233,255,50,.75);
-    font-size:12px;
-    margin:0 0 6px;
-  }
-  .big{
-    margin:0;
-    color:var(--acid);
-    font-size:22px;
-    font-weight:900;
-    line-height:1.1;
-  }
-  .meta{margin-top:8px;color:var(--soft);font-size:13px;line-height:1.4;}
-  .body{padding:14px;}
 
-  .grid{
-    display:grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap:14px;
-    min-height:0;
+  /* Fullscreen shell */
+  #wpShell{
+    position:fixed;
+    inset:0;
+    z-index:999999;
+    background:#000;
   }
-  @media (max-width:1100px){ .grid{grid-template-columns:1fr;} }
 
-  .box{
-    border:1px solid rgba(255,255,255,.14);
-    border-radius:14px;
-    background:rgba(255,255,255,.04);
-    padding:12px;
-    min-height:260px;
-  }
-  .box h3{
-    margin:0 0 10px 0;
-    font-size:14px;
-    letter-spacing:.12em;
-    text-transform:uppercase;
-    color:rgba(233,255,50,.75);
-  }
-  .fakeCanvas{
+  /* iFrame fills the viewport */
+  #demoFrame{
+    position:absolute;
+    inset:0;
     width:100%;
-    aspect-ratio: 1/1;
-    border-radius:14px;
-    border:1px solid rgba(255,255,255,.14);
-    background:
-      radial-gradient(circle at 30% 20%, rgba(233,255,50,.12), rgba(0,0,0,0) 55%),
-      radial-gradient(circle at 70% 65%, rgba(255,255,255,.08), rgba(0,0,0,0) 50%),
-      rgba(255,255,255,.03);
+    height:100%;
+    border:0;
+    display:block;
+    background:#000;
   }
 
-  /* =========================================================
-     120  MICRO NAV v2 — ACCORDION DRAWER (THE REAL THING)
-     ========================================================= */
-  #microNav2{
-    position:fixed; top:14px; right:14px;
-    z-index:9999999;
-    pointer-events:auto;
-  }
-  #microNav2Btn{
-    width:36px;height:36px;border-radius:999px;border:0;
-    background:rgba(255,255,255,.18);
-    color:#fff;font-size:20px;line-height:1;
+  /* Top-right nav button */
+  #navBtn{
+    position:fixed;
+    top:14px;
+    right:14px;
+    z-index:10000001;
+    width:38px;
+    height:38px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.16);
+    background:rgba(255,255,255,.14);
+    color:#fff;
+    font-size:20px;
+    line-height:1;
     cursor:pointer;
-    backdrop-filter:blur(8px);
-    -webkit-backdrop-filter:blur(8px);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
     -webkit-tap-highlight-color:transparent;
   }
 
-  #microNav2Overlay{
-    position:fixed; inset:0;
-    background:rgba(0,0,0,.45);
-    backdrop-filter:blur(6px);
-    -webkit-backdrop-filter:blur(6px);
-    display:none;
-    z-index:9999998;
-  }
-  #microNav2Overlay.on{display:block;}
-
-  #microNav2Drawer{
+  /* Overlay */
+  #navOverlay{
     position:fixed;
-    top:12px; right:12px;
-    width:min(92vw, 540px);
-    max-height:min(86vh, 780px);
+    inset:0;
+    z-index:10000000;
+    display:none;
+    background:rgba(0,0,0,.42);
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+  }
+  #navOverlay.on{display:block;}
+
+  /* Drawer */
+  #navDrawer{
+    position:absolute;
+    top:12px;
+    right:12px;
+    width:min(92vw, 560px);
+    max-height:min(86vh, 820px);
     border-radius:18px;
-    border:1px solid rgba(255,255,255,.18);
-    background:rgba(0,0,0,.72);
+    border:1px solid rgba(255,255,255,.16);
+    background:rgba(0,0,0,.78);
     box-shadow:0 22px 70px rgba(0,0,0,.65);
     overflow:hidden;
-    transform:translateY(-8px) scale(.99);
-    opacity:0;
-    transition:transform 180ms ease, opacity 180ms ease;
-  }
-  #microNav2Overlay.on #microNav2Drawer{
-    transform:translateY(0) scale(1);
-    opacity:1;
   }
 
-  #microNav2Head{
+  #navHead{
+    display:flex;
+    align-items:center;
+    gap:10px;
     padding:12px 14px;
     border-bottom:1px solid rgba(255,255,255,.10);
-    display:flex; gap:10px; align-items:center;
   }
-  #microNav2Title{
+  #navTitle{
     margin:0;
-    font-size:12px;
+    font:900 12px/1 system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
     letter-spacing:.18em;
     text-transform:uppercase;
     color:rgba(233,255,50,.88);
-    font-weight:900;
     flex:1;
   }
-  #microNav2Close{
-    width:34px;height:34px;border-radius:12px;border:1px solid rgba(255,255,255,.14);
-    background:rgba(255,255,255,.06); color:#fff; cursor:pointer;
-    font-size:16px; line-height:1;
+  #navClose{
+    width:34px;height:34px;border-radius:12px;
+    border:1px solid rgba(255,255,255,.14);
+    background:rgba(255,255,255,.06);
+    color:#fff;
+    cursor:pointer;
+    font-size:16px;
     -webkit-tap-highlight-color:transparent;
   }
 
-  #microNav2SearchWrap{padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.10);}
-  #microNav2Search{
+  #navSearchWrap{
+    padding:12px 14px;
+    border-bottom:1px solid rgba(255,255,255,.10);
+  }
+  #navSearch{
     width:100%;
     box-sizing:border-box;
     border-radius:14px;
     border:1px solid rgba(255,255,255,.14);
-    background:rgba(0,0,0,.38);
+    background:rgba(0,0,0,.40);
     color:#fff;
     padding:10px 12px;
     font-size:14px;
     outline:none;
   }
-  #microNav2Search::placeholder{color:rgba(255,255,255,.45);}
+  #navSearch::placeholder{color:rgba(255,255,255,.45);}
 
-  #microNav2Body{
+  #navBody{
     padding:10px 10px 12px;
     overflow:auto;
-    max-height:calc(min(86vh, 780px) - 120px);
+    max-height:calc(min(86vh, 820px) - 120px);
     -webkit-overflow-scrolling:touch;
   }
 
-  .navGroup{
+  /* Groups */
+  .group{
     border:1px solid rgba(255,255,255,.12);
     background:rgba(255,255,255,.04);
     border-radius:16px;
     overflow:hidden;
     margin:10px 4px;
   }
-  .navGroupBtn{
+  .gHead{
     width:100%;
-    display:flex; align-items:center; gap:10px;
+    display:flex;
+    align-items:center;
+    gap:10px;
     padding:12px 12px;
     cursor:pointer;
     background:transparent;
@@ -196,186 +146,109 @@
     text-align:left;
     -webkit-tap-highlight-color:transparent;
   }
-  .navGroupName{
-    font-weight:900;
-    letter-spacing:.10em;
+  .gName{
+    font:900 11px/1 system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+    letter-spacing:.12em;
     text-transform:uppercase;
-    font-size:11px;
     color:rgba(233,255,50,.82);
     flex:1;
   }
-  .navGroupMeta{font-size:11px;color:rgba(255,255,255,.55);}
-  .navChevron{opacity:.8; font-size:16px; transition:transform 160ms ease;}
-  .navGroup.open .navChevron{transform:rotate(90deg);}
+  .gMeta{font-size:11px;color:rgba(255,255,255,.55);}
+  .chev{opacity:.85;font-size:16px;transition:transform 160ms ease;}
+  .group.open .chev{transform:rotate(90deg);}
 
-  .navItems{display:none; padding:0 6px 10px;}
-  .navGroup.open .navItems{display:block;}
+  .items{display:none;padding:0 6px 10px;}
+  .group.open .items{display:block;}
 
-  .navItem{
-    display:flex; align-items:center; gap:10px;
+  .item{
+    display:flex;
+    align-items:center;
+    gap:10px;
     padding:10px 10px;
     margin:6px 6px 0;
     border-radius:14px;
     border:1px solid rgba(255,255,255,.10);
-    background:rgba(0,0,0,.28);
+    background:rgba(0,0,0,.30);
     text-decoration:none;
     color:#fff;
   }
-  .navItem:hover{background:rgba(255,255,255,.06);}
-  .navItemTitle{font-weight:800; font-size:14px; line-height:1.2;}
-  .navItemNote{font-size:11px; color:rgba(255,255,255,.55); margin-top:2px;}
-  .navItemText{display:flex; flex-direction:column; min-width:0; flex:1;}
-  .navBadge{
-    font-size:10px; letter-spacing:.14em; text-transform:uppercase;
-    color:rgba(233,255,50,.9);
+  .item:hover{background:rgba(255,255,255,.06);}
+  .txt{display:flex;flex-direction:column;min-width:0;flex:1;}
+  .t1{font-weight:800;font-size:14px;line-height:1.2;}
+  .t2{font-size:11px;color:rgba(255,255,255,.55);margin-top:2px;}
+  .badge{
+    font-size:10px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:rgba(233,255,50,.92);
     border:1px solid rgba(233,255,50,.22);
     background:rgba(233,255,50,.06);
     padding:6px 8px;
     border-radius:999px;
     white-space:nowrap;
   }
+
+  /* Tiny status (optional) */
+  #navFoot{
+    padding:10px 14px 12px;
+    border-top:1px solid rgba(255,255,255,.10);
+    color:rgba(255,255,255,.55);
+    font-size:12px;
+  }
 </style>
-</head>
 
-<body>
-
-<!-- =========================================================
-     300  DEMO CONTENT
-     ========================================================= -->
-<div class="wrap">
-
-  <div class="panel">
-    <div class="head">
-      <div class="title">Demo page</div>
-      <div class="big">MicroNav v2 — Accordion Drawer</div>
-      <div class="meta">
-        Click the <b>⋯</b> in the top-right. This is a clean, single-file demo
-        you can host on GitHub Pages and edit safely.
-      </div>
-    </div>
-    <div class="body">
-      This page exists so you can see the nav overlay in a normal layout.
-      Later, you can paste the nav block into WordPress (style + html + script as one unit).
-    </div>
-  </div>
-
-  <div class="grid">
-    <div class="panel">
-      <div class="head">
-        <div class="title">Left</div>
-        <div class="big">Inputs</div>
-        <div class="meta">Placeholder UI (not functional).</div>
-      </div>
-      <div class="body">
-        <div class="box">
-          <h3>Upload ZIP</h3>
-          <div class="meta">Multiple images · 20+</div>
-          <div style="height:12px"></div>
-          <h3>Choose Image</h3>
-          <div class="meta">Single image</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="head">
-        <div class="title">Mid</div>
-        <div class="big">Contact Sheet</div>
-        <div class="meta">Placeholder canvas.</div>
-      </div>
-      <div class="body">
-        <div class="fakeCanvas"></div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="head">
-        <div class="title">Right</div>
-        <div class="big">Output</div>
-        <div class="meta">Placeholder canvas.</div>
-      </div>
-      <div class="body">
-        <div class="fakeCanvas"></div>
-      </div>
-    </div>
-  </div>
-
+<div id="wpShell">
+  <iframe id="demoFrame"
+    src="https://jeff-gompertz.github.io/CUseeme/s_6cards_video_wpmedia_multiFilter.html"
+    loading="eager"
+    allow="fullscreen; autoplay"
+    referrerpolicy="no-referrer-when-downgrade"
+  ></iframe>
 </div>
 
-<!-- =========================================================
-     420  MICRO NAV v2 HTML
-     ========================================================= -->
-<div id="microNav2" aria-label="Navigation">
-  <button id="microNav2Btn" type="button" aria-label="Open navigation">⋯</button>
-</div>
+<button id="navBtn" type="button" aria-label="Open menu">≡</button>
 
-<div id="microNav2Overlay" aria-hidden="true">
-  <div id="microNav2Drawer" role="dialog" aria-modal="true" aria-label="Site navigation">
-    <div id="microNav2Head">
-      <div id="microNav2Title">Navigation</div>
-      <button id="microNav2Close" type="button" aria-label="Close">✕</button>
+<div id="navOverlay" aria-hidden="true">
+  <div id="navDrawer" role="dialog" aria-modal="true" aria-label="Demo navigation">
+    <div id="navHead">
+      <div id="navTitle">Demos</div>
+      <button id="navClose" type="button" aria-label="Close">✕</button>
     </div>
 
-    <div id="microNav2SearchWrap">
-      <input id="microNav2Search" type="text" placeholder="Search pages…" autocomplete="off" />
+    <div id="navSearchWrap">
+      <input id="navSearch" type="text" placeholder="Search…" autocomplete="off" />
     </div>
 
-    <div id="microNav2Body"></div>
+    <div id="navBody"></div>
+
+    <div id="navFoot">
+      Tip: add your 20 GitHub URLs in the list inside the script.
+    </div>
   </div>
 </div>
 
-<!-- =========================================================
-     480  MICRO NAV v2 JS
-     ========================================================= -->
 <script>
 (() => {
-  /* EDIT THIS LIST */
-  const NAV = [
-    { group:"Core", items:[
-      { title:"Archive",     note:"Saved outputs + residue", url:"https://art.jeffgompertz.site/a_mashup_saved_images_v2/", badge:"hub" },
-      { title:"GAN Sandbox", note:"ZIP + image workflows",   url:"https://art.jeffgompertz.site/gan/",                   badge:"tool" },
-      { title:"Prompt Poem", note:"Replicate page",          url:"https://art.jeffgompertz.site/a_prompt-poem_v9-7_replicate/", badge:"live" }
-    ]},
+  /* ====== EDIT YOUR DEMO LIST HERE ======
+     title, note, url, badge, group
+  */
+  const DEMOS = [
+    { group:"CUSeeMe", title:"6Cards — WP Media MultiFilter", note:"video cards from WP media", badge:"video", url:"https://jeff-gompertz.github.io/CUseeme/s_6cards_video_wpmedia_multiFilter.html" },
+    { group:"CUSeeMe", title:"(add another CUSeeMe demo)", note:"placeholder", badge:"demo", url:"https://jeff-gompertz.github.io/CUseeme/" },
 
-    { group:"Video Cards", items:[
-      { title:"6Cards — Gen2",  note:"Keyword filter test",  url:"#", badge:"video" },
-      { title:"6Cards — Mask",  note:"Keyword filter test",  url:"#", badge:"video" },
-      { title:"6Cards — Bus",   note:"Keyword filter test",  url:"#", badge:"video" }
-    ]},
+    { group:"GAN / Tools", title:"GAN Sandbox (WP)", note:"runs on your domain", badge:"wp", url:"https://art.jeffgompertz.site/gan/" },
 
-    { group:"Studies", items:[
-      { title:"Study 01", note:"Placeholder", url:"#", badge:"study" },
-      { title:"Study 02", note:"Placeholder", url:"#", badge:"study" },
-      { title:"Study 03", note:"Placeholder", url:"#", badge:"study" },
-      { title:"Study 04", note:"Placeholder", url:"#", badge:"study" }
-    ]},
-
-    { group:"Tools", items:[
-      { title:"Tool A", note:"Placeholder", url:"#", badge:"tool" },
-      { title:"Tool B", note:"Placeholder", url:"#", badge:"tool" },
-      { title:"Tool C", note:"Placeholder", url:"#", badge:"tool" }
-    ]},
-
-    { group:"Long List", items:[
-      { title:"Page 10", note:"Placeholder", url:"#", badge:"page" },
-      { title:"Page 11", note:"Placeholder", url:"#", badge:"page" },
-      { title:"Page 12", note:"Placeholder", url:"#", badge:"page" },
-      { title:"Page 13", note:"Placeholder", url:"#", badge:"page" },
-      { title:"Page 14", note:"Placeholder", url:"#", badge:"page" },
-      { title:"Page 15", note:"Placeholder", url:"#", badge:"page" },
-      { title:"Page 16", note:"Placeholder", url:"#", badge:"page" },
-      { title:"Page 17", note:"Placeholder", url:"#", badge:"page" },
-      { title:"Page 18", note:"Placeholder", url:"#", badge:"page" },
-      { title:"Page 19", note:"Placeholder", url:"#", badge:"page" }
-    ]}
+    { group:"Studies", title:"(add study 01)", note:"placeholder", badge:"study", url:"https://jeff-gompertz.github.io/" }
   ];
 
-  const btn = document.getElementById("microNav2Btn");
-  const overlay = document.getElementById("microNav2Overlay");
-  const closeBtn = document.getElementById("microNav2Close");
-  const body = document.getElementById("microNav2Body");
-  const search = document.getElementById("microNav2Search");
-  if(!btn || !overlay || !closeBtn || !body || !search) return;
+  const frame   = document.getElementById("demoFrame");
+  const navBtn  = document.getElementById("navBtn");
+  const overlay = document.getElementById("navOverlay");
+  const closeBt = document.getElementById("navClose");
+  const body    = document.getElementById("navBody");
+  const search  = document.getElementById("navSearch");
+
+  if(!frame || !navBtn || !overlay || !closeBt || !body || !search) return;
 
   function open(){
     overlay.classList.add("on");
@@ -389,67 +262,106 @@
     render();
   }
 
-  function el(tag, cls, text){
-    const n = document.createElement(tag);
-    if(cls) n.className = cls;
-    if(text != null) n.textContent = text;
-    return n;
-  }
-  function normalize(s){ return (s || "").toLowerCase().trim(); }
+  function normalize(s){ return (s||"").toLowerCase().trim(); }
 
   function render(){
     body.innerHTML = "";
     const q = normalize(search.value);
 
-    NAV.forEach((g, gi) => {
-      const items = (g.items || []).filter(it => {
+    // group demos
+    const groups = {};
+    for(const d of DEMOS){
+      const g = d.group || "Other";
+      (groups[g] ||= []).push(d);
+    }
+
+    const groupNames = Object.keys(groups);
+
+    groupNames.forEach((gname, gi) => {
+      const list = groups[gname].filter(d => {
         if(!q) return true;
-        const hay = normalize(it.title + " " + (it.note||"") + " " + (it.badge||""));
+        const hay = normalize((d.title||"") + " " + (d.note||"") + " " + (d.badge||""));
         return hay.includes(q);
       });
-      if(q && !items.length) return;
+      if(q && !list.length) return;
 
-      const groupWrap = el("div", "navGroup");
-      const groupBtn  = el("button", "navGroupBtn");
-      groupBtn.type = "button";
+      const wrap = document.createElement("div");
+      wrap.className = "group";
 
-      const name = el("div", "navGroupName", g.group || "Group");
-      const meta = el("div", "navGroupMeta", `${items.length} item${items.length===1?"":"s"}`);
-      const chev = el("div", "navChevron", "›");
+      const head = document.createElement("button");
+      head.type = "button";
+      head.className = "gHead";
 
-      groupBtn.appendChild(name);
-      groupBtn.appendChild(meta);
-      groupBtn.appendChild(chev);
+      const name = document.createElement("div");
+      name.className = "gName";
+      name.textContent = gname;
 
-      const itemsWrap = el("div", "navItems");
+      const meta = document.createElement("div");
+      meta.className = "gMeta";
+      meta.textContent = `${list.length} item${list.length===1?"":"s"}`;
 
-      items.forEach(it => {
-        const a = el("a", "navItem");
-        a.href = it.url || "#";
-        a.rel = "noopener";
+      const chev = document.createElement("div");
+      chev.className = "chev";
+      chev.textContent = "›";
 
-        const txt = el("div", "navItemText");
-        txt.appendChild(el("div","navItemTitle", it.title || "Untitled"));
-        if(it.note) txt.appendChild(el("div","navItemNote", it.note));
+      head.appendChild(name);
+      head.appendChild(meta);
+      head.appendChild(chev);
+
+      const items = document.createElement("div");
+      items.className = "items";
+
+      list.forEach(d => {
+        const a = document.createElement("a");
+        a.className = "item";
+        a.href = "#";
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          if(d.url && d.url !== "#"){
+            frame.src = d.url;
+            close();
+          }
+        });
+
+        const txt = document.createElement("div");
+        txt.className = "txt";
+
+        const t1 = document.createElement("div");
+        t1.className = "t1";
+        t1.textContent = d.title || "Untitled";
+
+        const t2 = document.createElement("div");
+        t2.className = "t2";
+        t2.textContent = d.note || "";
+
+        txt.appendChild(t1);
+        if(d.note) txt.appendChild(t2);
+
         a.appendChild(txt);
 
-        if(it.badge) a.appendChild(el("div","navBadge", it.badge));
-        itemsWrap.appendChild(a);
+        if(d.badge){
+          const b = document.createElement("div");
+          b.className = "badge";
+          b.textContent = d.badge;
+          a.appendChild(b);
+        }
+
+        items.appendChild(a);
       });
 
-      groupWrap.appendChild(groupBtn);
-      groupWrap.appendChild(itemsWrap);
+      wrap.appendChild(head);
+      wrap.appendChild(items);
 
-      // open the first group by default, and open all while searching
-      if(q || gi === 0) groupWrap.classList.add("open");
+      // default open first group; open all while searching
+      if(gi === 0 || q) wrap.classList.add("open");
 
-      groupBtn.addEventListener("click", () => groupWrap.classList.toggle("open"));
-      body.appendChild(groupWrap);
+      head.addEventListener("click", () => wrap.classList.toggle("open"));
+      body.appendChild(wrap);
     });
   }
 
-  btn.addEventListener("click", (e)=>{ e.preventDefault(); e.stopPropagation(); open(); });
-  closeBtn.addEventListener("click", close);
+  navBtn.addEventListener("click", (e)=>{ e.preventDefault(); e.stopPropagation(); open(); });
+  closeBt.addEventListener("click", close);
   overlay.addEventListener("click", (e)=>{ if(e.target === overlay) close(); });
   document.addEventListener("keydown", (e)=>{ if(e.key === "Escape") close(); });
   search.addEventListener("input", render);
@@ -457,6 +369,3 @@
   render();
 })();
 </script>
-
-</body>
-</html>
