@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Project Viewer</title>
+
+<style>
+html, body { margin:0; padding:0; height:100%; background:#000; font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif; }
+
+/* ===== IFRAME ===== */
+#iframeWrap{ position:fixed; inset:0; }
+#iframeWrap iframe{ width:100%; height:100%; border:0; background:#000; }
+
+/* ===== NAV BUTTON ===== */
+#navBtn{
+  position:fixed; top:14px; right:14px;
+  z-index:10000;
+  width:38px; height:38px; border-radius:999px; border:0;
+  background:rgba(255,255,255,.14);
+  color:#fff; font-size:22px; cursor:pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* ===== OVERLAY (GLASS) ===== */
+#navOverlay{
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.35);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display:none;
+  z-index:9999;
+}
+#navOverlay.on{ display:block; }
+
+/* ===== PANEL ===== */
+#navPanel{
+  position:absolute;
+  top:12px; right:12px;
+  width:min(92vw, 520px);
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,.16);
+  background:rgba(0,0,0,.58);
+  box-shadow:0 30px 90px rgba(0,0,0,.65);
+  overflow:hidden;
+  color:#fff;
+
+  transform: translateY(-8px) scale(.99);
+  opacity: 0;
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+#navOverlay.on #navPanel{
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+/* ===== HEADER ===== */
+#navHead{
+  padding:14px;
+  display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid rgba(255,255,255,.10);
+}
+#navHead h1{
+  margin:0;
+  font-size:12px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:rgba(233,255,50,.90);
+  font-weight:900;
+  flex:1;
+}
+#navClose{
+  width:34px; height:34px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.06);
+  color:#fff;
+  cursor:pointer;
+  font-size:16px;
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* ===== SEARCH ===== */
+#navSearchWrap{ padding:14px; }
+#navSearch{
+  width:100%;
+  box-sizing:border-box;
+  padding:11px 12px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(0,0,0,.38);
+  color:#fff;
+  font-size:14px;
+  outline:none;
+}
+#navSearch::placeholder{ color:rgba(255,255,255,.45); }
+
+/* ===== TOP MATCH ===== */
+#topMatchWrap{
+  padding:0 14px 14px;
+}
+#topMatchLabel{
+  font-size:10px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:rgba(255,255,255,.55);
+  margin:0 0 10px 2px;
+}
+#topMatch{
+  display:none;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.05);
+  padding:12px 12px;
+  cursor:pointer;
+  overflow:hidden;
+
+  transform: translateY(6px);
+  opacity: 0;
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+#topMatch.on{
+  display:block;
+  transform: translateY(0);
+  opacity: 1;
+}
+#topMatch:hover{ background:rgba(255,255,255,.08); }
+
+#topTitle{ font-weight:900; font-size:14px; line-height:1.25; }
+#topNote{ font-size:11px; opacity:.65; margin-top:6px; line-height:1.35; }
+
+#topBadge{
+  display:inline-block;
+  margin-top:10px;
+  font-size:10px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:rgba(233,255,50,.92);
+  border:1px solid rgba(233,255,50,.22);
+  background:rgba(233,255,50,.06);
+  padding:6px 8px;
+  border-radius:999px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- VIEWER -->
+<div id="iframeWrap">
+  <iframe id="viewer"
+    src="https://jeff-gompertz.github.io/CUseeme/index.html"
+    loading="lazy"
+    allowfullscreen>
+  </iframe>
+</div>
+
+<!-- NAV BUTTON -->
+<button id="navBtn" aria-label="Open navigation">⋯</button>
+
+<!-- OVERLAY -->
+<div id="navOverlay" aria-hidden="true">
+  <div id="navPanel" role="dialog" aria-modal="true" aria-label="Navigation">
+    <div id="navHead">
+      <h1>Navigate</h1>
+      <button id="navClose" type="button" aria-label="Close">✕</button>
+    </div>
+
+    <div id="navSearchWrap">
+      <input id="navSearch" type="text" placeholder="Search…" autocomplete="off" />
+    </div>
+
+    <div id="topMatchWrap">
+      <div id="topMatchLabel">Top match</div>
+
+      <div id="topMatch" class="" tabindex="0">
+        <div id="topTitle"></div>
+        <div id="topNote"></div>
+        <div id="topBadge" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // Minimal list baked in — no editing required today.
+  // Tomorrow we can expand carefully, but you can also just run with these.
+  const DEMOS = [
+    { title:"CUSeeMe — Index",   note:"Early landing version", url:"https://jeff-gompertz.github.io/CUseeme/index.html",  badge:"github" },
+    { title:"CUSeeMe — Index 1", note:"Alternate build",       url:"https://jeff-gompertz.github.io/CUseeme/index1.html", badge:"github" },
+    { title:"CUSeeMe — Index 2", note:"Motion/layout experiment", url:"https://jeff-gompertz.github.io/CUseeme/index2.html", badge:"github" },
+    { title:"CUSeeMe — Advance", note:"Later evolution",       url:"https://jeff-gompertz.github.io/CUseeme/advance.html", badge:"github" },
+    { title:"GAN Sandbox",       note:"Runs on your domain",    url:"https://art.jeffgompertz.site/gan/", badge:"wp" }
+  ];
+
+  const viewer   = document.getElementById("viewer");
+  const navBtn   = document.getElementById("navBtn");
+  const overlay  = document.getElementById("navOverlay");
+  const closeBtn = document.getElementById("navClose");
+  const search   = document.getElementById("navSearch");
+
+  const topBox   = document.getElementById("topMatch");
+  const topTitle = document.getElementById("topTitle");
+  const topNote  = document.getElementById("topNote");
+  const topBadge = document.getElementById("topBadge");
+
+  const open = () => {
+    overlay.classList.add("on");
+    overlay.setAttribute("aria-hidden","false");
+    setTimeout(()=> search.focus(), 60);
+    renderTop();
+  };
+
+  const close = () => {
+    overlay.classList.remove("on");
+    overlay.setAttribute("aria-hidden","true");
+    search.value = "";
+    renderTop();
+  };
+
+  function norm(s){
+    return (s||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+  }
+
+  function score(item, q){
+    if(!q) return -1;
+    const h = norm([item.title, item.note, item.badge].join(" "));
+    // word-prefix wins
+    const words = h.split(" ");
+    for(const w of words){
+      if(w.startsWith(q)) return 1000 - (w.length - q.length);
+    }
+    // substring
+    const ix = h.indexOf(q);
+    if(ix !== -1) return 700 - ix;
+    // fuzzy subsequence (gentle magic)
+    let i=0;
+    for(let j=0;j<h.length && i<q.length;j++){
+      if(h[j] === q[i]) i++;
+    }
+    if(i === q.length) return 250;
+    return -9999;
+  }
+
+  let currentTop = null;
+
+  function renderTop(){
+    const q = norm(search.value);
+
+    if(!q){
+      // idle state: show nothing (clean)
+      currentTop = null;
+      topBox.classList.remove("on");
+      return;
+    }
+
+    const ranked = DEMOS
+      .map(d => ({ d, s: score(d, q) }))
+      .filter(x => x.s > -999)
+      .sort((a,b) => b.s - a.s);
+
+    if(!ranked.length){
+      currentTop = null;
+      topBox.classList.remove("on");
+      return;
+    }
+
+    currentTop = ranked[0].d;
+    topTitle.textContent = currentTop.title || "Untitled";
+    topNote.textContent  = currentTop.note || "";
+    if(currentTop.badge){
+      topBadge.style.display = "inline-block";
+      topBadge.textContent = currentTop.badge;
+    } else {
+      topBadge.style.display = "none";
+    }
+
+    topBox.classList.add("on");
+  }
+
+  function goTop(){
+    if(!currentTop) return;
+    viewer.src = currentTop.url;
+    close();
+  }
+
+  navBtn.addEventListener("click", (e)=>{ e.preventDefault(); e.stopPropagation(); open(); });
+  closeBtn.addEventListener("click", close);
+  overlay.addEventListener("click", (e)=>{ if(e.target === overlay) close(); });
+
+  topBox.addEventListener("click", (e)=>{ e.preventDefault(); goTop(); });
+
+  document.addEventListener("keydown", (e)=>{
+    if(!overlay.classList.contains("on")) return;
+    if(e.key === "Escape") close();
+    if(e.key === "Enter"){
+      e.preventDefault();
+      goTop();
+    }
+  });
+
+  search.addEventListener("input", renderTop);
+})();
+</script>
+
+</body>
+</html>
