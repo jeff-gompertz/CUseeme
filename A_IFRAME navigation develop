@@ -1,0 +1,371 @@
+<!-- ==============================
+  WP GitHub Demo Shell + Nav
+  Paste as ONE Custom HTML block
+==================================-->
+
+<style>
+  :root{
+    --acid:#e9ff32;
+    --soft:rgba(255,255,255,.72);
+    --glass:rgba(0,0,0,.72);
+    --line:rgba(255,255,255,.14);
+  }
+
+  /* Fullscreen shell */
+  #wpShell{
+    position:fixed;
+    inset:0;
+    z-index:999999;
+    background:#000;
+  }
+
+  /* iFrame fills the viewport */
+  #demoFrame{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    border:0;
+    display:block;
+    background:#000;
+  }
+
+  /* Top-right nav button */
+  #navBtn{
+    position:fixed;
+    top:14px;
+    right:14px;
+    z-index:10000001;
+    width:38px;
+    height:38px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.16);
+    background:rgba(255,255,255,.14);
+    color:#fff;
+    font-size:20px;
+    line-height:1;
+    cursor:pointer;
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  /* Overlay */
+  #navOverlay{
+    position:fixed;
+    inset:0;
+    z-index:10000000;
+    display:none;
+    background:rgba(0,0,0,.42);
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+  }
+  #navOverlay.on{display:block;}
+
+  /* Drawer */
+  #navDrawer{
+    position:absolute;
+    top:12px;
+    right:12px;
+    width:min(92vw, 560px);
+    max-height:min(86vh, 820px);
+    border-radius:18px;
+    border:1px solid rgba(255,255,255,.16);
+    background:rgba(0,0,0,.78);
+    box-shadow:0 22px 70px rgba(0,0,0,.65);
+    overflow:hidden;
+  }
+
+  #navHead{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:12px 14px;
+    border-bottom:1px solid rgba(255,255,255,.10);
+  }
+  #navTitle{
+    margin:0;
+    font:900 12px/1 system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:rgba(233,255,50,.88);
+    flex:1;
+  }
+  #navClose{
+    width:34px;height:34px;border-radius:12px;
+    border:1px solid rgba(255,255,255,.14);
+    background:rgba(255,255,255,.06);
+    color:#fff;
+    cursor:pointer;
+    font-size:16px;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  #navSearchWrap{
+    padding:12px 14px;
+    border-bottom:1px solid rgba(255,255,255,.10);
+  }
+  #navSearch{
+    width:100%;
+    box-sizing:border-box;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.14);
+    background:rgba(0,0,0,.40);
+    color:#fff;
+    padding:10px 12px;
+    font-size:14px;
+    outline:none;
+  }
+  #navSearch::placeholder{color:rgba(255,255,255,.45);}
+
+  #navBody{
+    padding:10px 10px 12px;
+    overflow:auto;
+    max-height:calc(min(86vh, 820px) - 120px);
+    -webkit-overflow-scrolling:touch;
+  }
+
+  /* Groups */
+  .group{
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.04);
+    border-radius:16px;
+    overflow:hidden;
+    margin:10px 4px;
+  }
+  .gHead{
+    width:100%;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:12px 12px;
+    cursor:pointer;
+    background:transparent;
+    border:0;
+    color:#fff;
+    text-align:left;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .gName{
+    font:900 11px/1 system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:rgba(233,255,50,.82);
+    flex:1;
+  }
+  .gMeta{font-size:11px;color:rgba(255,255,255,.55);}
+  .chev{opacity:.85;font-size:16px;transition:transform 160ms ease;}
+  .group.open .chev{transform:rotate(90deg);}
+
+  .items{display:none;padding:0 6px 10px;}
+  .group.open .items{display:block;}
+
+  .item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 10px;
+    margin:6px 6px 0;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(0,0,0,.30);
+    text-decoration:none;
+    color:#fff;
+  }
+  .item:hover{background:rgba(255,255,255,.06);}
+  .txt{display:flex;flex-direction:column;min-width:0;flex:1;}
+  .t1{font-weight:800;font-size:14px;line-height:1.2;}
+  .t2{font-size:11px;color:rgba(255,255,255,.55);margin-top:2px;}
+  .badge{
+    font-size:10px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:rgba(233,255,50,.92);
+    border:1px solid rgba(233,255,50,.22);
+    background:rgba(233,255,50,.06);
+    padding:6px 8px;
+    border-radius:999px;
+    white-space:nowrap;
+  }
+
+  /* Tiny status (optional) */
+  #navFoot{
+    padding:10px 14px 12px;
+    border-top:1px solid rgba(255,255,255,.10);
+    color:rgba(255,255,255,.55);
+    font-size:12px;
+  }
+</style>
+
+<div id="wpShell">
+  <iframe id="demoFrame"
+    src="https://jeff-gompertz.github.io/CUseeme/s_6cards_video_wpmedia_multiFilter.html"
+    loading="eager"
+    allow="fullscreen; autoplay"
+    referrerpolicy="no-referrer-when-downgrade"
+  ></iframe>
+</div>
+
+<button id="navBtn" type="button" aria-label="Open menu">≡</button>
+
+<div id="navOverlay" aria-hidden="true">
+  <div id="navDrawer" role="dialog" aria-modal="true" aria-label="Demo navigation">
+    <div id="navHead">
+      <div id="navTitle">Demos</div>
+      <button id="navClose" type="button" aria-label="Close">✕</button>
+    </div>
+
+    <div id="navSearchWrap">
+      <input id="navSearch" type="text" placeholder="Search…" autocomplete="off" />
+    </div>
+
+    <div id="navBody"></div>
+
+    <div id="navFoot">
+      Tip: add your 20 GitHub URLs in the list inside the script.
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  /* ====== EDIT YOUR DEMO LIST HERE ======
+     title, note, url, badge, group
+  */
+  const DEMOS = [
+    { group:"CUSeeMe", title:"6Cards — WP Media MultiFilter", note:"video cards from WP media", badge:"video", url:"https://jeff-gompertz.github.io/CUseeme/s_6cards_video_wpmedia_multiFilter.html" },
+    { group:"CUSeeMe", title:"(add another CUSeeMe demo)", note:"placeholder", badge:"demo", url:"https://jeff-gompertz.github.io/CUseeme/" },
+
+    { group:"GAN / Tools", title:"GAN Sandbox (WP)", note:"runs on your domain", badge:"wp", url:"https://art.jeffgompertz.site/gan/" },
+
+    { group:"Studies", title:"(add study 01)", note:"placeholder", badge:"study", url:"https://jeff-gompertz.github.io/" }
+  ];
+
+  const frame   = document.getElementById("demoFrame");
+  const navBtn  = document.getElementById("navBtn");
+  const overlay = document.getElementById("navOverlay");
+  const closeBt = document.getElementById("navClose");
+  const body    = document.getElementById("navBody");
+  const search  = document.getElementById("navSearch");
+
+  if(!frame || !navBtn || !overlay || !closeBt || !body || !search) return;
+
+  function open(){
+    overlay.classList.add("on");
+    overlay.setAttribute("aria-hidden","false");
+    setTimeout(()=>search.focus(), 50);
+  }
+  function close(){
+    overlay.classList.remove("on");
+    overlay.setAttribute("aria-hidden","true");
+    search.value = "";
+    render();
+  }
+
+  function normalize(s){ return (s||"").toLowerCase().trim(); }
+
+  function render(){
+    body.innerHTML = "";
+    const q = normalize(search.value);
+
+    // group demos
+    const groups = {};
+    for(const d of DEMOS){
+      const g = d.group || "Other";
+      (groups[g] ||= []).push(d);
+    }
+
+    const groupNames = Object.keys(groups);
+
+    groupNames.forEach((gname, gi) => {
+      const list = groups[gname].filter(d => {
+        if(!q) return true;
+        const hay = normalize((d.title||"") + " " + (d.note||"") + " " + (d.badge||""));
+        return hay.includes(q);
+      });
+      if(q && !list.length) return;
+
+      const wrap = document.createElement("div");
+      wrap.className = "group";
+
+      const head = document.createElement("button");
+      head.type = "button";
+      head.className = "gHead";
+
+      const name = document.createElement("div");
+      name.className = "gName";
+      name.textContent = gname;
+
+      const meta = document.createElement("div");
+      meta.className = "gMeta";
+      meta.textContent = `${list.length} item${list.length===1?"":"s"}`;
+
+      const chev = document.createElement("div");
+      chev.className = "chev";
+      chev.textContent = "›";
+
+      head.appendChild(name);
+      head.appendChild(meta);
+      head.appendChild(chev);
+
+      const items = document.createElement("div");
+      items.className = "items";
+
+      list.forEach(d => {
+        const a = document.createElement("a");
+        a.className = "item";
+        a.href = "#";
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          if(d.url && d.url !== "#"){
+            frame.src = d.url;
+            close();
+          }
+        });
+
+        const txt = document.createElement("div");
+        txt.className = "txt";
+
+        const t1 = document.createElement("div");
+        t1.className = "t1";
+        t1.textContent = d.title || "Untitled";
+
+        const t2 = document.createElement("div");
+        t2.className = "t2";
+        t2.textContent = d.note || "";
+
+        txt.appendChild(t1);
+        if(d.note) txt.appendChild(t2);
+
+        a.appendChild(txt);
+
+        if(d.badge){
+          const b = document.createElement("div");
+          b.className = "badge";
+          b.textContent = d.badge;
+          a.appendChild(b);
+        }
+
+        items.appendChild(a);
+      });
+
+      wrap.appendChild(head);
+      wrap.appendChild(items);
+
+      // default open first group; open all while searching
+      if(gi === 0 || q) wrap.classList.add("open");
+
+      head.addEventListener("click", () => wrap.classList.toggle("open"));
+      body.appendChild(wrap);
+    });
+  }
+
+  navBtn.addEventListener("click", (e)=>{ e.preventDefault(); e.stopPropagation(); open(); });
+  closeBt.addEventListener("click", close);
+  overlay.addEventListener("click", (e)=>{ if(e.target === overlay) close(); });
+  document.addEventListener("keydown", (e)=>{ if(e.key === "Escape") close(); });
+  search.addEventListener("input", render);
+
+  render();
+})();
+</script>
