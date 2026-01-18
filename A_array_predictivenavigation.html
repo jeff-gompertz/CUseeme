@@ -1,0 +1,820 @@
+<!-- ===========================
+  Predictive Navigation (WP-safe)
+  Single Custom HTML block
+  - Top-right ⋯ button
+  - Glass search drawer
+  - Loads selected demo into full-viewport iframe
+=========================== -->
+
+<style>
+  :root{
+    --acid:#e9ff32;
+    --soft:rgba(255,255,255,.72);
+    --glass:rgba(0,0,0,.62);
+    --glass2:rgba(0,0,0,.78);
+    --line:rgba(255,255,255,.14);
+  }
+
+  /* Stage (keeps WP theme from interfering) */
+  #pnStage, #pnStage *{ box-sizing:border-box; }
+  #pnStage{
+    position:relative;
+    width:100%;
+    height:100vh;
+    min-height:100vh;
+    background:#000;
+    overflow:hidden;
+    z-index:999999;
+  }
+
+  /* Full viewport iframe */
+  #pnFrame{
+    position:absolute; inset:0;
+    width:100%;
+    height:100%;
+    border:0;
+    display:block;
+    background:#000;
+  }
+
+  /* Top-right button */
+  #microNav2{
+    position:fixed; top:14px; right:14px;
+    z-index:9999999;
+    pointer-events:auto;
+  }
+  #microNav2Btn{
+    width:38px;height:38px;border-radius:999px;border:1px solid rgba(255,255,255,.10);
+    background:rgba(255,255,255,.14);
+    color:#fff;font-size:20px;line-height:1;
+    cursor:pointer;
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  /* Overlay */
+  #microNav2Overlay{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.38);
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+    display:none;
+    z-index:9999998;
+  }
+  #microNav2Overlay.on{display:block;}
+
+  /* Drawer */
+  #microNav2Drawer{
+    position:fixed;
+    top:12px; right:12px;
+    width:min(92vw, 560px);
+    max-height:min(86vh, 860px);
+    border-radius:18px;
+    border:1px solid rgba(255,255,255,.16);
+    background:linear-gradient(180deg, rgba(0,0,0,.72), rgba(0,0,0,.62));
+    box-shadow:0 22px 80px rgba(0,0,0,.70);
+    overflow:hidden;
+    transform:translateY(-10px) scale(.99);
+    opacity:0;
+    transition:transform 180ms ease, opacity 180ms ease;
+  }
+  #microNav2Overlay.on #microNav2Drawer{
+    transform:translateY(0) scale(1);
+    opacity:1;
+  }
+
+  /* Header */
+  #microNav2Head{
+    padding:12px 14px;
+    border-bottom:1px solid rgba(255,255,255,.10);
+    display:flex; gap:10px; align-items:center;
+  }
+  #microNav2Title{
+    margin:0;
+    font-size:12px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:rgba(233,255,50,.92);
+    font-weight:900;
+    flex:1;
+  }
+  #microNav2Close{
+    width:36px;height:36px;border-radius:12px;border:1px solid rgba(255,255,255,.14);
+    background:rgba(255,255,255,.06); color:#fff; cursor:pointer;
+    font-size:16px; line-height:1;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  /* Search */
+  #microNav2SearchWrap{
+    padding:12px 14px;
+    border-bottom:1px solid rgba(255,255,255,.10);
+  }
+  #microNav2Search{
+    width:100%;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.14);
+    background:rgba(0,0,0,.30);
+    color:#fff;
+    padding:11px 12px;
+    font-size:15px;
+    outline:none;
+  }
+  #microNav2Search::placeholder{color:rgba(255,255,255,.42);}
+
+  /* Results area */
+  #microNav2Body{
+    padding:10px 10px 14px;
+    overflow:auto;
+    max-height:calc(min(86vh, 860px) - 124px);
+    -webkit-overflow-scrolling:touch;
+  }
+
+  /* “Psychic” single top match panel */
+  .pnTopMatch{
+    border:1px solid rgba(233,255,50,.22);
+    background:rgba(233,255,50,.06);
+    border-radius:16px;
+    overflow:hidden;
+    margin:6px 4px 10px;
+  }
+  .pnTopMatch .pnTopLabel{
+    padding:10px 12px;
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:rgba(233,255,50,.90);
+    border-bottom:1px solid rgba(255,255,255,.10);
+    background:rgba(0,0,0,.16);
+  }
+
+  /* Group blocks (idle mode) */
+  .navGroup{
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.035);
+    border-radius:16px;
+    overflow:hidden;
+    margin:10px 4px;
+  }
+  .navGroupBtn{
+    width:100%;
+    display:flex; align-items:center; gap:10px;
+    padding:12px 12px;
+    cursor:pointer;
+    background:transparent;
+    border:0;
+    color:#fff;
+    text-align:left;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .navGroupName{
+    font-weight:900;
+    letter-spacing:.10em;
+    text-transform:uppercase;
+    font-size:11px;
+    color:rgba(233,255,50,.82);
+    flex:1;
+  }
+  .navGroupMeta{font-size:11px;color:rgba(255,255,255,.55);}
+  .navChevron{opacity:.8; font-size:16px; transition:transform 160ms ease;}
+  .navGroup.open .navChevron{transform:rotate(90deg);}
+
+  .navItems{display:none; padding:0 6px 10px;}
+  .navGroup.open .navItems{display:block;}
+
+  /* Items */
+  .navItem{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 10px;
+    margin:6px 6px 0;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(0,0,0,.26);
+    text-decoration:none;
+    color:#fff;
+  }
+  .navItem:hover{background:rgba(255,255,255,.06);}
+  .navItemText{display:flex; flex-direction:column; min-width:0; flex:1;}
+  .navItemTitle{font-weight:850; font-size:14px; line-height:1.15; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .navItemNote{font-size:11px; color:rgba(255,255,255,.55); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .navBadge{
+    font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+    color:rgba(233,255,50,.92);
+    border:1px solid rgba(233,255,50,.22);
+    background:rgba(233,255,50,.06);
+    padding:6px 8px;
+    border-radius:999px;
+    white-space:nowrap;
+  }
+
+  /* Tiny footer note (optional) */
+  .pnFoot{
+    margin:10px 6px 0;
+    color:rgba(255,255,255,.45);
+    font-size:11px;
+    line-height:1.35;
+  }
+</style>
+
+<div id="pnStage">
+  <iframe id="pnFrame"
+          src="https://jeff-gompertz.github.io/CUseeme/s_6cards_video_wpmedia_multiFilter.html"
+          loading="lazy"
+          allow="autoplay; fullscreen; clipboard-read; clipboard-write"
+          allowfullscreen></iframe>
+</div>
+
+<!-- Button -->
+<div id="microNav2" aria-label="Navigation">
+  <button id="microNav2Btn" type="button" aria-label="Open navigation">⋯</button>
+</div>
+
+<!-- Overlay + Drawer -->
+<div id="microNav2Overlay" aria-hidden="true">
+  <div id="microNav2Drawer" role="dialog" aria-modal="true" aria-label="Site navigation">
+    <div id="microNav2Head">
+      <div id="microNav2Title">Predictive Navigation</div>
+      <button id="microNav2Close" type="button" aria-label="Close">✕</button>
+    </div>
+
+    <div id="microNav2SearchWrap">
+      <input id="microNav2Search" type="text" placeholder="Search pages…" autocomplete="off" />
+    </div>
+
+    <div id="microNav2Body"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  /* =========================
+     DEMOS (YOUR DATABASE)
+     - Add new entries by copying an object and changing fields
+  ========================== */
+  const DEMOS = [
+    /* Core / Known working */
+    {
+      group:"CUSeeMe",
+      title:"6Cards — WP Media MultiFilter",
+      note:"video cards from WP media query",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/s_6cards_video_wpmedia_multiFilter.html",
+      tags:["canvas","cards","wp-media","filter"],
+      aliases:["6cards","multi filter","multifilter","wp media","media filter"]
+    },
+    {
+      group:"GAN / Tools",
+      title:"GAN Sandbox (WordPress)",
+      note:"runs on your domain",
+      badge:"wp",
+      url:"https://art.jeffgompertz.site/gan/",
+      tags:["gan","tool","residue"],
+      aliases:["gan","sandbox","emulator","residue"]
+    },
+
+    /* The index / landing variants you pasted earlier */
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index (main)",
+      note:"CUseeme index.html",
+      badge:"index",
+      url:"https://jeff-gompertz.github.io/CUseeme/index.html",
+      tags:["index","landing"],
+      aliases:["index","home","main index"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index 1",
+      note:"CUseeme index1.html",
+      badge:"index",
+      url:"https://jeff-gompertz.github.io/CUseeme/index1.html",
+      tags:["index","landing"],
+      aliases:["index1","index 1"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index 2",
+      note:"CUseeme index2.html",
+      badge:"index",
+      url:"https://jeff-gompertz.github.io/CUseeme/index2.html",
+      tags:["index","landing"],
+      aliases:["index2","index 2"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index (off ov24)",
+      note:"saved landing variant",
+      badge:"archive",
+      url:"https://jeff-gompertz.github.io/CUseeme/index(offNov24).html",
+      tags:["index","archive","off"],
+      aliases:["off ov24","index off ov24","ov24"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index (off Nov 15)",
+      note:"saved landing variant",
+      badge:"archive",
+      url:"https://jeff-gompertz.github.io/CUseeme/index(offNov15.html)",
+      tags:["index","archive","off","nov15"],
+      aliases:["off nov15","index off nov 15","nov 15"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Advance",
+      note:"advance.html",
+      badge:"index",
+      url:"https://jeff-gompertz.github.io/CUseeme/advance.html",
+      tags:["advance","landing"],
+      aliases:["advance","advanced"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index (off Nov 21)",
+      note:"saved landing variant",
+      badge:"archive",
+      url:"https://jeff-gompertz.github.io/CUseeme/index(offNov21).html",
+      tags:["index","archive","off","nov21"],
+      aliases:["off nov21","index off nov 21","nov 21"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index (off Nov 2)",
+      note:"saved landing variant",
+      badge:"archive",
+      url:"https://jeff-gompertz.github.io/CUseeme/index(offNov2).html",
+      tags:["index","archive","off","nov2"],
+      aliases:["off nov2","index off nov 2","nov 2"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index (off Nov 18)",
+      note:"saved landing variant",
+      badge:"archive",
+      url:"https://jeff-gompertz.github.io/CUseeme/index(offNov18).html",
+      tags:["index","archive","off","nov18"],
+      aliases:["off nov18","index off nov 18","nov 18"]
+    },
+
+    /* Video template batch (the ones you just posted) */
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v1",
+      note:"test_run_inject_touch.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch.html",
+      tags:["video","template","touch","inject","v1"],
+      aliases:["touch inject","inject touch","template touch","v1"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v1 (No Text)",
+      note:"test_run_inject_touchNOTEXT.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touchNOTEXT.html",
+      tags:["video","template","touch","inject","notext","v1"],
+      aliases:["touch inject notext","no text","v1 notext"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v2",
+      note:"test_run_inject_touch2.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch2.html",
+      tags:["video","template","touch","inject","v2"],
+      aliases:["touch inject 2","v2","template v2"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v2 (No Text)",
+      note:"test_run_inject_touch2NOTEXT.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch2NOTEXT.html",
+      tags:["video","template","touch","inject","v2","notext"],
+      aliases:["touch inject 2 notext","v2 notext","no text v2"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v3",
+      note:"test_run_inject_touch3.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch3.html",
+      tags:["video","template","touch","inject","v3"],
+      aliases:["touch inject 3","v3","template v3"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v3 (No Text)",
+      note:"test_run_inject_touch3NOTEXT.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch3NOTEXT.html",
+      tags:["video","template","touch","inject","v3","notext"],
+      aliases:["touch inject 3 notext","v3 notext","no text v3"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v7",
+      note:"test_run_inject_touch7.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch7.html",
+      tags:["video","template","touch","inject","v7"],
+      aliases:["touch inject 7","v7","template v7"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v7 (Button Start)",
+      note:"test_run_inject_touch7BUTTON.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch7BUTTON.html",
+      tags:["video","template","touch","inject","v7","button"],
+      aliases:["touch inject 7 button","button start","v7 button"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v7 (No Text)",
+      note:"test_run_inject_touch7NOTEXT.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch7NOTEXT.html",
+      tags:["video","template","touch","inject","v7","notext"],
+      aliases:["touch inject 7 notext","v7 notext","no text v7"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v8",
+      note:"test_run_inject_touch8.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch8.html",
+      tags:["video","template","touch","inject","v8"],
+      aliases:["touch inject 8","v8","template v8"]
+    }
+  ];
+
+  /* ====== Wiring ====== */
+  const frame   = document.getElementById("pnFrame");
+  const navBtn  = document.getElementById("microNav2Btn");
+  const overlay = document.getElementById("microNav2Overlay");
+  const closeBt = document.getElementById("microNav2Close");
+  const body    = document.getElementById("microNav2Body");
+  const search  = document.getElementById("microNav2Search");
+  if(!frame || !navBtn || !overlay || !closeBt || !body || !search) return;
+
+  let activeIndex = 0;
+  let flatResults = [];
+
+  function open(){
+    overlay.classList.add("on");
+    overlay.setAttribute("aria-hidden","false");
+    setTimeout(()=>search.focus(), 40);
+  }
+  function close(){
+    overlay.classList.remove("on");
+    overlay.setAttribute("aria-hidden","true");
+    search.value = "";
+    activeIndex = 0;
+    render();
+  }
+
+  function norm(s){
+    return (s||"")
+      .toLowerCase()
+      .replace(/&amp;/g,"&")
+      .replace(/[^a-z0-9]+/g," ")
+      .trim();
+  }
+
+  function hayFor(d){
+    const parts = [
+      d.group, d.title, d.note, d.badge,
+      ...(d.tags||[]),
+      ...(d.aliases||[])
+    ];
+    return norm(parts.join(" "));
+  }
+
+  function scoreMatch(hay, q){
+    if(!q) return 0;
+
+    // strongest: prefix-of-word match
+    const words = hay.split(" ");
+    for(const w of words){
+      if(w.startsWith(q)) return 120 - (w.length - q.length);
+    }
+
+    // strong: substring match
+    const pos = hay.indexOf(q);
+    if(pos !== -1) return 80 - pos;
+
+    // fuzzy: subsequence match (letters in order)
+    let i=0;
+    for(let j=0;j<hay.length && i<q.length;j++){
+      if(hay[j] === q[i]) i++;
+    }
+    if(i === q.length) return 35;
+
+    return -9999;
+  }
+
+  function escapeHtml(s){
+    return (s||"")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  function highlightText(text, q){
+    if(!q) return escapeHtml(text);
+    const t = text || "";
+    const lowT = t.toLowerCase();
+    const lowQ = q.toLowerCase();
+    const ix = lowT.indexOf(lowQ);
+    if(ix === -1) return escapeHtml(t);
+    const a = t.slice(0, ix);
+    const b = t.slice(ix, ix + q.length);
+    const c = t.slice(ix + q.length);
+    return `${escapeHtml(a)}<span style="color:var(--acid);">${escapeHtml(b)}</span>${escapeHtml(c)}`;
+  }
+
+  function setFrame(url){
+    if(!url || url === "#") return;
+    frame.src = url;
+  }
+
+  function render(){
+    body.innerHTML = "";
+    flatResults = [];
+
+    const q = norm(search.value);
+
+    // Rank demos
+    const ranked = DEMOS
+      .map(d => ({ d, hay: hayFor(d), s: scoreMatch(hayFor(d), q) }))
+      .filter(x => q ? x.s > -999 : true)
+      .sort((a,b) => b.s - a.s);
+
+    // If user typed: “psychic” mode — top match + small list
+    if(q){
+      const list = ranked.slice(0, 24).map(x => x.d);
+
+      if(list.length){
+        // Top match block (single “magical” result)
+        const top = list[0];
+        const topWrap = document.createElement("div");
+        topWrap.className = "pnTopMatch";
+
+        const topLabel = document.createElement("div");
+        topLabel.className = "pnTopLabel";
+        topLabel.textContent = "Top Match";
+
+        const topLink = document.createElement("a");
+        topLink.className = "navItem";
+        topLink.href = "#";
+        topLink.addEventListener("click", (e)=>{
+          e.preventDefault();
+          setFrame(top.url);
+          close();
+        });
+
+        const topTxt = document.createElement("div");
+        topTxt.className = "navItemText";
+
+        const t1 = document.createElement("div");
+        t1.className = "navItemTitle";
+        t1.innerHTML = highlightText(top.title || "Untitled", q);
+
+        const t2 = document.createElement("div");
+        t2.className = "navItemNote";
+        t2.textContent = (top.group ? `${top.group} • ` : "") + (top.note || "");
+
+        topTxt.appendChild(t1);
+        topTxt.appendChild(t2);
+        topLink.appendChild(topTxt);
+
+        if(top.badge){
+          const b = document.createElement("div");
+          b.className = "navBadge";
+          b.textContent = top.badge;
+          topLink.appendChild(b);
+        }
+
+        topWrap.appendChild(topLabel);
+        topWrap.appendChild(topLink);
+        body.appendChild(topWrap);
+      }
+
+      // Matches list (below top match)
+      const wrap = document.createElement("div");
+      wrap.className = "navGroup open";
+
+      const head = document.createElement("button");
+      head.type = "button";
+      head.className = "navGroupBtn";
+
+      const name = document.createElement("div");
+      name.className = "navGroupName";
+      name.textContent = "Matches";
+
+      const meta = document.createElement("div");
+      meta.className = "navGroupMeta";
+      meta.textContent = `${Math.min(list.length, 24)} result${Math.min(list.length, 24)===1?"":"s"}`;
+
+      const chev = document.createElement("div");
+      chev.className = "navChevron";
+      chev.textContent = "›";
+      chev.style.opacity = "0"; // keep clean
+
+      head.appendChild(name);
+      head.appendChild(meta);
+      head.appendChild(chev);
+
+      const items = document.createElement("div");
+      items.className = "navItems";
+      items.style.display = "block";
+
+      list.slice(0, 24).forEach((d, idx) => {
+        flatResults.push(d);
+
+        const a = document.createElement("a");
+        a.className = "navItem";
+        a.href = "#";
+
+        // active highlight (keyboard)
+        if(idx === activeIndex){
+          a.style.borderColor = "rgba(233,255,50,.35)";
+          a.style.background = "rgba(233,255,50,.06)";
+        }
+
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          setFrame(d.url);
+          close();
+        });
+
+        const txt = document.createElement("div");
+        txt.className = "navItemText";
+
+        const t1 = document.createElement("div");
+        t1.className = "navItemTitle";
+        t1.innerHTML = highlightText(d.title || "Untitled", q);
+
+        const t2 = document.createElement("div");
+        t2.className = "navItemNote";
+        t2.textContent = (d.group ? `${d.group} • ` : "") + (d.note || "");
+
+        txt.appendChild(t1);
+        txt.appendChild(t2);
+        a.appendChild(txt);
+
+        if(d.badge){
+          const b = document.createElement("div");
+          b.className = "navBadge";
+          b.textContent = d.badge;
+          a.appendChild(b);
+        }
+
+        items.appendChild(a);
+      });
+
+      wrap.appendChild(head);
+      wrap.appendChild(items);
+      body.appendChild(wrap);
+
+      const foot = document.createElement("div");
+      foot.className = "pnFoot";
+      foot.textContent = "Tip: type fragments like “v7 notext”, “index nov”, “gan”, “6cards”.";
+      body.appendChild(foot);
+
+      return;
+    }
+
+    // Idle mode: grouped list
+    const groups = {};
+    for(const d of DEMOS){
+      const g = d.group || "Other";
+      (groups[g] ||= []).push(d);
+    }
+
+    Object.keys(groups).forEach((gname, gi) => {
+      const list = groups[gname];
+
+      const wrap = document.createElement("div");
+      wrap.className = "navGroup";
+      if(gi === 0) wrap.classList.add("open");
+
+      const head = document.createElement("button");
+      head.type = "button";
+      head.className = "navGroupBtn";
+
+      const name = document.createElement("div");
+      name.className = "navGroupName";
+      name.textContent = gname;
+
+      const meta = document.createElement("div");
+      meta.className = "navGroupMeta";
+      meta.textContent = `${list.length} item${list.length===1?"":"s"}`;
+
+      const chev = document.createElement("div");
+      chev.className = "navChevron";
+      chev.textContent = "›";
+
+      head.appendChild(name);
+      head.appendChild(meta);
+      head.appendChild(chev);
+
+      const items = document.createElement("div");
+      items.className = "navItems";
+
+      list.forEach(d => {
+        const a = document.createElement("a");
+        a.className = "navItem";
+        a.href = "#";
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          setFrame(d.url);
+          close();
+        });
+
+        const txt = document.createElement("div");
+        txt.className = "navItemText";
+
+        const t1 = document.createElement("div");
+        t1.className = "navItemTitle";
+        t1.textContent = d.title || "Untitled";
+
+        const t2 = document.createElement("div");
+        t2.className = "navItemNote";
+        t2.textContent = d.note || "";
+
+        txt.appendChild(t1);
+        if(d.note) txt.appendChild(t2);
+
+        a.appendChild(txt);
+
+        if(d.badge){
+          const b = document.createElement("div");
+          b.className = "navBadge";
+          b.textContent = d.badge;
+          a.appendChild(b);
+        }
+
+        items.appendChild(a);
+      });
+
+      wrap.appendChild(head);
+      wrap.appendChild(items);
+
+      head.addEventListener("click", () => wrap.classList.toggle("open"));
+      body.appendChild(wrap);
+    });
+
+    const foot = document.createElement("div");
+    foot.className = "pnFoot";
+    foot.textContent = "Start typing to switch into predictive mode.";
+    body.appendChild(foot);
+  }
+
+  function loadActiveResult(){
+    const d = flatResults[activeIndex];
+    if(d && d.url && d.url !== "#"){
+      setFrame(d.url);
+      close();
+    }
+  }
+
+  navBtn.addEventListener("click", (e)=>{ e.preventDefault(); e.stopPropagation(); open(); });
+  closeBt.addEventListener("click", close);
+  overlay.addEventListener("click", (e)=>{ if(e.target === overlay) close(); });
+
+  document.addEventListener("keydown", (e)=>{
+    if(!overlay.classList.contains("on")) return;
+
+    if(e.key === "Escape") close();
+
+    const q = norm(search.value);
+    if(!q) return;
+
+    if(e.key === "Enter"){
+      e.preventDefault();
+      loadActiveResult();
+    }
+    if(e.key === "ArrowDown"){
+      e.preventDefault();
+      activeIndex = Math.min(activeIndex + 1, Math.max(0, flatResults.length - 1));
+      render();
+    }
+    if(e.key === "ArrowUp"){
+      e.preventDefault();
+      activeIndex = Math.max(activeIndex - 1, 0);
+      render();
+    }
+  });
+
+  search.addEventListener("input", ()=>{
+    activeIndex = 0;
+    render();
+  });
+
+  render();
+})();
+</script>
