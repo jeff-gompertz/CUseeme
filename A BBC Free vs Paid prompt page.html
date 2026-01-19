@@ -1,0 +1,586 @@
+<!-- ==========================================
+  BBC → Local Draft Prompt (Free) + Generate Prompt (PAY)
+  Paste as ONE WordPress Custom HTML block
+  - No auto Replicate calls (no surprise fees)
+  - Auto button inert/disabled
+  - No Generate Image
+=========================================== -->
+
+<style>
+  :root{
+    --acid:#e9ff32;
+    --bg:#000;
+    --soft:rgba(255,255,255,.72);
+  }
+
+  #bbcStage{
+    position:relative;
+    height:100vh;
+    overflow:hidden;
+    background:var(--bg);
+    font-family:Arial,Helvetica,sans-serif;
+    isolation:isolate;
+  }
+
+  #bbcStage #ecran{
+    position:relative;
+    height:100vh;
+    overflow:hidden;
+    width:80%;
+    margin:0 auto;
+    text-align:center;
+    color:#fff;
+    opacity:.92;
+    z-index:2;
+  }
+
+  #bbcStage #ecran-inner{
+    height:100%;
+    width:100%;
+    overflow-y:scroll;
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+    pointer-events:none !important;
+    padding:3vh 0;
+    box-sizing:border-box;
+  }
+  #bbcStage #ecran-inner::-webkit-scrollbar{display:none;}
+
+  #bbcStage #ecranText{
+    margin:0;
+    font-size:11rem;
+    font-weight:800;
+    line-height:1.05;
+    letter-spacing:-0.02em;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+  @media (max-width:900px){
+    #bbcStage #ecranText{font-size:6.8rem;}
+    #bbcStage #ecran{width:92%;}
+  }
+  @media (max-width:520px){
+    #bbcStage #ecranText{font-size:4.2rem;}
+  }
+
+  /* Prompt box */
+  #bbcStage #promptBox{
+    position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
+    width:min(920px, calc(100% - 28px));
+    background:rgba(255,255,255,.92) !important;
+    color:#000;
+    border-radius:14px;
+    padding:12px 14px;
+    font-size:16px;
+    line-height:1.25;
+    box-shadow:0 18px 60px rgba(0,0,0,.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index:3;
+    overflow:hidden;
+  }
+  #bbcStage #promptBox::before,
+  #bbcStage #promptBox::after{ content:none !important; }
+
+  #bbcStage #promptBox b{color:#000;}
+  #bbcStage #promptText{margin-top:6px; font-weight:700;}
+  #bbcStage #subText{margin-top:6px; font-size:12px; color:rgba(0,0,0,.62);}
+
+  #bbcStage #statusRow{
+    margin-top:10px;
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    font-size:12px; color:rgba(0,0,0,.72);
+  }
+  #bbcStage .pill{
+    border:1px solid rgba(0,0,0,.16);
+    padding:6px 10px;
+    border-radius:999px;
+    background:rgba(255,255,255,.7);
+  }
+
+  #bbcStage .btn{
+    cursor:pointer;
+    border-radius:999px;
+    border:1px solid rgba(0,0,0,.22);
+    padding:8px 12px;
+    background:#fff;
+    font-weight:900;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    font-size:11px;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+    user-select:none;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+  }
+  #bbcStage .btn:disabled{
+    opacity:.45;
+    cursor:default;
+    pointer-events:none;
+  }
+
+  /* PAY badge */
+  #bbcStage .payBadge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:2px 8px;
+    border-radius:999px;
+    border:1px solid rgba(0,0,0,.18);
+    background:rgba(0,0,0,.06);
+    color:rgba(0,0,0,.78);
+    font-size:10px;
+    letter-spacing:.14em;
+    font-weight:900;
+    line-height:1.6;
+  }
+
+  #bbcStage #tinyLogWrap{display:none;margin-top:10px;}
+  #bbcStage #tinyLog{
+    max-height:96px;
+    overflow:auto;
+    font:12px/1.35 ui-monospace, Menlo, Monaco, Consolas, monospace;
+    color:rgba(0,0,0,.65);
+    background:rgba(0,0,0,.04);
+    border-radius:10px;
+    padding:8px 10px;
+    white-space:pre-wrap;
+  }
+
+  #bbcStage #promptToggle{
+    position:absolute;
+    top:8px;
+    right:10px;
+    border:1px solid rgba(0,0,0,.18);
+    background:rgba(255,255,255,.55);
+    color:#000;
+    font-size:14px;
+    line-height:1;
+    border-radius:999px;
+    padding:6px 10px;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  #bbcStage #promptBox.is-collapsed{ padding:10px 14px; }
+  #bbcStage #promptBox.is-collapsed #promptBody{ display:none; }
+  #bbcStage #promptBox.is-collapsed #statusRow{ margin-top:0; }
+
+  @media (max-width:520px){
+    #bbcStage #promptBox{ bottom:10px; }
+  }
+</style>
+
+<div id="bbcStage">
+  <div id="ecran">
+    <div id="ecran-inner">
+      <p id="ecranText">Loading BBC…</p>
+    </div>
+  </div>
+
+  <div id="promptBox">
+    <button id="promptToggle" type="button" aria-label="Toggle prompt box" aria-expanded="true">▾</button>
+
+    <div id="promptBody">
+      <div><b>Local draft prompt (free)</b></div>
+      <div id="promptText">—</div>
+      <div id="subText">Local draft is free. “Generate Prompt” uses Replicate (paid).</div>
+    </div>
+
+    <div id="statusRow">
+      <span class="pill">Headline <b id="hIndex">0</b>/<b id="hTotal">0</b></span>
+      <span class="pill">Mode: <b>BBC → Local Draft (Free) → Generate Prompt (PAY)</b></span>
+
+      <button class="btn" id="btnNext" type="button">Next Headline</button>
+
+      <button class="btn" id="btnGeneratePrompt" type="button" title="Paid: calls Replicate to generate a prompt">
+        Generate Prompt <span class="payBadge" aria-label="Paid">PAY</span>
+      </button>
+
+      <button class="btn" id="btnAuto" type="button" disabled aria-disabled="true" title="Auto is disabled to prevent automatic paid calls">
+        Auto: OFF
+      </button>
+
+      <button class="btn" id="btnLog" type="button">Log</button>
+    </div>
+
+    <div id="tinyLogWrap">
+      <div id="tinyLog"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const API_BASE = "https://art.jeffgompertz.site";
+  const EP_BBC  = new URL("/wp-json/ganemulator/v1/bbc", API_BASE).toString();
+  const EP_NEWS = new URL("/wp-json/ganemulator/v1/news_prompt", API_BASE).toString();
+  const EP_POLL = new URL("/wp-json/ganemulator/v1/poll", API_BASE).toString();
+
+  const $ = (id)=>document.getElementById(id);
+
+  const ecranInner   = $("ecran-inner");
+  const ecranTextEl  = $("ecranText");
+
+  const promptBox    = $("promptBox");
+  const promptToggle = $("promptToggle");
+
+  const promptTextEl = $("promptText");
+  const hIndexEl     = $("hIndex");
+  const hTotalEl     = $("hTotal");
+
+  const btnNext          = $("btnNext");
+  const btnGeneratePrompt= $("btnGeneratePrompt");
+  const btnAuto          = $("btnAuto");
+  const btnLog           = $("btnLog");
+
+  const tinyLogWrap = $("tinyLogWrap");
+  const logEl = $("tinyLog");
+
+  /* ---------- collapse (mobile default) ---------- */
+  function setCollapsed(on){
+    if (!promptBox) return;
+    promptBox.classList.toggle("is-collapsed", !!on);
+    if (promptToggle){
+      promptToggle.textContent = on ? "▴" : "▾";
+      promptToggle.setAttribute("aria-expanded", on ? "false" : "true");
+    }
+  }
+  setCollapsed(window.matchMedia("(max-width:520px)").matches);
+
+  if (promptToggle){
+    promptToggle.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setCollapsed(!promptBox.classList.contains("is-collapsed"));
+    });
+  }
+
+  /* ---------- logger ---------- */
+  const L = [];
+  function log(line){
+    const ts = new Date().toISOString().slice(11,19);
+    L.push(`[${ts}] ${line}`);
+    while (L.length > 90) L.shift();
+    if (logEl){
+      logEl.textContent = L.join("\n");
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+    console.log(line);
+  }
+
+  /* ---------- scrolling (independent) ---------- */
+  function ScrollDiv(){
+    if (!ecranInner) return;
+    const max = ecranInner.scrollHeight - ecranInner.clientHeight;
+    if (max <= 2) return;
+    ecranInner.scrollTop = (ecranInner.scrollTop + 1 >= max) ? 0 : (ecranInner.scrollTop + 1);
+  }
+  setInterval(ScrollDiv, 18);
+
+  /* ---------- fetch helpers ---------- */
+  async function getJSON(url){
+    const r = await fetch(url, { cache: "no-store" });
+    return await r.json();
+  }
+
+  async function postJSON(url, obj){
+    const r = await fetch(url, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(obj)
+    });
+    const ct = (r.headers.get("content-type") || "").toLowerCase();
+    const raw = await r.text();
+    log(`POST ${new URL(url).pathname} → http ${r.status}`);
+    return { ct, raw };
+  }
+
+  async function pollPrediction(id){
+    for (let i=0;i<70;i++){
+      await new Promise(r=>setTimeout(r, 900));
+      const { ct, raw } = await postJSON(EP_POLL, { id });
+      if (!ct.includes("application/json")) return { ok:false, error:"bad_json_head" };
+      const j = JSON.parse(raw);
+      if (!j.ok) return { ok:false, error:j.error || "poll_failed" };
+      const p = j.prediction;
+      if (p && p.status) log(`status: ${p.status}`);
+      if (p && p.status === "succeeded") return { ok:true, prediction:p };
+      if (p && p.status === "failed") return { ok:false, error:"prediction_failed" };
+    }
+    return { ok:false, error:"poll_timeout" };
+  }
+
+  function normalizePromptOutput(out){
+    let s = "";
+    if (typeof out === "string") s = out;
+    else if (Array.isArray(out)) s = out.map(x => String(x || "")).join("");
+    else s = String(out || "");
+    s = s.replace(/\u0000/g, "").replace(/^\s+/, "").replace(/\s+$/g, "");
+    s = s.replace(/^["'“”]+|["'“”]+$/g, "");
+    s = s.replace(/\s+/g, " ").trim();
+    return s;
+  }
+
+  /* ---------- headline text ---------- */
+  function headlineToText(it){
+    const t = (it && it.title) ? String(it.title).trim() : "";
+    const d = (it && it.desc)  ? String(it.desc).trim()  : "";
+    const one = d ? `${t}. ${d}` : t;
+    return one.replace(/\s+/g, " ").trim();
+  }
+
+  function buildScrollTextOnce(items){
+    const lines = items.map(headlineToText).filter(Boolean);
+    const block = lines.join("\n\n");
+    ecranTextEl.textContent = block ? (block + "\n\n—\n\n" + block) : "—";
+    log("ecran scroll text built ✅");
+  }
+
+  /* ==========================================================
+     LOCAL PROMPT GENERATOR v2 (richer, more “semantic”)
+     - Extract entities/keywords heuristically
+     - Choose cinematic “program” templates
+     - Add constraints + camera + lighting + mood + palette
+     - Add negative prompt (optional) for cleanliness
+  ========================================================== */
+
+  const STOP = new Set((
+    "a an the and or but if then than with without to of in on for from by as at into over under " +
+    "is are was were be been being this that these those it its their his her they them we our you your i " +
+    "after before during amid amidst near new say says said report reports update live breaking"
+  ).split(/\s+/));
+
+  function cleanWords(s){
+    return String(s||"")
+      .replace(/&[#A-Za-z0-9]+;/g," ")
+      .replace(/[^\p{L}\p{N}\s'-]+/gu," ")
+      .replace(/\s+/g," ")
+      .trim();
+  }
+
+  function tokens(s){
+    return cleanWords(s).split(" ").map(x=>x.trim()).filter(Boolean);
+  }
+
+  function isLikelyAcronym(t){
+    return /^[A-Z]{2,6}$/.test(t);
+  }
+
+  function pickTopTerms(headline, max=10){
+    const raw = tokens(headline);
+    const scored = raw
+      .filter(t => t.length > 2)
+      .filter(t => !STOP.has(t.toLowerCase()))
+      .map(t => {
+        const lower = t.toLowerCase();
+        const proper = (t[0] === t[0]?.toUpperCase()) ? 2 : 0;
+        const acr = isLikelyAcronym(t) ? 2 : 0;
+        const len = Math.min(12, t.length) / 12; // 0..1
+        const num = /\d/.test(t) ? 0.6 : 0;
+        return { t, k: lower, s: proper + acr + len + num };
+      })
+      .sort((a,b)=> b.s - a.s);
+
+    const out = [];
+    const seen = new Set();
+    for(const x of scored){
+      if(seen.has(x.k)) continue;
+      seen.add(x.k);
+      out.push(x.t);
+      if(out.length >= max) break;
+    }
+    return out;
+  }
+
+  function pickOne(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+  function maybe(arr, p=0.45){ return Math.random() < p ? pickOne(arr) : ""; }
+
+  const CAMERA = [
+    "35mm documentary lens", "50mm prime", "wide-angle 24mm", "telephoto compression",
+    "handheld realism", "tripod-still editorial framing"
+  ];
+  const LIGHT = [
+    "overcast natural light", "hard noon sun", "fluorescent interior", "neon spill",
+    "golden hour haze", "night streetlight", "studio softbox glow"
+  ];
+  const MOOD = [
+    "quiet tension", "uneasy calm", "clinical clarity", "melancholic stillness",
+    "urgent atmosphere", "surreal restraint", "observational detachment"
+  ];
+  const TEXTURE = [
+    "subtle film grain", "high micro-contrast", "soft diffusion", "sharp editorial detail",
+    "slight motion blur", "crisp texture detail"
+  ];
+  const COLOR = [
+    "muted palette", "cold desaturated tones", "warm-cool split", "monochrome leaning",
+    "acid accent highlights", "documentary color fidelity"
+  ];
+  const COMPOSITION = [
+    "negative space", "off-center subject", "layered depth", "foreground obstruction",
+    "reflections and glass", "silhouettes", "compressed background"
+  ];
+  const CONSTRAINTS = [
+    "no text, no logos", "no watermark", "no UI elements", "no subtitles", "no legible signage"
+  ];
+
+  const PROGRAMS = [
+    (terms, head)=>({
+      title:"Cinematic documentary still",
+      body:`cinematic documentary still of ${terms}, ${pickOne(CAMERA)}, ${pickOne(LIGHT)}, ${pickOne(MOOD)}, ${pickOne(TEXTURE)}, ${pickOne(COLOR)}, ${pickOne(COMPOSITION)}`
+    }),
+    (terms, head)=>({
+      title:"Surreal editorial photograph",
+      body:`surreal editorial photograph interpreting ${terms}, realistic yet uncanny, ${pickOne(LIGHT)}, ${pickOne(MOOD)}, ${pickOne(TEXTURE)}, ${pickOne(COLOR)}, minimal composition, symbolic detail`
+    }),
+    (terms, head)=>({
+      title:"Scene reconstruction",
+      body:`scene reconstruction of ${terms}, grounded realism, subtle surrealism, ${pickOne(CAMERA)}, ${pickOne(LIGHT)}, ${pickOne(TEXTURE)}, depth of field, atmospheric perspective`
+    }),
+    (terms, head)=>({
+      title:"Portrait-by-absence",
+      body:`portrait without faces: evidence of ${terms}, environment as subject, ${pickOne(LIGHT)}, ${pickOne(MOOD)}, ${pickOne(TEXTURE)}, documentary realism, quiet narrative`
+    }),
+  ];
+
+  function localPromptFromHeadline(headline){
+    const terms = pickTopTerms(headline, 10);
+    const termStr = terms.length ? terms.slice(0, 6).join(", ") : cleanWords(headline).slice(0, 90);
+
+    const prog = pickOne(PROGRAMS)(termStr, headline);
+
+    const extra1 = maybe([
+      "thin fog / haze", "light rain sheen", "dust in the air", "wet pavement reflections",
+      "subtle bokeh highlights", "soft vignetting", "shallow depth of field"
+    ], 0.55);
+
+    const extra2 = maybe([
+      "architectural lines", "crowd implied off-frame", "newsroom neutrality", "institutional interior",
+      "street-level viewpoint", "aerial distance", "intimate proximity"
+    ], 0.45);
+
+    const neg = `Negative: ${pickOne(CONSTRAINTS)}, ${pickOne(CONSTRAINTS)}, overly cartoonish, low-res, distorted faces`;
+
+    // Format to feel “semantic” but still one prompt block:
+    const parts = [
+      `${prog.body}`,
+      extra1 ? extra1 : "",
+      extra2 ? extra2 : "",
+      "high-contrast, uncanny, documentary surrealism",
+      neg
+    ].filter(Boolean);
+
+    return parts.join(", ");
+  }
+
+  /* ---------- state ---------- */
+  let items = [];
+  let idx = 0;
+  let currentHeadline = "";
+  let localPrompt = "";
+
+  function setCurrentHeadline(i){
+    if (!items.length) return;
+
+    idx = (i + items.length) % items.length;
+    currentHeadline = headlineToText(items[idx]) || "";
+
+    hIndexEl.textContent = String(idx + 1);
+    hTotalEl.textContent = String(items.length);
+
+    // FREE: always show local draft immediately
+    localPrompt = localPromptFromHeadline(currentHeadline);
+    promptTextEl.textContent = localPrompt;
+    log("local prompt updated (free) ✅");
+  }
+
+  async function refineWithReplicate(){
+    if (!currentHeadline) return;
+
+    btnGeneratePrompt.disabled = true;
+    btnNext.disabled = true;
+    promptTextEl.textContent = "Generating prompt (Replicate)…";
+    log("Replicate paid call: news_prompt");
+
+    try{
+      const { ct, raw } = await postJSON(EP_NEWS, { text: currentHeadline });
+
+      let prompt = "";
+      if (ct.includes("application/json")){
+        const j = JSON.parse(raw);
+
+        if (j && j.ok && (typeof j.prompt === "string" || typeof j.text === "string")){
+          prompt = normalizePromptOutput(j.prompt || j.text || "");
+        }
+
+        if (!prompt && j && j.ok && j.prediction && j.prediction.id){
+          const polled = await pollPrediction(j.prediction.id);
+          if (polled.ok) prompt = normalizePromptOutput(polled.prediction.output);
+        }
+      } else {
+        prompt = normalizePromptOutput(raw);
+      }
+
+      if (!prompt){
+        promptTextEl.textContent = localPrompt || "—";
+        log("replicate prompt failed (empty)");
+        return;
+      }
+
+      promptTextEl.textContent = prompt;
+      log("replicate prompt ✅");
+    } catch (e){
+      promptTextEl.textContent = localPrompt || "—";
+      log("replicate error: " + (e?.message || String(e)));
+    } finally {
+      btnGeneratePrompt.disabled = false;
+      btnNext.disabled = false;
+    }
+  }
+
+  /* ---------- UI events ---------- */
+  btnNext.addEventListener("click", (e) => {
+    e.preventDefault();
+    setCurrentHeadline(idx + 1);
+  });
+
+  btnGeneratePrompt.addEventListener("click", (e) => {
+    e.preventDefault();
+    refineWithReplicate();
+  });
+
+  // Auto intentionally inert/disabled (prevents paid loops)
+
+  btnLog.addEventListener("click", () => {
+    tinyLogWrap.style.display =
+      (!tinyLogWrap.style.display || tinyLogWrap.style.display === "none") ? "block" : "none";
+  });
+
+  /* ---------- boot ---------- */
+  (async function boot(){
+    try{
+      ecranTextEl.textContent = "Loading BBC…";
+      log("boot… fetching BBC");
+      const j = await getJSON(EP_BBC);
+
+      if (!j.ok || !Array.isArray(j.items) || !j.items.length){
+        ecranTextEl.textContent = "BBC feed error (empty/invalid).";
+        promptTextEl.textContent = "—";
+        log("bbc error: empty/invalid");
+        return;
+      }
+
+      items = j.items;
+      buildScrollTextOnce(items);
+      setCurrentHeadline(0); // local prompt appears immediately (free)
+      log("ready ✅ (no paid calls unless you click Generate Prompt)");
+    } catch (e){
+      ecranTextEl.textContent = "BBC fetch failed.";
+      promptTextEl.textContent = "—";
+      log("boot error: " + (e?.message || String(e)));
+    }
+  })();
+});
+</script>
