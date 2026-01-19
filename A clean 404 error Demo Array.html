@@ -1,0 +1,361 @@
+(() => {
+  /* ==========================================
+     DEMOS (YOUR DATABASE)
+     - Featured behavior (empty search):
+       1) items with featured:true (up to 5)
+       2) otherwise the first 5 in this list
+     - Typed search:
+       shows ONLY the top 1 match (single row)
+     - Order matters for Featured (not alphabetical)
+  =========================================== */
+
+  const DEMOS = [
+    /* Core / Known working */
+    {
+      group:"CUSeeMe",
+      title:"6Cards — WP Media MultiFilter",
+      note:"video cards from WP media query",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/s_6cards_video_wpmedia_multiFilter.html",
+      tags:["canvas","cards","wp-media","filter"],
+      aliases:["6cards","multi filter","multifilter","wp media","media filter"]
+    },
+    {
+      group:"GAN / Tools",
+      title:"GAN Sandbox (WordPress)",
+      note:"runs on your domain",
+      badge:"wp",
+      url:"https://art.jeffgompertz.site/gan/",
+      tags:["gan","tool","residue"],
+      aliases:["gan","sandbox","emulator","residue"]
+    },
+
+    /* The index / landing variants */
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index (main)",
+      note:"CUseeme index.html",
+      badge:"index",
+      url:"https://jeff-gompertz.github.io/CUseeme/index.html",
+      tags:["index","landing"],
+      aliases:["index","home","main index"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index 1",
+      note:"CUseeme index1.html",
+      badge:"index",
+      url:"https://jeff-gompertz.github.io/CUseeme/index1.html",
+      tags:["index","landing"],
+      aliases:["index1","index 1"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index 2",
+      note:"CUseeme index2.html",
+      badge:"index",
+      url:"https://jeff-gompertz.github.io/CUseeme/index2.html",
+      tags:["index","landing"],
+      aliases:["index2","index 2"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index (off ov24)",
+      note:"saved landing variant",
+      badge:"archive",
+      url:"https://jeff-gompertz.github.io/CUseeme/index(offNov24).html",
+      tags:["index","archive","off"],
+      aliases:["off ov24","index off ov24","ov24"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index (off Nov 15)",
+      note:"saved landing variant",
+      badge:"archive",
+      url:"https://jeff-gompertz.github.io/CUseeme/index(offNov15.html)",
+      tags:["index","archive","off","nov15"],
+      aliases:["off nov15","index off nov 15","nov 15"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Advance",
+      note:"advance.html",
+      badge:"index",
+      url:"https://jeff-gompertz.github.io/CUseeme/advance.html",
+      tags:["advance","landing"],
+      aliases:["advance","advanced"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index (off Nov 21)",
+      note:"saved landing variant",
+      badge:"archive",
+      url:"https://jeff-gompertz.github.io/CUseeme/index(offNov21).html",
+      tags:["index","archive","off","nov21"],
+      aliases:["off nov21","index off nov 21","nov 21"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index (off Nov 2)",
+      note:"saved landing variant",
+      badge:"archive",
+      url:"https://jeff-gompertz.github.io/CUseeme/index(offNov2).html",
+      tags:["index","archive","off","nov2"],
+      aliases:["off nov2","index off nov 2","nov 2"]
+    },
+    {
+      group:"CUSeeMe / Index Archives",
+      title:"Index (off Nov 18)",
+      note:"saved landing variant",
+      badge:"archive",
+      url:"https://jeff-gompertz.github.io/CUseeme/index(offNov18).html",
+      tags:["index","archive","off"],
+      aliases:["off nov18","index off nov 18","nov 18"]
+    },
+
+    /* Video template batch */
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v1",
+      note:"test_run_inject_touch.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch.html",
+      tags:["video","template","touch","inject","v1"],
+      aliases:["touch inject","inject touch","template touch","v1"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v1 (No Text)",
+      note:"test_run_inject_touchNOTEXT.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touchNOTEXT.html",
+      tags:["video","template","touch","inject","notext","v1"],
+      aliases:["touch inject notext","no text","v1 notext"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v2",
+      note:"test_run_inject_touch2.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch2.html",
+      tags:["video","template","touch","inject","v2"],
+      aliases:["touch inject 2","v2","template v2"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v2 (No Text)",
+      note:"test_run_inject_touch2NOTEXT.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch2NOTEXT.html",
+      tags:["video","template","touch","inject","v2","notext"],
+      aliases:["touch inject 2 notext","v2 notext","no text v2"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v3",
+      note:"test_run_inject_touch3.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch3.html",
+      tags:["video","template","touch","inject","v3"],
+      aliases:["touch inject 3","v3","template v3"]
+    },
+
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v7",
+      note:"test_run_inject_touch7.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch7.html",
+      tags:["video","template","touch","inject","v7"],
+      aliases:["touch inject 7","v7","template v7"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v7 (Button Start)",
+      note:"test_run_inject_touch7BUTTON.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch7BUTTON.html",
+      tags:["video","template","touch","inject","v7","button"],
+      aliases:["touch inject 7 button","button start","v7 button"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v7 (No Text)",
+      note:"test_run_inject_touch7NOTEXT.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch7NOTEXT.html",
+      tags:["video","template","touch","inject","v7","notext"],
+      aliases:["touch inject 7 notext","v7 notext","no text v7"]
+    },
+    {
+      group:"CUSeeMe / Video Template",
+      title:"Touch Inject — v8",
+      note:"test_run_inject_touch8.html",
+      badge:"video",
+      url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch8.html",
+      tags:["video","template","touch","inject","v8"],
+      aliases:["touch inject 8","v8","template v8"]
+    },
+
+    /* Database Recursion */
+    {
+      group:"Database Recursion",
+      title:"Database Recursion — Hybrid 1",
+      note:"hybrid build (v1)",
+      badge:"db",
+      url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_hybrid1.html",
+      tags:["database","recursion","hybrid"],
+      aliases:["db recursion hybrid 1","hybrid1","database_recursion_hybrid1"]
+    },
+    {
+      group:"Database Recursion",
+      title:"Database Recursion — Hybrid 2",
+      note:"hybrid build (v2)",
+      badge:"db",
+      url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_hybrid2.html",
+      tags:["database","recursion","hybrid"],
+      aliases:["db recursion hybrid 2","hybrid2","database_recursion_hybrid2"]
+    },
+    {
+      group:"Database Recursion",
+      title:"Database Recursion — Aesthetic",
+      note:"aesthetic pass (v1)",
+      badge:"db",
+      url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_aesthetic.html",
+      tags:["database","recursion","aesthetic"],
+      aliases:["db recursion aesthetic","aesthetic1","database_recursion_aesthetic"]
+    },
+    {
+      group:"Database Recursion",
+      title:"Database Recursion — Aesthetic v2",
+      note:"aesthetic pass (v2)",
+      badge:"db",
+      url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_aesthetic_v2.html",
+      tags:["database","recursion","aesthetic"],
+      aliases:["aesthetic v2","aesthetic2","database_recursion_aesthetic_v2"]
+    },
+    {
+      group:"Database Recursion",
+      title:"Database Recursion — Aesthetic v3",
+      note:"aesthetic pass (v3)",
+      badge:"db",
+      url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_aesthetic_v3.html",
+      tags:["database","recursion","aesthetic"],
+      aliases:["aesthetic v3","aesthetic3","database_recursion_aesthetic_v3"]
+    },
+    {
+      group:"Database Recursion",
+      title:"Database Recursion — Aesthetic v4",
+      note:"aesthetic pass (v4)",
+      badge:"db",
+      url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_aesthetic_v4.html",
+      tags:["database","recursion","aesthetic"],
+      aliases:["aesthetic v4","aesthetic4","database_recursion_aesthetic_v4"]
+    },
+    {
+      group:"Database Recursion",
+      title:"Database Recursion — Text Layer",
+      note:"text layer variant",
+      badge:"txt",
+      url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_textlayer.html",
+      tags:["database","recursion","text"],
+      aliases:["text layer","textlayer","database_recursion_textlayer"]
+    },
+    {
+      group:"Database Recursion",
+      title:"Database Recursion — Text Layer (Fix)",
+      note:"text layer fix",
+      badge:"txt",
+      url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_textlayer_fix.html",
+      tags:["database","recursion","text","fix"],
+      aliases:["text layer fix","textlayer fix","database_recursion_textlayer_fix"]
+    },
+    {
+      group:"Database Recursion",
+      title:"Database Recursion — Text Synced",
+      note:"synced text variant",
+      badge:"txt",
+      url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_textsynced.html",
+      tags:["database","recursion","text","synced"],
+      aliases:["text synced","textsynced","database_recursion_textsynced"]
+    },
+
+    /* Thumbnail Recursion */
+    {
+      group:"Thumbnail Recursion",
+      title:"Thumbnail Recursion 1",
+      note:"thumb recursion study (1)",
+      badge:"thumb",
+      url:"https://jeff-gompertz.github.io/CUseeme/thumbnail_recursion1.html",
+      tags:["thumbnail","recursion"],
+      aliases:["thumb1","thumbnail recursion 1","thumbnail_recursion1"]
+    },
+    {
+      group:"Thumbnail Recursion",
+      title:"Thumbnail Recursion 2",
+      note:"thumb recursion study (2)",
+      badge:"thumb",
+      url:"https://jeff-gompertz.github.io/CUseeme/thumbnail_recursion2.html",
+      tags:["thumbnail","recursion"],
+      aliases:["thumb2","thumbnail recursion 2","thumbnail_recursion2"]
+    },
+    {
+      group:"Thumbnail Recursion",
+      title:"Thumbnail Recursion 3",
+      note:"thumb recursion study (3)",
+      badge:"thumb",
+      url:"https://jeff-gompertz.github.io/CUseeme/thumbnail_recursion3.html",
+      tags:["thumbnail","recursion"],
+      aliases:["thumb3","thumbnail recursion 3","thumbnail_recursion3"]
+    },
+    {
+      group:"Thumbnail Recursion",
+      title:"Thumbnail Recursion 5",
+      note:"thumb recursion study (5)",
+      badge:"thumb",
+      url:"https://jeff-gompertz.github.io/CUseeme/thumbnail_recursion5.html",
+      tags:["thumbnail","recursion"],
+      aliases:["thumb5","thumbnail recursion 5","thumbnail_recursion5"]
+    },
+
+    /* Feedback / Trails / Cards */
+    {
+      group:"Feedback + Trails",
+      title:"Trail Test",
+      note:"trail persistence test",
+      badge:"trail",
+      url:"https://jeff-gompertz.github.io/CUseeme/trailtest.html",
+      tags:["trail","feedback","canvas"],
+      aliases:["trailtest","trail test"]
+    },
+
+    /* Baselines */
+    {
+      group:"Baselines",
+      title:"Baseline",
+      note:"baseline build (1)",
+      badge:"base",
+      url:"https://jeff-gompertz.github.io/CUseeme/baseline.html",
+      tags:["baseline"],
+      aliases:["baseline1","baseline"]
+    },
+
+    {
+      group:"Baselines (Touch)",
+      title:"Baseline Touch 3",
+      note:"touch baseline (3)",
+      badge:"touch",
+      url:"https://jeff-gompertz.github.io/CUseeme/baseline_touch3.html",
+      tags:["baseline","touch"],
+      aliases:["touch3","baseline touch 3","baseline_touch3"]
+    },
+    {
+      group:"Baselines (Touch)",
+      title:"Baseline Touch 4",
+      note:"touch baseline (4)",
+      badge:"touch",
+      url:"https://jeff-gompertz.github.io/CUseeme/baseline_touch4.html",
+      tags:["baseline","touch"],
+      aliases:["touch4","baseline touch 4","baseline_touch4"]
+    }
+  ];
