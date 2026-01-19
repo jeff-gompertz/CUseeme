@@ -1,0 +1,579 @@
+<style>
+  :root{
+    --bg:#000;
+  }
+
+  /* Scope everything to our stage */
+  #bbcStage{
+    position:relative;
+    height:100vh;
+    overflow:hidden;
+    background:var(--bg);
+    font-family:Arial,Helvetica,sans-serif;
+    isolation:isolate;
+  }
+
+  /* Fullscreen image result (behind text) */
+  #bbcStage #imgOut{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:cover;
+    opacity:1;
+    filter:contrast(1.02) saturate(1.08);
+    display:none;
+    z-index:0;
+  }
+
+  /* Veil OFF */
+  #bbcStage #veil{ display:none !important; }
+
+  /* Ecran */
+  #bbcStage #ecran{
+    position:relative;
+    height:100vh;
+    overflow:hidden;
+    width:80%;
+    margin:0 auto;
+    text-align:center;
+    color:#fff;
+    opacity:.92;
+    z-index:2;
+  }
+
+  /* Plain scroller (NO flex) */
+  #bbcStage #ecran-inner{
+    height:100%;
+    width:100%;
+    overflow-y:scroll;
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+    pointer-events:none !important;
+    padding:3vh 0;
+    box-sizing:border-box;
+  }
+  #bbcStage #ecran-inner::-webkit-scrollbar{display:none;}
+
+  #bbcStage #ecranText{
+    margin:0;
+    font-size:11rem;
+    font-weight:800;
+    line-height:1.05;
+    letter-spacing:-0.02em;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+  @media (max-width:900px){
+    #bbcStage #ecranText{font-size:6.8rem;}
+    #bbcStage #ecran{width:92%;}
+  }
+  @media (max-width:520px){
+    #bbcStage #ecranText{font-size:4.2rem;}
+  }
+
+  /* Prompt box (beautiful version) */
+  #bbcStage #promptBox{
+    position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
+    width:min(920px, calc(100% - 28px));
+    background:rgba(255,255,255,.92);
+    color:#000;
+    border-radius:14px;
+    padding:12px 14px;
+    font-size:16px;
+    line-height:1.25;
+    box-shadow:0 18px 60px rgba(0,0,0,.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index:3;
+    overflow:hidden;
+  }
+  #bbcStage #promptBox::before,
+  #bbcStage #promptBox::after{ content:none !important; }
+
+  #bbcStage #promptBox b{color:#000;}
+  #bbcStage #promptText{margin-top:6px; font-weight:700;}
+  #bbcStage #statusRow{
+    margin-top:10px;
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    font-size:12px; color:rgba(0,0,0,.72);
+  }
+  #bbcStage .pill{
+    border:1px solid rgba(0,0,0,.16);
+    padding:6px 10px;
+    border-radius:999px;
+    background:rgba(255,255,255,.7);
+  }
+  #bbcStage .btn{
+    cursor:pointer;
+    border-radius:999px;
+    border:1px solid rgba(0,0,0,.22);
+    padding:8px 12px;
+    background:#fff;
+    font-weight:900;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    font-size:11px;
+  }
+  #bbcStage .btn:disabled{opacity:.45;cursor:default;}
+
+  #bbcStage #tinyLogWrap{display:none;margin-top:10px;}
+  #bbcStage #tinyLog{
+    max-height:96px;
+    overflow:auto;
+    font:12px/1.35 ui-monospace, Menlo, Monaco, Consolas, monospace;
+    color:rgba(0,0,0,.65);
+    background:rgba(0,0,0,.04);
+    border-radius:10px;
+    padding:8px 10px;
+    white-space:pre-wrap;
+  }
+
+  /* Collapse toggle button */
+  #bbcStage #promptToggle{
+    position:absolute;
+    top:8px;
+    right:10px;
+    border:1px solid rgba(0,0,0,.18);
+    background:rgba(255,255,255,.55);
+    color:#000;
+    font-size:14px;
+    line-height:1;
+    border-radius:999px;
+    padding:6px 10px;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  /* Collapsed state */
+  #bbcStage #promptBox.is-collapsed{
+    padding:10px 14px;
+  }
+  #bbcStage #promptBox.is-collapsed #promptBody{
+    display:none;
+  }
+  #bbcStage #promptBox.is-collapsed #statusRow{
+    margin-top:0;
+  }
+
+  @media (max-width:520px){
+    #bbcStage #promptBox{ bottom:10px; }
+  }
+
+  /* MICRO NAV — three dots */
+  #microNav{
+    position:fixed;
+    top:14px;
+    right:14px;
+    z-index:9999;
+    font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+  }
+  #microNavBtn{
+    width:36px;
+    height:36px;
+    border-radius:999px;
+    border:0;
+    background:rgba(255,255,255,.18);
+    color:#fff;
+    font-size:20px;
+    line-height:1;
+    cursor:pointer;
+    backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);
+    -webkit-tap-highlight-color:transparent;
+  }
+  #microNavMenu{
+    position:absolute;
+    top:44px;
+    right:0;
+    min-width:170px;
+    background:rgba(255,255,255,.92);
+    color:#000;
+    border-radius:12px;
+    box-shadow:0 12px 40px rgba(0,0,0,.35);
+    padding:6px 0;
+    display:none;
+    overflow:hidden;
+  }
+  #microNavMenu a{
+    display:block;
+    padding:11px 14px;
+    font-size:14px;
+    text-decoration:none;
+    color:#000;
+  }
+  #microNavMenu a:hover{
+    background:rgba(0,0,0,.06);
+  }
+</style>
+
+<div id="microNav">
+  <button id="microNavBtn" type="button" aria-label="Open navigation">⋯</button>
+  <div id="microNavMenu" role="menu" aria-label="BBC navigation">
+    <a role="menuitem" href="https://art.jeffgompertz.site/bbc-one-headline-at-a-time-v1-9b/">One Headline</a>
+    <a role="menuitem" href="https://art.jeffgompertz.site/gan//">GAN Sandbox</a>
+    <a role="menuitem" href="https://art.jeffgompertz.site/a_prompt-poem_v9-7_replicate/">a Promprt Poem</a>
+  </div>
+</div>
+
+<div id="bbcStage">
+  <img id="imgOut" alt="SDXL output" />
+  <div id="veil"></div>
+
+  <div id="ecran">
+    <div id="ecran-inner">
+      <p id="ecranText">Loading BBC…</p>
+    </div>
+  </div>
+
+  <div id="promptBox">
+    <button id="promptToggle" type="button" aria-label="Toggle prompt box" aria-expanded="true">▾</button>
+
+    <div id="promptBody">
+      <div><b>Derived prompt (one headline)</b></div>
+      <div id="promptText">—</div>
+    </div>
+
+    <div id="statusRow">
+      <span class="pill">Headline <b id="hIndex">0</b>/<b id="hTotal">0</b></span>
+      <span class="pill">Mode: <b>BBC → Prompt → SDXL</b></span>
+
+      <button class="btn" id="btnNext" type="button">Next Headline</button>
+      <button class="btn" id="btnRun" type="button" disabled></button>
+      <button class="btn" id="btnAuto" type="button">Auto: ON</button>
+      <button class="btn" id="btnLog" type="button">Log</button>
+    </div>
+
+    <div id="tinyLogWrap">
+      <div id="tinyLog"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const API_BASE = "https://art.jeffgompertz.site";
+  const EP_BBC     = new URL("/wp-json/ganemulator/v1/bbc", API_BASE).toString();
+  const EP_NEWS    = new URL("/wp-json/ganemulator/v1/news_prompt", API_BASE).toString();
+  const EP_IMG2IMG = new URL("/wp-json/ganemulator/v1/img2img", API_BASE).toString();
+  const EP_POLL    = new URL("/wp-json/ganemulator/v1/poll", API_BASE).toString();
+
+  const $ = (id)=>document.getElementById(id);
+
+  const ecranInner   = $("ecran-inner");
+  const ecranTextEl  = $("ecranText");
+
+  const promptBox    = $("promptBox");
+  const promptToggle = $("promptToggle");
+
+  const promptTextEl = $("promptText");
+  const hIndexEl     = $("hIndex");
+  const hTotalEl     = $("hTotal");
+  const imgOut       = $("imgOut");
+
+  const btnNext = $("btnNext");
+  const btnRun  = $("btnRun");
+  const btnAuto = $("btnAuto");
+  const btnLog  = $("btnLog");
+
+  const tinyLogWrap = $("tinyLogWrap");
+  const logEl = $("tinyLog");
+
+  /* ---------- prompt collapse (mobile default) ---------- */
+  function setCollapsed(on){
+    if (!promptBox) return;
+    promptBox.classList.toggle("is-collapsed", !!on);
+    if (promptToggle){
+      promptToggle.textContent = on ? "▴" : "▾";
+      promptToggle.setAttribute("aria-expanded", on ? "false" : "true");
+    }
+  }
+  setCollapsed(window.matchMedia("(max-width:520px)").matches);
+
+  if (promptToggle){
+    promptToggle.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setCollapsed(!promptBox.classList.contains("is-collapsed"));
+    });
+  }
+
+  /* ---------- micro nav (three dots) ---------- */
+  (function(){
+    const btn  = document.getElementById("microNavBtn");
+    const menu = document.getElementById("microNavMenu");
+    if (!btn || !menu) return;
+
+    function close(){ menu.style.display = "none"; }
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      menu.style.display = (menu.style.display === "block") ? "none" : "block";
+    });
+
+    document.addEventListener("click", close);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  })();
+
+  /* ---------- logger ---------- */
+  const L = [];
+  function log(line){
+    const ts = new Date().toISOString().slice(11,19);
+    L.push(`[${ts}] ${line}`);
+    while (L.length > 60) L.shift();
+    if (logEl){
+      logEl.textContent = L.join("\n");
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+  }
+
+  let items = [];
+  let idx = 0;
+  let autoOn = true;
+  let autoTimer = null;
+
+  let currentHeadline = "";
+  let lastPrompt = "";
+
+  /* ---------- scrolling ---------- */
+  function ScrollDiv(){
+    if (!ecranInner) return;
+    const max = ecranInner.scrollHeight - ecranInner.clientHeight;
+    if (max <= 2) return;
+    ecranInner.scrollTop = (ecranInner.scrollTop + 1 >= max) ? 0 : (ecranInner.scrollTop + 1);
+  }
+  setInterval(ScrollDiv, 18);
+
+  async function getJSON(url){
+    const r = await fetch(url, { cache: "no-store" });
+    return await r.json();
+  }
+
+  async function postJSON(url, obj){
+    const r = await fetch(url, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(obj)
+    });
+    const ct = (r.headers.get("content-type") || "").toLowerCase();
+    const raw = await r.text();
+    log(`POST ${new URL(url).pathname} → http ${r.status}`);
+    return { ct, raw };
+  }
+
+  function headlineToText(it){
+    const t = (it && it.title) ? it.title.trim() : "";
+    const d = (it && it.desc)  ? it.desc.trim()  : "";
+    const one = d ? `${t}. ${d}` : t;
+    return one.replace(/\s+/g, " ").trim();
+  }
+
+  function buildScrollTextOnce(){
+    const lines = items.map(headlineToText).filter(Boolean);
+    const block = lines.join("\n\n");
+    ecranTextEl.textContent = block ? (block + "\n\n—\n\n" + block) : "—";
+    log("ecran scroll text built ✅");
+  }
+
+  function setCurrentHeadline(i){
+    if (!items.length) return;
+
+    idx = (i + items.length) % items.length;
+    currentHeadline = headlineToText(items[idx]) || "";
+
+    hIndexEl.textContent = String(idx + 1);
+    hTotalEl.textContent = String(items.length);
+
+    lastPrompt = "";
+    promptTextEl.textContent = "—";
+    btnRun.disabled = true;
+  }
+
+  async function pollPrediction(id){
+    for (let i=0;i<70;i++){
+      await new Promise(r=>setTimeout(r, 900));
+      const { ct, raw } = await postJSON(EP_POLL, { id });
+      if (!ct.includes("application/json")) return { ok:false, error:"bad_json_head" };
+      const j = JSON.parse(raw);
+      if (!j.ok) return { ok:false, error:j.error || "poll_failed" };
+      const p = j.prediction;
+      if (p && p.status === "succeeded") return { ok:true, prediction:p };
+      if (p && p.status === "failed") return { ok:false, error:"prediction_failed" };
+    }
+    return { ok:false, error:"poll_timeout" };
+  }
+
+  function normalizePromptOutput(out){
+    let s = "";
+    if (typeof out === "string") s = out;
+    else if (Array.isArray(out)) s = out.map(x => String(x || "")).join("");
+    else s = String(out || "");
+    s = s.replace(/\u0000/g, "").replace(/^\s+/, "").replace(/\s+$/g, "");
+    s = s.replace(/^["'“”]+|["'“”]+$/g, "");
+    s = s.replace(/\s+/g, " ").trim();
+    return s;
+  }
+
+  async function derivePromptFromCurrentHeadline(){
+    if (!currentHeadline){
+      promptTextEl.textContent = "—";
+      btnRun.disabled = true;
+      return;
+    }
+
+    promptTextEl.textContent = "Deriving…";
+    btnRun.disabled = true;
+
+    const { ct, raw } = await postJSON(EP_NEWS, { text: currentHeadline });
+
+    let prompt = "";
+    if (ct.includes("application/json")){
+      const j = JSON.parse(raw);
+
+      if (j && j.ok && (typeof j.prompt === "string" || typeof j.text === "string")){
+        prompt = (j.prompt || j.text || "").trim();
+      }
+
+      if (!prompt && j && j.ok && j.prediction && j.prediction.id){
+        const polled = await pollPrediction(j.prediction.id);
+        if (polled.ok) prompt = normalizePromptOutput(polled.prediction.output);
+      }
+    } else {
+      prompt = normalizePromptOutput(raw);
+    }
+
+    if (!prompt){
+      promptTextEl.textContent = "Prompt failed.";
+      btnRun.disabled = true;
+      return;
+    }
+
+    lastPrompt = prompt;
+    promptTextEl.textContent = prompt;
+    btnRun.disabled = false;
+  }
+
+  function makeNoiseSeedDataURL(size=1024){
+    const c = document.createElement("canvas");
+    c.width = size; c.height = size;
+    const ctx = c.getContext("2d");
+    const img = ctx.createImageData(size, size);
+    const data = img.data;
+
+    for (let i=0; i<data.length; i+=4){
+      const v = (Math.random() * 255) | 0;
+      data[i] = v; data[i+1] = v; data[i+2] = v; data[i+3] = 255;
+    }
+
+    ctx.putImageData(img, 0, 0);
+    return c.toDataURL("image/jpeg", 0.92);
+  }
+
+  async function generateImageFromPrompt(){
+    if (!lastPrompt) return;
+
+    btnRun.disabled = true;
+    btnNext.disabled = true;
+
+    const seed = makeNoiseSeedDataURL(1024);
+    const { ct, raw } = await postJSON(EP_IMG2IMG, {
+      image: seed,
+      prompt: lastPrompt,
+      strength: 0.85
+    });
+
+    if (!ct.includes("application/json")){
+      btnRun.disabled = false; btnNext.disabled = false;
+      return;
+    }
+
+    const j = JSON.parse(raw);
+    if (!j.ok || !j.prediction || !j.prediction.id){
+      btnRun.disabled = false; btnNext.disabled = false;
+      return;
+    }
+
+    const polled = await pollPrediction(j.prediction.id);
+    if (!polled.ok){
+      btnRun.disabled = false; btnNext.disabled = false;
+      return;
+    }
+
+    const out = polled.prediction.output;
+    const url = Array.isArray(out) ? out[0] : out;
+    if (!url){
+      btnRun.disabled = false; btnNext.disabled = false;
+      return;
+    }
+
+    imgOut.onload = () => {
+      imgOut.style.display = "block";
+      btnRun.disabled = false;
+      btnNext.disabled = false;
+      log("image displayed ✅");
+    };
+    imgOut.onerror = () => {
+      btnRun.disabled = false;
+      btnNext.disabled = false;
+      log("image load failed");
+    };
+    imgOut.src = url;
+  }
+
+  function startAuto(){
+    stopAuto();
+    autoOn = true;
+    btnAuto.textContent = "Auto: ON";
+    autoTimer = setInterval(async () => {
+      if (!items.length) return;
+      setCurrentHeadline(idx + 1);
+      await derivePromptFromCurrentHeadline();
+    }, 16000);
+  }
+  function stopAuto(){
+    if (autoTimer) clearInterval(autoTimer);
+    autoTimer = null;
+    autoOn = false;
+    btnAuto.textContent = "Auto: OFF";
+  }
+
+  btnNext.addEventListener("click", async () => {
+    if (!items.length) return;
+    setCurrentHeadline(idx + 1);
+    await derivePromptFromCurrentHeadline();
+  });
+
+  btnRun.addEventListener("click", generateImageFromPrompt);
+
+  btnAuto.addEventListener("click", () => {
+    if (autoOn) stopAuto(); else startAuto();
+  });
+
+  btnLog.addEventListener("click", () => {
+    tinyLogWrap.style.display =
+      (!tinyLogWrap.style.display || tinyLogWrap.style.display === "none") ? "block" : "none";
+  });
+
+  (async function boot(){
+    try{
+      const j = await getJSON(EP_BBC);
+      if (!j.ok || !Array.isArray(j.items) || !j.items.length){
+        ecranTextEl.textContent = "BBC feed error.";
+        promptTextEl.textContent = "—";
+        btnRun.disabled = true;
+        return;
+      }
+
+      items = j.items;
+      buildScrollTextOnce();
+      setCurrentHeadline(0);
+      await derivePromptFromCurrentHeadline();
+      startAuto();
+    } catch (e){
+      ecranTextEl.textContent = "BBC fetch failed.";
+      promptTextEl.textContent = "—";
+      btnRun.disabled = true;
+      log("boot error");
+    }
+  })();
+});
+</script>
