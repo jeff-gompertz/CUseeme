@@ -1,0 +1,973 @@
+<!-- Smart Search v5.7.3 — Live URL background (iframe) + Similar/Different wired -->
+
+<style>
+  :root{
+    --acid:#e9ff32;
+    --line:rgba(255,255,255,.14);
+  }
+
+  html, body{height:100%; margin:0; background:#000;}
+
+  /* Host wrap */
+  #hostWrap{
+    position:relative;
+    min-height:100vh;
+    background:#000;
+    overflow:hidden;
+  }
+
+  /* ✅ LIVE URL BACKGROUND (cannot steal clicks) */
+  #bgFrame{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    border:0;
+    display:block;
+    z-index:0;
+
+    /* THIS is the key: background can never eat taps */
+    pointer-events:none;
+  }
+
+  /* Optional dark veil above bg, below UI (also cannot steal clicks) */
+  #bgVeil{
+    position:fixed;
+    inset:0;
+    z-index:1;
+    background:rgba(0,0,0,.35);
+    pointer-events:none;
+  }
+
+  /* ===== Always-on Search Panel ===== */
+  #searchPanel{
+    position:fixed;
+    top:12px;
+    right:12px;
+    z-index:10000001;
+
+    width:min(92vw, 560px);
+    max-height:min(86vh, 820px);
+
+    border-radius:18px;
+    border:1px solid rgba(255,255,255,.16);
+    background:rgba(0,0,0,.78);
+    box-shadow:0 22px 70px rgba(0,0,0,.65);
+    overflow:hidden;
+
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+
+    pointer-events:auto;
+  }
+
+  #spHead{
+    display:flex; align-items:center; gap:8px;
+    padding:12px 14px;
+    border-bottom:1px solid rgba(255,255,255,.10);
+  }
+  #spTitle{
+    margin:0;
+    font:900 12px/1 system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:rgba(233,255,50,.88);
+    flex:1;
+  }
+
+  .hbtn{
+    height:34px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.14);
+    background:rgba(255,255,255,.06);
+    color:#fff;
+    cursor:pointer;
+    font-size:12px;
+    font-weight:900;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    padding:0 10px;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+    user-select:none;
+  }
+  .hbtn.primary{
+    border-color:rgba(233,255,50,.32);
+    color:var(--acid);
+    background:rgba(233,255,50,.08);
+  }
+
+  #spSearchWrap{
+    padding:12px 14px;
+    border-bottom:1px solid rgba(255,255,255,.10);
+  }
+  #spSearch{
+    width:100%;
+    box-sizing:border-box;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.14);
+    background:rgba(0,0,0,.40);
+    color:#fff;
+    padding:11px 12px;
+    font-size:15px;
+    outline:none;
+  }
+  #spSearch::placeholder{color:rgba(255,255,255,.45);}
+
+  #spBody{
+    padding:10px 10px 12px;
+    overflow:auto;
+    max-height:calc(min(86vh, 820px) - 132px);
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .rHint{padding:10px 8px 2px;color:rgba(255,255,255,.55);font-size:12px;}
+  .rItem{
+    display:flex; align-items:center; gap:10px;
+    padding:12px 12px; margin:8px 4px 0;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(0,0,0,.30);
+    color:#fff;
+    cursor:pointer;
+    user-select:none;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+  }
+  .rTxt{display:flex;flex-direction:column;min-width:0;flex:1;}
+  .rT1{font-weight:900;font-size:14px;line-height:1.2;}
+  .rT2{font-size:11px;color:rgba(255,255,255,.55);margin-top:3px;}
+  .rBadge{
+    font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+    color:rgba(233,255,50,.92);
+    border:1px solid rgba(233,255,50,.22);
+    background:rgba(233,255,50,.06);
+    padding:6px 8px;
+    border-radius:999px;
+    white-space:nowrap;
+  }
+
+  /* ===== Preview Modal ===== */
+  #pvOverlay{
+    position:fixed;
+    inset:0;
+    z-index:10000002;
+    display:none;
+    background:rgba(0,0,0,.55);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+  }
+  #pvOverlay.on{display:block;}
+
+  #pvCard{
+    position:absolute;
+    left:50%; top:50%;
+    transform:translate(-50%,-50%);
+    width:min(94vw, 980px);
+    height:min(86vh, 740px);
+    border-radius:18px;
+    border:1px solid rgba(255,255,255,.16);
+    background:rgba(0,0,0,.82);
+    box-shadow:0 22px 80px rgba(0,0,0,.75);
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+  #pvTop{
+    padding:12px 14px;
+    border-bottom:1px solid rgba(255,255,255,.10);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  #pvTitle{
+    flex:1 1 auto;
+    min-width:220px;
+    color:#fff;
+    font-weight:900;
+    font-size:14px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  #pvMeta{color:rgba(255,255,255,.55);font-size:11px;margin-top:2px;}
+  #pvActions{display:flex;gap:8px;flex-wrap:wrap;}
+  #pvBody{position:relative;flex:1;min-height:0;}
+  #pvFrame{width:100%;height:100%;border:0;display:block;background:#000;}
+</style>
+
+<div id="hostWrap">
+  <!-- ✅ Live background URL -->
+  <iframe id="bgFrame" src="about:blank" loading="eager" allow="fullscreen; autoplay"></iframe>
+  <div id="bgVeil"></div>
+
+  <!-- Always-open panel -->
+  <div id="searchPanel" role="region" aria-label="Smart Search">
+    <div id="spHead">
+      <div id="spTitle">Search</div>
+      <button class="hbtn primary" id="spRandom" type="button">Random</button>
+    </div>
+
+    <div id="spSearchWrap">
+      <input id="spSearch" type="text" placeholder="Type to search…" autocomplete="off" />
+    </div>
+
+    <div id="spBody"></div>
+  </div>
+
+  <!-- Preview Modal -->
+  <div id="pvOverlay" aria-hidden="true">
+    <div id="pvCard" role="dialog" aria-modal="true" aria-label="Preview">
+      <div id="pvTop">
+        <div style="min-width:0;flex:1 1 auto;">
+          <div id="pvTitle">Preview</div>
+          <div id="pvMeta"></div>
+        </div>
+        <div id="pvActions">
+          <button class="hbtn primary" id="pvOpen" type="button">Open</button>
+          <button class="hbtn" id="pvNext" type="button">Next</button>
+          <button class="hbtn" id="pvSimilar" type="button">Similar</button>
+          <button class="hbtn" id="pvDifferent" type="button">Different</button>
+          <button class="hbtn" id="pvClose" type="button">Close</button>
+        </div>
+      </div>
+      <div id="pvBody">
+        <iframe id="pvFrame" src="about:blank" loading="eager" allow="fullscreen; autoplay"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  /* ✅ SET YOUR LIVE BACKGROUND URL HERE */
+  const BG_URL = "https://jeff-gompertz.github.io/CUseeme/s_6cards_video_wpmedia_multiFilter.html";
+
+  /* ==========================================
+     DEMOS (YOUR DATABASE)
+  =========================================== */
+const DEMOS = [
+  {
+    group:"CUSeeMe",
+    title:"6Cards — WP Media MultiFilter",
+    note:"video cards from WP media query",
+    badge:"video",
+    url:"https://jeff-gompertz.github.io/CUseeme/s_6cards_video_wpmedia_multiFilter.html",
+    tags:["canvas","cards","wp-media","filter"],
+    aliases:["6cards","multi filter","multifilter","wp media","media filter"]
+  },
+  {
+    group:"GAN / Tools",
+    title:"GAN Sandbox (WordPress)",
+    note:"runs on your domain",
+    badge:"wp",
+    url:"https://art.jeffgompertz.site/gan/",
+    tags:["gan","tool","residue"],
+    aliases:["gan","sandbox","emulator","residue"]
+  },
+
+  /* Index Archives */
+  {
+    group:"CUSeeMe / Index Archives",
+    title:"Index (off ov24)",
+    note:"saved landing variant",
+    badge:"archive",
+    url:"https://jeff-gompertz.github.io/CUseeme/index(offNov24).html",
+    tags:["index","archive","off"],
+    aliases:["off ov24","index off ov24","ov24"]
+  },
+  {
+    group:"CUSeeMe / Index Archives",
+    title:"Index (off Nov 15)",
+    note:"saved landing variant",
+    badge:"archive",
+    url:"https://jeff-gompertz.github.io/CUseeme/index(offNov15).html",
+    tags:["index","archive","off","nov15"],
+    aliases:["off nov15","index off nov 15","nov 15"]
+  },
+  {
+    group:"CUSeeMe / Index Archives",
+    title:"Index (off Nov 21)",
+    note:"saved landing variant",
+    badge:"archive",
+    url:"https://jeff-gompertz.github.io/CUseeme/index(offNov21).html",
+    tags:["index","archive","off","nov21"],
+    aliases:["off nov21","index off nov 21","nov 21"]
+  },
+
+  /* Video Template */
+  {
+    group:"CUSeeMe / Video Template",
+    title:"Touch Inject — v1",
+    note:"test_run_inject_touch.html",
+    badge:"video",
+    url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch.html",
+    tags:["video","template","touch","inject","v1"],
+    aliases:["touch inject","inject touch","template touch","v1"]
+  },
+  {
+    group:"CUSeeMe / Video Template",
+    title:"Touch Inject — v1 (No Text)",
+    note:"test_run_inject_touchNOTEXT.html",
+    badge:"video",
+    url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touchNOTEXT.html",
+    tags:["video","template","touch","inject","notext","v1"],
+    aliases:["touch inject notext","no text","v1 notext"]
+  },
+  {
+    group:"CUSeeMe / Video Template",
+    title:"Touch Inject — v2",
+    note:"test_run_inject_touch2.html",
+    badge:"video",
+    url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch2.html",
+    tags:["video","template","touch","inject","v2"],
+    aliases:["touch inject 2","v2","template v2"]
+  },
+  {
+    group:"CUSeeMe / Video Template",
+    title:"Touch Inject — v2 (No Text)",
+    note:"test_run_inject_touch2NOTEXT.html",
+    badge:"video",
+    url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch2NOTEXT.html",
+    tags:["video","template","touch","inject","v2","notext"],
+    aliases:["touch inject 2 notext","v2 notext","no text v2"]
+  },
+  {
+    group:"CUSeeMe / Video Template",
+    title:"Touch Inject — v3",
+    note:"test_run_inject_touch3.html",
+    badge:"video",
+    url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch3.html",
+    tags:["video","template","touch","inject","v3"],
+    aliases:["touch inject 3","v3","template v3"]
+  },
+  {
+    group:"CUSeeMe / Video Template",
+    title:"Touch Inject — v7",
+    note:"test_run_inject_touch7.html",
+    badge:"video",
+    url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch7.html",
+    tags:["video","template","touch","inject","v7"],
+    aliases:["touch inject 7","v7","template v7"]
+  },
+  {
+    group:"CUSeeMe / Video Template",
+    title:"Touch Inject — v7 (Button Start)",
+    note:"test_run_inject_touch7BUTTON.html",
+    badge:"video",
+    url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch7BUTTON.html",
+    tags:["video","template","touch","inject","v7","button"],
+    aliases:["touch inject 7 button","button start","v7 button"]
+  },
+  {
+    group:"CUSeeMe / Video Template",
+    title:"Touch Inject — v7 (No Text)",
+    note:"test_run_inject_touch7NOTEXT.html",
+    badge:"video",
+    url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch7NOTEXT.html",
+    tags:["video","template","touch","inject","v7","notext"],
+    aliases:["touch inject 7 notext","v7 notext","no text v7"]
+  },
+  {
+    group:"CUSeeMe / Video Template",
+    title:"Touch Inject — v8",
+    note:"test_run_inject_touch8.html",
+    badge:"video",
+    url:"https://jeff-gompertz.github.io/CUseeme/videotemplate/test_run_inject_touch8.html",
+    tags:["video","template","touch","inject","v8"],
+    aliases:["touch inject 8","v8","template v8"]
+  },
+
+  /* Centerpush / AutoHUD */
+  {
+    group:"Centerpush / AutoHUD",
+    title:"Centerpush — Auto HUD Zoom",
+    note:"main auto HUD zoom build",
+    badge:"hud",
+    url:"https://jeff-gompertz.github.io/CUseeme/c_centerpush_AutoHUDzoom.html",
+    tags:["centerpush","hud","zoom","auto"],
+    aliases:["centerpush auto","hud zoom","autohud"]
+  },
+  {
+    group:"Centerpush / AutoHUD",
+    title:"Centerpush — Auto HUD Adaptive",
+    note:"adaptive HUD variant",
+    badge:"hud",
+    url:"https://jeff-gompertz.github.io/CUseeme/c_centerpush__AutoHUD_adaptive.html",
+    tags:["centerpush","hud","adaptive"],
+    aliases:["adaptive hud","centerpush adaptive"]
+  },
+  {
+    group:"Centerpush / AutoHUD",
+    title:"Centerpush — Copy Auto HUD Zoom",
+    note:"copy variant",
+    badge:"hud",
+    url:"https://jeff-gompertz.github.io/CUseeme/c_COPYcenterpush_AutoHUDzoom.html",
+    tags:["centerpush","hud","copy"],
+    aliases:["copy autohud"]
+  },
+  {
+    group:"Centerpush / AutoHUD",
+    title:"Centerpush — Copy2 Auto HUD Zoom",
+    note:"secondary copy variant",
+    badge:"hud",
+    url:"https://jeff-gompertz.github.io/CUseeme/c_COPY2centerpush_AutoHUDzoom.html",
+    tags:["centerpush","hud","copy"],
+    aliases:["copy2 autohud"]
+  },
+  {
+    group:"Centerpush / AutoHUD",
+    title:"Centerpush — Compositor Lite",
+    note:"lightweight compositor build",
+    badge:"hud",
+    url:"https://jeff-gompertz.github.io/CUseeme/c_centerpush_CompositorLite.html",
+    tags:["centerpush","compositor","hud"],
+    aliases:["compositor lite"]
+  },
+  {
+    group:"Centerpush / AutoHUD",
+    title:"Centerpush — Load Random 2",
+    note:"random loader variant",
+    badge:"hud",
+    url:"https://jeff-gompertz.github.io/CUseeme/c_centerpush_loadrandom2.html",
+    tags:["centerpush","random","hud"],
+    aliases:["load random"]
+  },
+
+  /* Multi Window */
+
+  {
+    group:"Multi Window",
+    title:"Combine Layers 1",
+    note:"layer compositing test",
+    badge:"multi",
+    url:"https://jeff-gompertz.github.io/CUseeme/combine_layers1.html",
+    tags:["layers","combine","compositor"],
+    aliases:["combine layers"]
+  },
+
+  /* Vertical Panels */
+  {
+    group:"Vertical Panels",
+    title:"InPlace Dissolve Vertical Panels",
+    note:"vertical panel dissolve layout",
+    badge:"panel",
+    url:"https://jeff-gompertz.github.io/CUseeme/InPlaceDissolve_VerticalPanels.html",
+    tags:["vertical","panels","dissolve"],
+    aliases:["vertical dissolve"]
+  },
+  {
+    group:"Vertical Panels",
+    title:"6Cards Vertical Panel Fade Next",
+    note:"6 card vertical fade layout",
+    badge:"panel",
+    url:"https://jeff-gompertz.github.io/CUseeme/s_6cards_VerticalPanelLayout_FadeNext.html",
+    tags:["6cards","vertical","panel"],
+    aliases:["6cards vertical"]
+  },
+  {
+    group:"Vertical Panels",
+    title:"6Cards WP Media Keyword JSON v2",
+    note:"keyword json feed variant",
+    badge:"video",
+    url:"https://jeff-gompertz.github.io/CUseeme/s_6cards_video_WPmediaKeyword2_Json.html",
+    tags:["6cards","wpmedia","json"],
+    aliases:["wpmedia json2"]
+  },
+  {
+    group:"Vertical Panels",
+    title:"6Cards WP Media JSON",
+    note:"standard wpmedia json build",
+    badge:"video",
+    url:"https://jeff-gompertz.github.io/CUseeme/s_6cards_video_wpmedia_Json.html",
+    tags:["6cards","wpmedia","json"],
+    aliases:["wpmedia json"]
+  },
+  {
+    group:"Vertical Panels",
+    title:"6Cards WP Media Keyword JSON",
+    note:"keyword filter build",
+    badge:"video",
+    url:"https://jeff-gompertz.github.io/CUseeme/s_6cards_video_WPmediaKeyword_Json.htm",
+    tags:["6cards","wpmedia","keyword"],
+    aliases:["wpmedia keyword"]
+  },
+
+  /* Modular */
+  {
+    group:"CUSeeMe Modular",
+    title:"Modular Hybrid Voice Archival",
+    note:"voice + modular hybrid",
+    badge:"modular",
+    url:"https://jeff-gompertz.github.io/CUseeme/cuseeme_modular_v1.2_hybrid_voice_archival.html",
+    tags:["modular","voice","hybrid"],
+    aliases:["hybrid voice"]
+  },
+  {
+    group:"CUSeeMe Modular",
+    title:"Modular WP Feed",
+    note:"wp feed modular build",
+    badge:"modular",
+    url:"https://jeff-gompertz.github.io/CUseeme/cuseeme_modular_v1.1_wpfeed.html",
+    tags:["modular","wpfeed"],
+    aliases:["wp feed"]
+  },
+  {
+    group:"CUSeeMe Modular",
+    title:"Modular Baseline v1",
+    note:"baseline modular system",
+    badge:"modular",
+    url:"https://jeff-gompertz.github.io/CUseeme/modular_baseline_v1.html",
+    tags:["modular","baseline"],
+    aliases:["modular base"]
+  },
+
+  /* Core / Emulation */
+  {
+    group:"CUSeeMe Core",
+    title:"CUSeeMe Camera Audio Stable",
+    note:"camera + audio stable build",
+    badge:"core",
+    url:"https://jeff-gompertz.github.io/CUseeme/a_cuseeme_v1.7.2_camera_audio_stable.html",
+    tags:["camera","audio","stable"],
+    aliases:["camera audio"]
+  },
+  {
+    group:"CUSeeMe Core",
+    title:"CUSeeMe Synthetic Response",
+    note:"synthetic response engine",
+    badge:"core",
+    url:"https://jeff-gompertz.github.io/CUseeme/cuseeme_v1.7_synthetic_response.html",
+    tags:["synthetic","response"],
+    aliases:["synthetic"]
+  },
+  {
+    group:"CUSeeMe Core",
+    title:"CUSeeMe Ticker Fusion",
+    note:"ticker fusion system",
+    badge:"core",
+    url:"https://jeff-gompertz.github.io/CUseeme/a_cuseeme_v1.6_tickerfusion.html",
+    tags:["ticker","fusion"],
+    aliases:["ticker fusion"]
+  },
+  {
+    group:"CUSeeMe Emulation",
+    title:"CUSeeMe Emulation System Scroll",
+    note:"system scroll emulation",
+    badge:"emu",
+    url:"https://jeff-gompertz.github.io/CUseeme/cuseeme_emulation_v1.4_systemscroll.html",
+    tags:["emulation","scroll"],
+    aliases:["system scroll"]
+  },
+  {
+    group:"CUSeeMe Emulation",
+    title:"CUSeeMe Emulation Refined",
+    note:"refined emulation build",
+    badge:"emu",
+    url:"https://jeff-gompertz.github.io/CUseeme/cuseeme_emulation_v1.1_refined.html",
+    tags:["emulation","refined"],
+    aliases:["emulation refined"]
+  },
+  {
+    group:"CUSeeMe Emulation",
+    title:"CUSeeMe Emulation v1",
+    note:"baseline emulation",
+    badge:"emu",
+    url:"https://jeff-gompertz.github.io/CUseeme/cuseeme_emulation_v1.html",
+    tags:["emulation","baseline"],
+    aliases:["emulation v1"]
+  },
+
+  /* Canvas / Video */
+  {
+    group:"Canvas / Video",
+    title:"Vimeo Vertical Canvas",
+    note:"vertical video canvas test",
+    badge:"canvas",
+    url:"https://jeff-gompertz.github.io/CUseeme/a_vimeo_vertical_canvas.html",
+    tags:["canvas","vimeo","vertical"],
+    aliases:["vimeo canvas"]
+  },
+  {
+    group:"Canvas / Video",
+    title:"Canvas Video Cover Proxy",
+    note:"video proxy overlay system",
+    badge:"canvas",
+    url:"https://jeff-gompertz.github.io/CUseeme/a_canvas_video_cover_proxy.html",
+    tags:["canvas","proxy","video"],
+    aliases:["video proxy"]
+  },
+
+  /* Database Recursion */
+  {
+    group:"Database Recursion",
+    title:"Database Recursion — Hybrid 1",
+    note:"hybrid build (v1)",
+    badge:"db",
+    url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_hybrid1.html",
+    tags:["database","recursion","hybrid"],
+    aliases:["db recursion hybrid 1","hybrid1","database_recursion_hybrid1"]
+  },
+  {
+    group:"Database Recursion",
+    title:"Database Recursion — Hybrid 2",
+    note:"hybrid build (v2)",
+    badge:"db",
+    url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_hybrid2.html",
+    tags:["database","recursion","hybrid"],
+    aliases:["db recursion hybrid 2","hybrid2","database_recursion_hybrid2"]
+  },
+  {
+    group:"Database Recursion",
+    title:"Database Recursion — Aesthetic",
+    note:"aesthetic pass (v1)",
+    badge:"db",
+    url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_aesthetic.html",
+    tags:["database","recursion","aesthetic"],
+    aliases:["db recursion aesthetic","aesthetic1","database_recursion_aesthetic"]
+  },
+  {
+    group:"Database Recursion",
+    title:"Database Recursion — Aesthetic v2",
+    note:"aesthetic pass (v2)",
+    badge:"db",
+    url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_aesthetic_v2.html",
+    tags:["database","recursion","aesthetic"],
+    aliases:["aesthetic v2","aesthetic2","database_recursion_aesthetic_v2"]
+  },
+  {
+    group:"Database Recursion",
+    title:"Database Recursion — Aesthetic v3",
+    note:"aesthetic pass (v3)",
+    badge:"db",
+    url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_aesthetic_v3.html",
+    tags:["database","recursion","aesthetic"],
+    aliases:["aesthetic v3","aesthetic3","database_recursion_aesthetic_v3"]
+  },
+  {
+    group:"Database Recursion",
+    title:"Database Recursion — Aesthetic v4",
+    note:"aesthetic pass (v4)",
+    badge:"db",
+    url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_aesthetic_v4.html",
+    tags:["database","recursion","aesthetic"],
+    aliases:["aesthetic v4","aesthetic4","database_recursion_aesthetic_v4"]
+  },
+  {
+    group:"Database Recursion",
+    title:"Database Recursion — Text Layer",
+    note:"text layer variant",
+    badge:"txt",
+    url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_textlayer.html",
+    tags:["database","recursion","text"],
+    aliases:["text layer","textlayer","database_recursion_textlayer"]
+  },
+  {
+    group:"Database Recursion",
+    title:"Database Recursion — Text Layer (Fix)",
+    note:"text layer fix",
+    badge:"txt",
+    url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_textlayer_fix.html",
+    tags:["database","recursion","text","fix"],
+    aliases:["text layer fix","textlayer fix","database_recursion_textlayer_fix"]
+  },
+  {
+    group:"Database Recursion",
+    title:"Database Recursion — Text Synced",
+    note:"synced text variant",
+    badge:"txt",
+    url:"https://jeff-gompertz.github.io/CUseeme/database_recursion_textsynced.html",
+    tags:["database","recursion","text","synced"],
+    aliases:["text synced","textsynced","database_recursion_textsynced"]
+  },
+
+  /* Thumbnail Recursion */
+  {
+    group:"Thumbnail Recursion",
+    title:"Thumbnail Recursion 1",
+    note:"thumb recursion study (1)",
+    badge:"thumb",
+    url:"https://jeff-gompertz.github.io/CUseeme/thumbnail_recursion1.html",
+    tags:["thumbnail","recursion"],
+    aliases:["thumb1","thumbnail recursion 1","thumbnail_recursion1"]
+  },
+  {
+    group:"Thumbnail Recursion",
+    title:"Thumbnail Recursion 2",
+    note:"thumb recursion study (2)",
+    badge:"thumb",
+    url:"https://jeff-gompertz.github.io/CUseeme/thumbnail_recursion2.html",
+    tags:["thumbnail","recursion"],
+    aliases:["thumb2","thumbnail recursion 2","thumbnail_recursion2"]
+  },
+  {
+    group:"Thumbnail Recursion",
+    title:"Thumbnail Recursion 3",
+    note:"thumb recursion study (3)",
+    badge:"thumb",
+    url:"https://jeff-gompertz.github.io/CUseeme/thumbnail_recursion3.html",
+    tags:["thumbnail","recursion"],
+    aliases:["thumb3","thumbnail recursion 3","thumbnail_recursion3"]
+  },
+  {
+    group:"Thumbnail Recursion",
+    title:"Thumbnail Recursion 5",
+    note:"thumb recursion study (5)",
+    badge:"thumb",
+    url:"https://jeff-gompertz.github.io/CUseeme/thumbnail_recursion5.html",
+    tags:["thumbnail","recursion"],
+    aliases:["thumb5","thumbnail recursion 5","thumbnail_recursion5"]
+  },
+
+  /* Feedback / Trails */
+  {
+    group:"Feedback + Trails",
+    title:"Trail Test",
+    note:"trail persistence test",
+    badge:"trail",
+    url:"https://jeff-gompertz.github.io/CUseeme/trailtest.html",
+    tags:["trail","feedback","canvas"],
+    aliases:["trailtest","trail test"]
+  },
+
+  /* Baselines */
+  {
+    group:"Baselines",
+    title:"Baseline",
+    note:"baseline build (1)",
+    badge:"base",
+    url:"https://jeff-gompertz.github.io/CUseeme/baseline.html",
+    tags:["baseline"],
+    aliases:["baseline1","baseline"]
+  },
+  {
+    group:"Baselines (Touch)",
+    title:"Baseline Touch 3",
+    note:"touch baseline (3)",
+    badge:"touch",
+    url:"https://jeff-gompertz.github.io/CUseeme/baseline_touch3.html",
+    tags:["baseline","touch"],
+    aliases:["touch3","baseline touch 3","baseline_touch3"]
+  },
+  {
+    group:"Baselines (Touch)",
+    title:"Baseline Touch 4",
+    note:"touch baseline (4)",
+    badge:"touch",
+    url:"https://jeff-gompertz.github.io/CUseeme/baseline_touch4.html",
+    tags:["baseline","touch"],
+    aliases:["touch4","baseline touch 4","baseline_touch4"]
+  }
+];
+
+  const $ = (id)=>document.getElementById(id);
+
+  /* Background */
+  const bgFrame = $("bgFrame");
+  if(bgFrame && BG_URL) bgFrame.src = BG_URL;
+
+  function norm(s){
+    return (s||"").toLowerCase().replace(/&amp;/g,"&").replace(/[^a-z0-9]+/g," ").trim();
+  }
+  function hayFor(d){
+    return norm([d.group,d.title,d.note,d.badge,...(d.tags||[]),...(d.aliases||[])].join(" "));
+  }
+  function scoreMatch(hay, q){
+    if(!q) return -9999;
+    const words = hay.split(" ");
+    for(const w of words){
+      if(w.startsWith(q)) return 120 - (w.length - q.length);
+    }
+    const pos = hay.indexOf(q);
+    if(pos !== -1) return 80 - pos;
+    return -9999;
+  }
+
+  /* Tap handler: click + pointerup, plus a safe touchend fallback for older Android */
+  function onTap(el, fn){
+    if(!el) return;
+    const h = (e)=>{ e.preventDefault(); e.stopPropagation(); fn(e); };
+    el.addEventListener("click", h, true);
+    el.addEventListener("pointerup", h, true);
+    el.addEventListener("touchend", h, { capture:true, passive:false });
+  }
+
+  /* True random: shuffle-bag */
+  let bag = [], bagPos = 0, lastUrl = null;
+  function shuffleInPlace(arr){
+    for(let i=arr.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]] = [arr[j],arr[i]];
+    }
+  }
+  function refillBag(){
+    bag = DEMOS.slice();
+    shuffleInPlace(bag);
+    if(lastUrl && bag.length>1 && bag[0].url === lastUrl){
+      const k = 1 + Math.floor(Math.random()*(bag.length-1));
+      [bag[0], bag[k]] = [bag[k], bag[0]];
+    }
+    bagPos = 0;
+  }
+  function nextFromBag(){
+    if(!bag.length || bagPos>=bag.length) refillBag();
+    const d = bag[bagPos++];
+    if(d && d.url) lastUrl = d.url;
+    return d;
+  }
+
+  /* Similar / Different */
+  function overlapCount(a, b){
+    const aTags = new Set([...(a.tags||[]), ...(a.aliases||[]), norm(a.group||"")].map(norm).filter(Boolean));
+    const bTags = new Set([...(b.tags||[]), ...(b.aliases||[]), norm(b.group||"")].map(norm).filter(Boolean));
+    let c = 0;
+    for(const t of aTags){ if(bTags.has(t)) c++; }
+    return c;
+  }
+  function pickSimilar(base){
+    if(!base) return null;
+    const cand = DEMOS.filter(d => d.url && d.url !== base.url).map(d => ({ d, s: 0 }));
+    cand.forEach(x => {
+      const sameGroup = (norm(x.d.group) && norm(x.d.group) === norm(base.group)) ? 3 : 0;
+      const ov = overlapCount(base, x.d);
+      x.s = (ov * 10) + (sameGroup * 10);
+    });
+    cand.sort((a,b)=> b.s - a.s);
+    const top = cand.length ? cand[0].s : -1;
+    const band = cand.filter(x => x.s === top).slice(0, 16);
+    return band.length ? band[Math.floor(Math.random()*band.length)].d : null;
+  }
+  function pickDifferent(base){
+    if(!base) return nextFromBag();
+    const cand = DEMOS.filter(d => d.url && d.url !== base.url).map(d => ({ d, s: 0 }));
+    cand.forEach(x => {
+      const sameGroupPenalty = (norm(x.d.group) && norm(x.d.group) === norm(base.group)) ? 50 : 0;
+      const ov = overlapCount(base, x.d);
+      x.s = ov + sameGroupPenalty;
+    });
+    cand.sort((a,b)=> a.s - b.s);
+    const low = cand.length ? cand[0].s : 9999;
+    const band = cand.filter(x => x.s === low).slice(0, 18);
+    return band.length ? band[Math.floor(Math.random()*band.length)].d : null;
+  }
+
+  /* DOM */
+  const spBody = $("spBody");
+  const spSearch = $("spSearch");
+  const spRandom = $("spRandom");
+
+  const pvOverlay = $("pvOverlay");
+  const pvFrame = $("pvFrame");
+  const pvTitle = $("pvTitle");
+  const pvMeta = $("pvMeta");
+  const pvOpen = $("pvOpen");
+  const pvNext = $("pvNext");
+  const pvSimilar = $("pvSimilar");
+  const pvDifferent = $("pvDifferent");
+  const pvClose = $("pvClose");
+
+  if(!spBody || !spSearch || !spRandom || !pvOverlay || !pvFrame){
+    console.warn("SmartSearch: missing DOM nodes");
+    return;
+  }
+
+  let pendingDemo = null;
+
+  function openPreview(d){
+    if(!d || !d.url) return;
+    pendingDemo = d;
+    pvTitle.textContent = d.title || "Preview";
+    pvMeta.textContent  = (d.group ? d.group + " • " : "") + (d.note || "");
+    pvFrame.src = d.url;
+    pvOverlay.classList.add("on");
+    pvOverlay.setAttribute("aria-hidden","false");
+  }
+  function closePreview(){
+    pvOverlay.classList.remove("on");
+    pvOverlay.setAttribute("aria-hidden","true");
+    pvFrame.src = "about:blank";
+    pendingDemo = null;
+  }
+
+  function makeRow(d){
+    const row = document.createElement("div");
+    row.className = "rItem";
+    const txt = document.createElement("div");
+    txt.className = "rTxt";
+    const t1 = document.createElement("div");
+    t1.className = "rT1";
+    t1.textContent = d.title || "Untitled";
+    const t2 = document.createElement("div");
+    t2.className = "rT2";
+    t2.textContent = (d.group ? `${d.group} • ` : "") + (d.note || "");
+    txt.appendChild(t1);
+    txt.appendChild(t2);
+    row.appendChild(txt);
+
+    if(d.badge){
+      const b = document.createElement("div");
+      b.className = "rBadge";
+      b.textContent = d.badge;
+      row.appendChild(b);
+    }
+    onTap(row, ()=>openPreview(d));
+    return row;
+  }
+
+  function render(){
+    spBody.innerHTML = "";
+    const q = norm(spSearch.value);
+
+    if(!q){
+      const h = document.createElement("div");
+      h.className = "rHint";
+      h.textContent = "Type to search (shows top match).";
+      spBody.appendChild(h);
+      return;
+    }
+
+    const ranked = DEMOS
+      .map(d => ({ d, s: scoreMatch(hayFor(d), q) }))
+      .filter(x => x.s > -999)
+      .sort((a,b)=> b.s - a.s)
+      .slice(0, 1)
+      .map(x => x.d);
+
+    const h = document.createElement("div");
+    h.className = "rHint";
+    h.textContent = ranked.length ? "Top match" : "No matches";
+    spBody.appendChild(h);
+
+    if(ranked[0]) spBody.appendChild(makeRow(ranked[0]));
+  }
+
+  function actionRandom(){ openPreview(nextFromBag()); }
+  function actionNext(){ openPreview(nextFromBag()); }
+  function actionSimilar(){
+    const anchor = pendingDemo || DEMOS.find(d => d.url === (pvFrame?.src || "")) || DEMOS[0] || null;
+    openPreview(pickSimilar(anchor) || nextFromBag());
+  }
+  function actionDifferent(){
+    const anchor = pendingDemo || DEMOS.find(d => d.url === (pvFrame?.src || "")) || DEMOS[0] || null;
+    openPreview(pickDifferent(anchor) || nextFromBag());
+  }
+
+  spSearch.addEventListener("input", render);
+
+  onTap(spRandom, actionRandom);
+  onTap(pvClose, closePreview);
+  onTap(pvNext, actionNext);
+  onTap(pvSimilar, actionSimilar);
+  onTap(pvDifferent, actionDifferent);
+
+  onTap(pvOpen, ()=>{ closePreview(); });
+
+  pvOverlay.addEventListener("click", (e)=>{ if(e.target === pvOverlay) closePreview(); }, true);
+
+  refillBag();
+  render();
+
+  console.log("SmartSearch: JS booted ✅");
+})();
+</script>
