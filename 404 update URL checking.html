@@ -466,35 +466,7 @@ const DEMOS = [
     tags:["6cards","vertical","panel"],
     aliases:["6cards vertical"]
   },
-  /* Modular */
-  {
-    group:"CUSeeMe Modular",
-    title:"Modular Hybrid Voice Archival",
-    note:"voice + modular hybrid",
-    badge:"modular",
-    url:"https://jeff-gompertz.github.io/CUseeme/cuseeme_modular_v1.2_hybrid_voice_archival.html",
-    tags:["modular","voice","hybrid"],
-    aliases:["hybrid voice"]
-  },
-  {
-    group:"CUSeeMe Modular",
-    title:"Modular WP Feed",
-    note:"wp feed modular build",
-    badge:"modular",
-    url:"https://jeff-gompertz.github.io/CUseeme/cuseeme_modular_v1.1_wpfeed.html",
-    tags:["modular","wpfeed"],
-    aliases:["wp feed"]
-  },
-  {
-    group:"CUSeeMe Modular",
-    title:"Modular Baseline v1",
-    note:"baseline modular system",
-    badge:"modular",
-    url:"https://jeff-gompertz.github.io/CUseeme/modular_baseline_v1.html",
-    tags:["modular","baseline"],
-    aliases:["modular base"]
-  },
-  
+
   /* Database Recursion */
   {
     group:"Database Recursion",
@@ -656,214 +628,215 @@ const DEMOS = [
     aliases:["touch4","baseline touch 4","baseline_touch4"]
   }
 ];
+const $ = (id)=>document.getElementById(id);
 
-  const $ = (id)=>document.getElementById(id);
+/* Background */
+const bgFrame = $("bgFrame");
+if(bgFrame && BG_URL) bgFrame.src = BG_URL;
 
-  /* Background */
-  const bgFrame = $("bgFrame");
-  if(bgFrame && BG_URL) bgFrame.src = BG_URL;
+function norm(s){
+  return (s||"").toLowerCase().replace(/&amp;/g,"&").replace(/[^a-z0-9]+/g," ").trim();
+}
+function hayFor(d){
+  return norm([d.group,d.title,d.note,d.badge,...(d.tags||[]),...(d.aliases||[])].join(" "));
+}
+function scoreMatch(hay, q){
+  if(!q) return -9999;
+  const words = hay.split(" ");
+  for(const w of words){
+    if(w.startsWith(q)) return 120 - (w.length - q.length);
+  }
+  const pos = hay.indexOf(q);
+  if(pos !== -1) return 80 - pos;
+  return -9999;
+}
 
-  function norm(s){
-    return (s||"").toLowerCase().replace(/&amp;/g,"&").replace(/[^a-z0-9]+/g," ").trim();
-  }
-  function hayFor(d){
-    return norm([d.group,d.title,d.note,d.badge,...(d.tags||[]),...(d.aliases||[])].join(" "));
-  }
-  function scoreMatch(hay, q){
-    if(!q) return -9999;
-    const words = hay.split(" ");
-    for(const w of words){
-      if(w.startsWith(q)) return 120 - (w.length - q.length);
-    }
-    const pos = hay.indexOf(q);
-    if(pos !== -1) return 80 - pos;
-    return -9999;
-  }
+/* Tap handler: click + pointerup, plus a safe touchend fallback for older Android */
+function onTap(el, fn){
+  if(!el) return;
+  const h = (e)=>{ e.preventDefault(); e.stopPropagation(); fn(e); };
+  el.addEventListener("click", h, true);
+  el.addEventListener("pointerup", h, true);
+  el.addEventListener("touchend", h, { capture:true, passive:false });
+}
 
-  /* Tap handler: click + pointerup, plus a safe touchend fallback for older Android */
-  function onTap(el, fn){
-    if(!el) return;
-    const h = (e)=>{ e.preventDefault(); e.stopPropagation(); fn(e); };
-    el.addEventListener("click", h, true);
-    el.addEventListener("pointerup", h, true);
-    el.addEventListener("touchend", h, { capture:true, passive:false });
+/* True random: shuffle-bag */
+let bag = [], bagPos = 0, lastUrl = null;
+function shuffleInPlace(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
   }
+}
+function refillBag(){
+  bag = DEMOS.slice();
+  shuffleInPlace(bag);
+  if(lastUrl && bag.length>1 && bag[0].url === lastUrl){
+    const k = 1 + Math.floor(Math.random()*(bag.length-1));
+    [bag[0], bag[k]] = [bag[k], bag[0]];
+  }
+  bagPos = 0;
+}
+function nextFromBag(){
+  if(!bag.length || bagPos>=bag.length) refillBag();
+  const d = bag[bagPos++];
+  if(d && d.url) lastUrl = d.url;
+  return d;
+}
 
-  /* True random: shuffle-bag */
-  let bag = [], bagPos = 0, lastUrl = null;
-  function shuffleInPlace(arr){
-    for(let i=arr.length-1;i>0;i--){
-      const j = Math.floor(Math.random()*(i+1));
-      [arr[i],arr[j]] = [arr[j],arr[i]];
-    }
-  }
-  function refillBag(){
-    bag = DEMOS.slice();
-    shuffleInPlace(bag);
-    if(lastUrl && bag.length>1 && bag[0].url === lastUrl){
-      const k = 1 + Math.floor(Math.random()*(bag.length-1));
-      [bag[0], bag[k]] = [bag[k], bag[0]];
-    }
-    bagPos = 0;
-  }
-  function nextFromBag(){
-    if(!bag.length || bagPos>=bag.length) refillBag();
-    const d = bag[bagPos++];
-    if(d && d.url) lastUrl = d.url;
-    return d;
-  }
+/* Similar / Different */
+function overlapCount(a, b){
+  const aTags = new Set([...(a.tags||[]), ...(a.aliases||[]), norm(a.group||"")].map(norm).filter(Boolean));
+  const bTags = new Set([...(b.tags||[]), ...(b.aliases||[]), norm(b.group||"")].map(norm).filter(Boolean));
+  let c = 0;
+  for(const t of aTags){ if(bTags.has(t)) c++; }
+  return c;
+}
+function pickSimilar(base){
+  if(!base) return null;
+  const cand = DEMOS.filter(d => d.url && d.url !== base.url).map(d => ({ d, s: 0 }));
+  cand.forEach(x => {
+    const sameGroup = (norm(x.d.group) && norm(x.d.group) === norm(base.group)) ? 3 : 0;
+    const ov = overlapCount(base, x.d);
+    x.s = (ov * 10) + (sameGroup * 10);
+  });
+  cand.sort((a,b)=> b.s - a.s);
+  const top = cand.length ? cand[0].s : -1;
+  const band = cand.filter(x => x.s === top).slice(0, 16);
+  return band.length ? band[Math.floor(Math.random()*band.length)].d : null;
+}
+function pickDifferent(base){
+  if(!base) return nextFromBag();
+  const cand = DEMOS.filter(d => d.url && d.url !== base.url).map(d => ({ d, s: 0 }));
+  cand.forEach(x => {
+    const sameGroupPenalty = (norm(x.d.group) && norm(x.d.group) === norm(base.group)) ? 50 : 0;
+    const ov = overlapCount(base, x.d);
+    x.s = ov + sameGroupPenalty;
+  });
+  cand.sort((a,b)=> a.s - b.s);
+  const low = cand.length ? cand[0].s : 9999;
+  const band = cand.filter(x => x.s === low).slice(0, 18);
+  return band.length ? band[Math.floor(Math.random()*band.length)].d : null;
+}
 
-  /* Similar / Different */
-  function overlapCount(a, b){
-    const aTags = new Set([...(a.tags||[]), ...(a.aliases||[]), norm(a.group||"")].map(norm).filter(Boolean));
-    const bTags = new Set([...(b.tags||[]), ...(b.aliases||[]), norm(b.group||"")].map(norm).filter(Boolean));
-    let c = 0;
-    for(const t of aTags){ if(bTags.has(t)) c++; }
-    return c;
-  }
-  function pickSimilar(base){
-    if(!base) return null;
-    const cand = DEMOS.filter(d => d.url && d.url !== base.url).map(d => ({ d, s: 0 }));
-    cand.forEach(x => {
-      const sameGroup = (norm(x.d.group) && norm(x.d.group) === norm(base.group)) ? 3 : 0;
-      const ov = overlapCount(base, x.d);
-      x.s = (ov * 10) + (sameGroup * 10);
-    });
-    cand.sort((a,b)=> b.s - a.s);
-    const top = cand.length ? cand[0].s : -1;
-    const band = cand.filter(x => x.s === top).slice(0, 16);
-    return band.length ? band[Math.floor(Math.random()*band.length)].d : null;
-  }
-  function pickDifferent(base){
-    if(!base) return nextFromBag();
-    const cand = DEMOS.filter(d => d.url && d.url !== base.url).map(d => ({ d, s: 0 }));
-    cand.forEach(x => {
-      const sameGroupPenalty = (norm(x.d.group) && norm(x.d.group) === norm(base.group)) ? 50 : 0;
-      const ov = overlapCount(base, x.d);
-      x.s = ov + sameGroupPenalty;
-    });
-    cand.sort((a,b)=> a.s - b.s);
-    const low = cand.length ? cand[0].s : 9999;
-    const band = cand.filter(x => x.s === low).slice(0, 18);
-    return band.length ? band[Math.floor(Math.random()*band.length)].d : null;
-  }
+/* DOM */
+const spBody = $("spBody");
+const spSearch = $("spSearch");
+const spRandom = $("spRandom");
 
-  /* DOM */
-  const spBody = $("spBody");
-  const spSearch = $("spSearch");
-  const spRandom = $("spRandom");
+const pvOverlay = $("pvOverlay");
+const pvFrame = $("pvFrame");
+const pvTitle = $("pvTitle");
+const pvMeta = $("pvMeta");
+const pvOpen = $("pvOpen");        // we will RELABEL this button to "Random" in the HTML
+const pvNext = $("pvNext");
+const pvSimilar = $("pvSimilar");
+const pvDifferent = $("pvDifferent");
+const pvClose = $("pvClose");
 
-  const pvOverlay = $("pvOverlay");
-  const pvFrame = $("pvFrame");
-  const pvTitle = $("pvTitle");
-  const pvMeta = $("pvMeta");
-  const pvOpen = $("pvOpen");
-  const pvNext = $("pvNext");
-  const pvSimilar = $("pvSimilar");
-  const pvDifferent = $("pvDifferent");
-  const pvClose = $("pvClose");
+if(!spBody || !spSearch || !spRandom || !pvOverlay || !pvFrame){
+  console.warn("SmartSearch: missing DOM nodes");
+  return;
+}
 
-  if(!spBody || !spSearch || !spRandom || !pvOverlay || !pvFrame){
-    console.warn("SmartSearch: missing DOM nodes");
+let pendingDemo = null;
+
+function openPreview(d){
+  if(!d || !d.url) return;
+  pendingDemo = d;
+  pvTitle.textContent = d.title || "Preview";
+  pvMeta.textContent  = (d.group ? d.group + " • " : "") + (d.note || "");
+  pvFrame.src = d.url;
+  pvOverlay.classList.add("on");
+  pvOverlay.setAttribute("aria-hidden","false");
+}
+function closePreview(){
+  pvOverlay.classList.remove("on");
+  pvOverlay.setAttribute("aria-hidden","true");
+  pvFrame.src = "about:blank";
+  pendingDemo = null;
+}
+
+function makeRow(d){
+  const row = document.createElement("div");
+  row.className = "rItem";
+  const txt = document.createElement("div");
+  txt.className = "rTxt";
+  const t1 = document.createElement("div");
+  t1.className = "rT1";
+  t1.textContent = d.title || "Untitled";
+  const t2 = document.createElement("div");
+  t2.className = "rT2";
+  t2.textContent = (d.group ? `${d.group} • ` : "") + (d.note || "");
+  txt.appendChild(t1);
+  txt.appendChild(t2);
+  row.appendChild(txt);
+
+  if(d.badge){
+    const b = document.createElement("div");
+    b.className = "rBadge";
+    b.textContent = d.badge;
+    row.appendChild(b);
+  }
+  onTap(row, ()=>openPreview(d));
+  return row;
+}
+
+function render(){
+  spBody.innerHTML = "";
+  const q = norm(spSearch.value);
+
+  if(!q){
+    const h = document.createElement("div");
+    h.className = "rHint";
+    h.textContent = "Type to search (shows top match).";
+    spBody.appendChild(h);
     return;
   }
 
-  let pendingDemo = null;
+  const ranked = DEMOS
+    .map(d => ({ d, s: scoreMatch(hayFor(d), q) }))
+    .filter(x => x.s > -999)
+    .sort((a,b)=> b.s - a.s)
+    .slice(0, 1)
+    .map(x => x.d);
 
-  function openPreview(d){
-    if(!d || !d.url) return;
-    pendingDemo = d;
-    pvTitle.textContent = d.title || "Preview";
-    pvMeta.textContent  = (d.group ? d.group + " • " : "") + (d.note || "");
-    pvFrame.src = d.url;
-    pvOverlay.classList.add("on");
-    pvOverlay.setAttribute("aria-hidden","false");
-  }
-  function closePreview(){
-    pvOverlay.classList.remove("on");
-    pvOverlay.setAttribute("aria-hidden","true");
-    pvFrame.src = "about:blank";
-    pendingDemo = null;
-  }
+  const h = document.createElement("div");
+  h.className = "rHint";
+  h.textContent = ranked.length ? "Top match" : "No matches";
+  spBody.appendChild(h);
 
-  function makeRow(d){
-    const row = document.createElement("div");
-    row.className = "rItem";
-    const txt = document.createElement("div");
-    txt.className = "rTxt";
-    const t1 = document.createElement("div");
-    t1.className = "rT1";
-    t1.textContent = d.title || "Untitled";
-    const t2 = document.createElement("div");
-    t2.className = "rT2";
-    t2.textContent = (d.group ? `${d.group} • ` : "") + (d.note || "");
-    txt.appendChild(t1);
-    txt.appendChild(t2);
-    row.appendChild(txt);
+  if(ranked[0]) spBody.appendChild(makeRow(ranked[0]));
+}
 
-    if(d.badge){
-      const b = document.createElement("div");
-      b.className = "rBadge";
-      b.textContent = d.badge;
-      row.appendChild(b);
-    }
-    onTap(row, ()=>openPreview(d));
-    return row;
-  }
+function actionRandom(){ openPreview(nextFromBag()); }
+function actionNext(){ openPreview(nextFromBag()); }
+function actionSimilar(){
+  const anchor = pendingDemo || DEMOS.find(d => d.url === (pvFrame?.src || "")) || DEMOS[0] || null;
+  openPreview(pickSimilar(anchor) || nextFromBag());
+}
+function actionDifferent(){
+  const anchor = pendingDemo || DEMOS.find(d => d.url === (pvFrame?.src || "")) || DEMOS[0] || null;
+  openPreview(pickDifferent(anchor) || nextFromBag());
+}
 
-  function render(){
-    spBody.innerHTML = "";
-    const q = norm(spSearch.value);
+spSearch.addEventListener("input", render);
 
-    if(!q){
-      const h = document.createElement("div");
-      h.className = "rHint";
-      h.textContent = "Type to search (shows top match).";
-      spBody.appendChild(h);
-      return;
-    }
+onTap(spRandom, actionRandom);
+onTap(pvClose, closePreview);
+onTap(pvNext, actionNext);
+onTap(pvSimilar, actionSimilar);
+onTap(pvDifferent, actionDifferent);
 
-    const ranked = DEMOS
-      .map(d => ({ d, s: scoreMatch(hayFor(d), q) }))
-      .filter(x => x.s > -999)
-      .sort((a,b)=> b.s - a.s)
-      .slice(0, 1)
-      .map(x => x.d);
+/* ✅ "Open" becomes "Random" in the modal: no new tabs, no leaving iframe hub */
+if(pvOpen) pvOpen.textContent = "Random";
+onTap(pvOpen, actionRandom);
 
-    const h = document.createElement("div");
-    h.className = "rHint";
-    h.textContent = ranked.length ? "Top match" : "No matches";
-    spBody.appendChild(h);
+pvOverlay.addEventListener("click", (e)=>{ if(e.target === pvOverlay) closePreview(); }, true);
 
-    if(ranked[0]) spBody.appendChild(makeRow(ranked[0]));
-  }
+refillBag();
+render();
 
-  function actionRandom(){ openPreview(nextFromBag()); }
-  function actionNext(){ openPreview(nextFromBag()); }
-  function actionSimilar(){
-    const anchor = pendingDemo || DEMOS.find(d => d.url === (pvFrame?.src || "")) || DEMOS[0] || null;
-    openPreview(pickSimilar(anchor) || nextFromBag());
-  }
-  function actionDifferent(){
-    const anchor = pendingDemo || DEMOS.find(d => d.url === (pvFrame?.src || "")) || DEMOS[0] || null;
-    openPreview(pickDifferent(anchor) || nextFromBag());
-  }
-
-  spSearch.addEventListener("input", render);
-
-  onTap(spRandom, actionRandom);
-  onTap(pvClose, closePreview);
-  onTap(pvNext, actionNext);
-  onTap(pvSimilar, actionSimilar);
-  onTap(pvDifferent, actionDifferent);
-
-  onTap(pvOpen, ()=>{ closePreview(); });
-
-  pvOverlay.addEventListener("click", (e)=>{ if(e.target === pvOverlay) closePreview(); }, true);
-
-  refillBag();
-  render();
-
-  console.log("SmartSearch: JS booted ✅");
+console.log("SmartSearch: JS booted ✅");
 })();
 </script>
