@@ -1,1 +1,509 @@
-placeholder
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CUSeeMe Modular v1.7 — Mode Shift Dynamic (fixed)</title>
+
+<style>
+:root {
+  --hud-glass: rgba(255, 225, 255, 0.18);
+  --hud-border-light: rgba(255, 255, 255, 0.35);
+  --hud-border-dark: rgba(0, 45, 90, 0.35);
+  --hud-shadow: 0 12px 45px rgba(0, 50, 90, 0.35);
+  --hud-text: #e6e6e6;
+  --btn-bg: rgba(40, 40, 40, 0.45);
+  --btn-inset-light: rgba(255,255,255,0.2);
+  --btn-inset-dark: rgba(0,0,0,0.4);
+  --btn-glow: rgba(255,120,50,0.7);
+  --btn-glow-outer: rgba(255,150,80,0.35);
+  --bg: #000000;
+  --ticker: #ff3a2f;
+
+  /* Single source-of-truth: change this to move the whole stack up/down */
+  --mini-landing-pad: 75px;
+  --mini-step: 30px;
+  --mini-base-start: 90px;
+  --mini-width: 160px;
+  --hud-compact-width: 260px;
+}
+
+html,body{
+  height:100%; margin:0;
+  background: var(--bg);
+  font-family: "VT323", ui-monospace, Menlo, Consolas, monospace;
+  color:#ddd;
+  overflow:visible;
+}
+
+/* HUD */
+#hudShell{
+  position:fixed;
+  top:24px; right:32px;
+  z-index:1000;
+  display:grid;
+  gap:14px;
+  padding:28px 26px 26px;
+  min-width:320px;
+  background:var(--hud-glass);
+  border-radius:20px;
+  border:1px solid var(--hud-border-light);
+  box-shadow:
+    inset 0 1px 3px var(--hud-border-light),
+    inset 0 -1px 3px var(--hud-border-dark),
+    var(--hud-shadow);
+  backdrop-filter:blur(20px) saturate(1.25);
+  -webkit-backdrop-filter:blur(20px) saturate(1.25);
+  color:var(--hud-text);
+  text-align:center;
+  transition:transform .25s ease, box-shadow .25s ease;
+}
+#hudShell:hover{ transform:translateY(-1px); }
+
+#hudHeader{ display:block; margin-bottom:10px; font-size:24px; color:#ccc; cursor:pointer; user-select:none; }
+#hudIndex{ position:absolute; top:6px; left:10px; font-size:12px; opacity:.55; }
+.hud-row{ display:flex; gap:12px; justify-content:space-between; }
+.hud-btn{
+  flex:1; font-family:"VT323", monospace; font-size:17px; color:#eee;
+  background:var(--btn-bg); border:none; border-radius:10px;
+  box-shadow: inset 1px 1px 2px var(--btn-inset-light), inset -1px -2px 3px var(--btn-inset-dark), 0 3px 6px rgba(0,0,0,0.4);
+  padding:10px 12px; cursor:pointer; transition:all .22s ease;
+}
+.hud-btn:hover{ transform:translateY(-1px); box-shadow:0 5px 12px rgba(0,0,0,0.6); }
+.hud-btn.active{ background:rgba(255,165,100,0.15); color:#ff6a2f; font-weight:600; box-shadow: inset 0 0 4px var(--btn-glow), 0 0 14px 3px var(--btn-glow-outer), 0 2px 8px rgba(0,0,0,0.2); }
+
+/* Panel opacity */
+.hud-panel { position: relative; opacity: 1; pointer-events: auto; transition: opacity .3s ease; }
+.hud-panel:not(.active) { opacity: 0.8; }
+
+/* Subtle HUD override */
+#hudShell { background: rgba(0,0,0,0.02) !important; border: 1px solid rgba(255,255,255,0.03) !important; box-shadow:none !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; }
+.hud-btn { background: rgba(255,255,255,0.03) !important; color:#eee !important; box-shadow:0 6px 18px rgba(0,0,0,0.25) !important; }
+.hud-btn.active { background: rgba(255,165,100,0.12) !important; box-shadow:0 12px 30px rgba(0,0,0,0.35) !important; }
+
+/* ========= EXISTING TICKER (bottom-left) ========= */
+#ticker{
+  position:fixed; left:16px; bottom:14px;
+  z-index:900;
+  width:45vw; max-width:700px; max-height:50vh;
+  display:flex; flex-direction:column-reverse;
+  overflow:hidden;
+  color:var(--ticker);
+  font-size:18px; line-height:1.25;
+}
+.tline{ opacity:.95; margin:0; animation:fadeIn .6s ease; }
+@keyframes fadeIn{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
+
+/* ========= NEW: DECORATIVE FULL-PAGE TICKER FIELD =========
+   - purely visual
+   - pointer-events:none so it never blocks taps/typing
+   - sits behind HUD/prompt, above video windows if you want
+*/
+#bgTicker{
+  position:fixed;
+  inset:0;
+  z-index: 350;           /* below miniWins (500) and prompt (800), above pure background */
+  pointer-events:none;
+  overflow:hidden;
+  opacity:.55;
+  mix-blend-mode: screen; /* nice glow-ish additive behavior; safe to remove */
+}
+
+#bgTicker::before{
+  content:"";
+  position:absolute; inset:0;
+  background:
+    radial-gradient(1100px 700px at 70% 15%,
+      rgba(255,58,47,.10),
+      rgba(0,0,0,0) 55%,
+      rgba(0,0,0,.38) 100%);
+}
+
+.bgTickerTrack{
+  position:absolute;
+  left: 14px;
+  right: 14px;
+  top: 0;
+  will-change: transform;
+  transform: translateY(0);
+  animation: bgTickerScroll 28s linear infinite;
+  font: 13px/1.55 ui-monospace, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: .06em;
+  color: rgba(255,58,47,.65);
+  text-shadow: 0 0 12px rgba(255,58,47,.18);
+  white-space: pre-wrap;
+  word-break: break-word;
+  filter: blur(0.0px);
+}
+
+@keyframes bgTickerScroll{
+  from { transform: translateY(0); }
+  to   { transform: translateY(-50%); } /* we duplicate content for seamless loop */
+}
+
+@media (prefers-reduced-motion: reduce){
+  .bgTickerTrack{ animation:none; opacity:.30; }
+}
+
+/* Mini windows */
+.miniWin{
+  position:absolute;
+  width:44vw; max-width:380px; aspect-ratio:9/12;
+  background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.25); border-radius:16px;
+  backdrop-filter:blur(12px); box-shadow: inset 0 1px 2px rgba(255,255,255,0.25), 0 18px 40px rgba(0,0,0,0.45);
+  overflow:hidden; cursor:grab; z-index:500;
+  transition: bottom .28s cubic-bezier(.2,.9,.3,1), transform .18s ease, opacity .18s ease;
+}
+.miniWin:active{ cursor:grabbing; }
+.miniBar{ display:flex; align-items:center; justify-content:space-between; padding:4px 10px; height:26px; background:rgba(255,255,255,0.08); font-size:12px; color:#ccc; user-select:none; touch-action:none; }
+.miniInner{ position:relative; width:100%; height:calc(100% - 26px); }
+.miniVideo{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
+
+/* Prompt */
+#promptWrap{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:800; }
+#promptBox{ pointer-events:auto; display:flex; gap:10px; align-items:center; padding:10px 16px; background:rgba(30,30,30,.55); border:1px solid rgba(255,255,255,.2); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.5); }
+#input{ background:transparent; border:none; outline:none; font:inherit; font-size:18px; color:#ddd; width:24ch; }
+#caret{ width:.5ch; height:1.2em; background:#ddd; animation:blink 1s step-end infinite; }
+@keyframes blink{ 50%{opacity:0} }
+
+/* Responsive - phone-only compact HUD (keeps miniWins visible) */
+@media (max-width: 520px) {
+  #hudShell { position: fixed; top:10px; right:10px; left:auto; z-index:1200; min-width:0 !important; width:var(--hud-compact-width); max-width:calc(100% - 20px); padding:10px 8px; display:block; border-radius:12px; background:rgba(0,0,0,0.02); border:1px solid rgba(255,255,255,0.03); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none; }
+  .hud-row{ display:flex; flex-direction:column; gap:8px; align-items:stretch; }
+  .hud-btn{ width:100%; box-sizing:border-box; font-size:clamp(13px,4.2vw,15px); padding:8px 10px; border-radius:10px; text-align:center; }
+  #hudHeader{ font-size:clamp(18px,6vw,22px); margin-bottom:8px; }
+  #promptBox{ margin-top:68px; width:calc(100% - 40px); max-width:560px; }
+  .miniWin{ position:fixed !important; right: calc(12px + var(--hud-compact-width)); bottom: calc(var(--mini-base-start) + var(--mini-landing-pad)); width: 44vw; max-width: 380px; height:auto !important; aspect-ratio:9/12; border-radius:10px !important; transform:none !important; opacity:0.98 !important; z-index:1300 !important; box-shadow:0 8px 18px rgba(0,0,0,0.3) !important; }
+  body .miniWin:nth-last-of-type(1){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad)); right: calc(12px + var(--hud-compact-width)); }
+  body .miniWin:nth-last-of-type(2){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + var(--mini-step)); right: calc(16px + var(--hud-compact-width)); transform:scale(0.98); opacity:0.95; }
+  body .miniWin:nth-last-of-type(3){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 2)); right: calc(20px + var(--hud-compact-width)); transform:scale(0.96); opacity:0.92; }
+  body .miniWin:nth-last-of-type(4){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 3)); right: calc(24px + var(--hud-compact-width)); transform:scale(0.94); opacity:0.90; }
+}
+
+/* Global stacking offsets (applies on all screens) */
+body .miniWin:nth-last-of-type(1){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad)); right:10px; }
+body .miniWin:nth-last-of-type(2){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step))); right:14px; transform:scale(0.98); opacity:0.95; }
+body .miniWin:nth-last-of-type(3){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 2)); right:18px; transform:scale(0.96); opacity:0.92; }
+body .miniWin:nth-last-of-type(4){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 3)); right:22px; transform:scale(0.94); opacity:0.90; }
+body .miniWin:nth-last-of-type(n+5){ bottom: calc(var(--mini-base-start) + var(--mini-landing-pad) + calc(var(--mini-step) * 4)); right:24px; transform:scale(0.92); opacity:0.88; }
+
+.miniWin .miniVideo{ width:100% !important; height:100% !important; object-fit:cover !important; }
+.miniWin{ transition: bottom .28s cubic-bezier(.2,.9,.3,1), transform .18s ease, opacity .18s ease; will-change: bottom, transform, opacity; }
+</style>
+</head>
+
+<body>
+
+<!-- [L0] MAIN CAMERA -->
+<video id="cameraMain" autoplay muted playsinline style="display:none; background:black;"></video>
+
+<!-- NEW: Decorative ticker field (purely visual, never steals taps) -->
+<div id="bgTicker" aria-hidden="true">
+  <div class="bgTickerTrack" id="bgTickerTrack"></div>
+</div>
+
+<!-- [L1] HUD WRAPPER -->
+<div id="hudWrapper">
+  <div id="hudIndex">HUD 1 / 2</div>
+  <div id="hudShell">
+    <div id="hudHeader"></div>
+    <div id="hud1" class="hud-panel active">
+      <div class="hud-row">
+        <button class="hud-btn" id="btnSpawn5">➕ Spawn 5</button>
+        <button class="hud-btn" id="btnReverseCam">🔁 Reverse Cam</button>
+      </div>
+      <div class="hud-row">
+        <button class="hud-btn" id="btnVoice">🔊 Voice</button>
+        <button class="hud-btn" id="btnCloseAll">✕ Close All</button>
+      </div>
+    </div>
+    <div id="hud2" class="hud-panel">
+      <div class="hud-row">
+        <button class="hud-btn">📡 Stream Status</button>
+        <button class="hud-btn">🗺 Network Map</button>
+      </div>
+      <div class="hud-row">
+        <button class="hud-btn">🔧 Diagnostics</button>
+        <button class="hud-btn">↩ Return</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- [L3] TICKER -->
+<div id="ticker"></div>
+
+<!-- [L4] PROMPT -->
+<div id="promptWrap">
+  <div id="promptBox">
+    <div id="caret"></div>
+    <input id="input" type="text" placeholder="type here…" spellcheck="false" autocomplete="off" />
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   NEW: Decorative ticker field generator (bgTicker)
+   - loops seamlessly (duplicate text)
+   - re-randomizes occasionally
+   - does NOT affect your existing #ticker logic
+========================================================= */
+(() => {
+  const track = document.getElementById("bgTickerTrack");
+  if(!track) return;
+
+  const LINES = [
+    "CUSEEME :: modular v1.7",
+    "signal / drift / recursion / memory",
+    "mode: dynamic",
+    "hud: glass-lite",
+    "camera: facingMode ideal",
+    "stack: mini windows",
+    "telemetry: packets • echoes • seams",
+    "status: online",
+    "—"
+  ];
+
+  function makeBlock(){
+    const now = new Date();
+    const ts = now.toISOString().slice(11,19);
+    const jitter = () => (Math.random().toString(16).slice(2,8)).toUpperCase();
+    const pick = () => LINES[Math.floor(Math.random()*LINES.length)];
+
+    let out = "";
+    for(let i=0;i<110;i++){
+      out += `[${ts}] ${pick()}  ${jitter()}${jitter()}\n`;
+    }
+    return out;
+  }
+
+  const block = makeBlock();
+  track.textContent = block + "\n" + block;
+
+  setInterval(() => {
+    const b = makeBlock();
+    track.textContent = b + "\n" + b;
+  }, 45000);
+})();
+</script>
+
+<script>
+/* Ticker */
+const ticker=document.getElementById('ticker');
+function addTicker(txt){
+  const line=document.createElement('div');
+  line.className='tline';
+  line.textContent=txt;
+  ticker.prepend(line);
+  if(ticker.children.length>80) ticker.removeChild(ticker.lastChild);
+}
+['index: v1.7 mode dynamic','retro4.4 black glass','rear camera default','multi-HUD active']
+.forEach((m,i)=>setTimeout(()=>addTicker(m),250*i));
+
+let mediaStream=null;
+let facing='environment';
+async function initStream(){
+  if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+  try{
+    mediaStream=await navigator.mediaDevices.getUserMedia({ video:{facingMode:{ideal:facing}}, audio:false });
+    addTicker(`camera: ${facing==='user'?'front':'rear'} feed ready`);
+    document.querySelectorAll('.miniVideo').forEach(v=>v.srcObject=mediaStream);
+  }catch(e){
+    addTicker('⚠ camera denied/unavailable');
+  }
+}
+
+/* repositioner for exact stacking */
+function repositionMiniWins(landingPad = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mini-landing-pad')) || 50,
+                            step = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mini-step')) || 30,
+                            baseStart = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mini-base-start')) || 90) {
+  const wins = Array.from(document.querySelectorAll('.miniWin'));
+  let hudCompact = getComputedStyle(document.documentElement).getPropertyValue('--hud-compact-width') || '';
+  let rightOffset = 12;
+  if (hudCompact && hudCompact.trim().endsWith('px')) {
+    rightOffset = parseInt(hudCompact) + 12;
+  }
+  for (let i = 0; i < wins.length; i++) {
+    const el = wins[wins.length - 1 - i]; // newest last
+    const bottom = baseStart + landingPad + (i * step);
+    el.style.position = 'fixed';
+    el.style.right = rightOffset + 'px';
+    el.style.bottom = bottom + 'px';
+    el.style.removeProperty('top');
+    el.style.removeProperty('width');
+    el.style.transform = `scale(${Math.max(0.7, 1 - i * 0.02)})`;
+    el.style.opacity = `${Math.max(0.5, 1 - i * 0.06)}`;
+    el.style.zIndex = 2000 - i;
+  }
+}
+
+/* create mini window */
+let winCount = 0, spawnUsed = false;
+function makeMiniWindow({x=80,y=undefined} = {}) {
+  winCount++;
+  const el = document.createElement('div');
+  el.className = 'miniWin';
+  el.style.left = x + 'px';
+  // do NOT set top here; allow repositionMiniWins to control vertical placement
+
+  el.innerHTML = `
+    <div class="miniBar">
+      <div class="miniTitle">subject_${String(winCount).padStart(4,'0')}</div>
+      <div class="miniBtns"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div></div>
+    </div>
+    <div class="miniInner"><video class="miniVideo" autoplay muted playsinline></video></div>
+  `;
+
+  document.body.appendChild(el);
+  const v = el.querySelector('.miniVideo');
+  if (mediaStream) v.srcObject = mediaStream;
+
+  const bar = el.querySelector('.miniBar');
+  let dragging=false, sx=0, sy=0, sl=0, st=0;
+  function start(e){
+    dragging=true;
+    const r = el.getBoundingClientRect();
+    sl = r.left; st = r.top;
+    sx = (e.touches ? e.touches[0].clientX : e.clientX);
+    sy = (e.touches ? e.touches[0].clientY : e.clientY);
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', stop);
+    document.addEventListener('touchmove', move, { passive:false });
+    document.addEventListener('touchend', stop);
+    bar.style.cursor = 'grabbing';
+    el.style.zIndex = 9999;
+  }
+  function move(e){
+    if(!dragging) return;
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+    el.style.position = 'fixed';
+    const newLeft = (sl + (cx - sx));
+    const newTop  = (st + (cy - sy));
+    el.style.left = newLeft + 'px';
+    el.style.top  = newTop + 'px';
+    el.style.bottom = 'auto';
+    el.style.right = 'auto';
+    e.preventDefault?.();
+  }
+  function stop(){
+    dragging=false;
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', stop);
+    document.removeEventListener('touchmove', move);
+    document.removeEventListener('touchend', stop);
+    bar.style.cursor = 'grab';
+  }
+  bar.addEventListener('pointerdown', start);
+  bar.addEventListener('touchstart', start, { passive:false });
+
+  repositionMiniWins();
+  return el;
+}
+
+function removeAllMiniWins(){
+  document.querySelectorAll('.miniWin').forEach(n=>n.remove());
+  winCount = 0;
+  spawnUsed = false;
+}
+
+/* Wire UI after DOM ready */
+document.addEventListener('DOMContentLoaded', function(){
+  const btnSpawn5 = document.getElementById('btnSpawn5');
+  const btnCloseAll = document.getElementById('btnCloseAll');
+  const btnReverseCam = document.getElementById('btnReverseCam');
+  const btnVoice = document.getElementById('btnVoice');
+
+  btnSpawn5 && btnSpawn5.addEventListener('click', () => {
+    if (spawnUsed) return addTicker('spawn blocked: already active');
+    spawnUsed = true;
+    const startX = 60 + Math.random()*40;
+    // call makeMiniWindow without a y so it uses the landing-pad baseline
+    for (let i=0; i<5; i++) makeMiniWindow({ x: Math.round(startX + i*26) });
+    addTicker('spawned 5 windows');
+  });
+
+  btnCloseAll && btnCloseAll.addEventListener('click', () => {
+    removeAllMiniWins();
+    addTicker('all windows closed');
+  });
+
+  btnReverseCam && btnReverseCam.addEventListener('click', async () => {
+    facing = (facing === 'user') ? 'environment' : 'user';
+    await initStream();
+  });
+
+  btnVoice && btnVoice.addEventListener('click', () => {
+    voiceOn = !voiceOn;
+    btnVoice.classList.toggle('active', voiceOn);
+    addTicker(`voice: ${voiceOn ? 'enabled' : 'disabled'}`);
+    if (voiceOn) speak('voice system online');
+  });
+});
+
+/* voices + input */
+let voiceOn=false, voicesReady=false;
+function primeVoices(){ return new Promise(res => {
+  const tid=setInterval(()=>{
+    const v=speechSynthesis.getVoices();
+    if (v && v.length){ clearInterval(tid); voicesReady=true; res(); }
+  },100);
+});}
+async function speak(t){
+  if(!voiceOn || !('speechSynthesis' in window)) return;
+  if(!voicesReady) await primeVoices();
+  const u = new SpeechSynthesisUtterance(t);
+  u.lang='en-US'; u.rate=1.05; u.pitch=0.9; u.volume=0.85;
+  const v = speechSynthesis.getVoices();
+  u.voice = v.find(x => /samantha/i.test(x.name)) || v.find(x => /google/i.test(x.name)) || v[0];
+  speechSynthesis.speak(u);
+}
+
+const input = document.getElementById('input');
+function handleSubmit(v){
+  const t = (v||'').trim();
+  if (!t) return;
+  addTicker('> ' + t);
+  input.value = '';
+  if (voiceOn) setTimeout(()=>speak('okay'), 500);
+}
+input && input.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); handleSubmit(input.value); }
+});
+
+/* startup */
+(async()=>{
+  await initStream();
+  // Spawn demo windows using only x; y/bottom computed to align with landing pad
+  for (let i=0; i<5; i++) makeMiniWindow({ x:80 + i*22 });
+})();
+</script>
+
+<script>
+/* HUD switching */
+const huds=[...document.querySelectorAll('.hud-panel')];
+const hudIndex=document.getElementById('hudIndex');
+let currentHUD=0;
+function updateHUDLabel(){ hudIndex.textContent=`HUD ${currentHUD+1} / ${huds.length}`; }
+
+function showHUD(i){
+  currentHUD = (i + huds.length) % huds.length;
+  updateHUDLabel();
+  addTicker(`HUD switched → ${currentHUD+1}`);
+  if (voiceOn && typeof speak === 'function') speak(`HUD ${currentHUD+1} active`);
+}
+
+document.getElementById('hudHeader') && document.getElementById('hudHeader').addEventListener('click', ()=> showHUD(currentHUD+1));
+updateHUDLabel();
+</script>
+
+<!-- Repo nav simple include and link list -->
+<script>
+  window.SIMPLE_REPO_NAV_LINKS = [
+  
+  ];
+</script>
+<script src="/CUseeme/repo-nav-simple.js"></script>
+
+</body>
+</html>
