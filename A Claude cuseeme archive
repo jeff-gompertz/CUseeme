@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CUSeeMe — Archive</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+background: #000;
+color: rgba(255,255,255,0.7);
+font-family: “Courier New”, Courier, monospace;
+overflow-x: hidden;
+}
+
+/* ── HEADER ── */
+#archive-header {
+position: fixed;
+top: 0; left: 0; right: 0;
+height: 36px;
+background: #000;
+border-bottom: 1px solid rgba(255,34,0,0.2);
+display: flex; align-items: center; justify-content: space-between;
+padding: 0 16px;
+z-index: 1000;
+}
+#archive-title {
+font-size: 8px; letter-spacing: 6px; text-transform: uppercase;
+color: rgba(255,34,0,0.6);
+}
+#archive-count {
+font-size: 7px; letter-spacing: 3px;
+color: rgba(255,255,255,0.15);
+}
+
+/* scan lines */
+body::after {
+content: ‘’;
+position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+background: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.06) 3px,rgba(0,0,0,0.06) 4px);
+pointer-events: none; z-index: 9000;
+}
+
+/* ── SESSIONS — horizontal scroll container ── */
+#sessions {
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding-top: 36px;
+min-height: 100vh;
+overflow-x: auto;
+overflow-y: hidden;
+-webkit-overflow-scrolling: touch;
+scroll-snap-type: x mandatory;
+}
+
+/* ── SESSION STRIP — vertical column ── */
+.session {
+flex-shrink: 0;
+width: 100vw;
+min-height: 100vh;
+border-right: 1px solid rgba(255,34,0,0.12);
+scroll-snap-align: start;
+display: flex;
+flex-direction: column;
+}
+
+.session-header {
+padding: 18px 16px 12px;
+border-bottom: 1px solid rgba(255,255,255,0.04);
+flex-shrink: 0;
+}
+.session-date {
+font-size: 7px; letter-spacing: 4px; text-transform: uppercase;
+color: rgba(255,34,0,0.5);
+margin-bottom: 4px;
+}
+.session-label {
+font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+color: rgba(255,255,255,0.25);
+}
+.session-filecount {
+font-size: 6px; letter-spacing: 3px; text-transform: uppercase;
+color: rgba(255,255,255,0.1);
+margin-top: 3px;
+}
+
+/* ── ARTIFACT LIST — scrolls vertically within strip ── */
+.artifact-list {
+flex: 1;
+overflow-y: auto;
+overflow-x: hidden;
+-webkit-overflow-scrolling: touch;
+padding: 12px 0 40px;
+}
+
+/* ── ARTIFACT ENTRY ── */
+.artifact {
+border-bottom: 1px solid rgba(255,255,255,0.04);
+padding: 0;
+}
+
+.artifact-meta {
+padding: 10px 16px 8px;
+display: flex; align-items: baseline; justify-content: space-between;
+}
+.artifact-name {
+font-size: 8px; letter-spacing: 2px; text-transform: uppercase;
+color: rgba(255,255,255,0.3);
+flex: 1;
+overflow: hidden;
+text-overflow: ellipsis;
+white-space: nowrap;
+margin-right: 8px;
+}
+.artifact-open {
+font-size: 7px; letter-spacing: 2px; text-transform: uppercase;
+color: rgba(255,34,0,0.4);
+cursor: pointer;
+white-space: nowrap;
+flex-shrink: 0;
+text-decoration: none;
+}
+.artifact-open:hover { color: rgba(255,34,0,0.9); }
+
+/* ── PREVIEW FRAME CONTAINER ── */
+.preview-wrap {
+position: relative;
+width: 100%;
+/* 9:14 portrait aspect — matches our card windows */
+padding-bottom: 155%;
+background: #04040a;
+overflow: hidden;
+cursor: pointer;
+}
+
+.preview-wrap iframe {
+position: absolute;
+top: 0; left: 0;
+width: 100%; height: 100%;
+border: none;
+pointer-events: none; /* tap goes to expand, not into iframe */
+opacity: 0;
+transition: opacity 0.6s ease;
+}
+.preview-wrap iframe.loaded { opacity: 1; }
+
+/* placeholder shown before iframe loads */
+.preview-placeholder {
+position: absolute;
+top: 0; left: 0; right: 0; bottom: 0;
+display: flex; align-items: center; justify-content: center;
+flex-direction: column; gap: 8px;
+}
+.ph-name {
+font-size: 7px; letter-spacing: 3px; text-transform: uppercase;
+color: rgba(255,255,255,0.06);
+text-align: center; padding: 0 20px;
+}
+.ph-bar {
+width: 24px; height: 1px;
+background: rgba(255,34,0,0.15);
+overflow: hidden; position: relative;
+}
+.ph-bar::after {
+content: ‘’;
+position: absolute; top: 0; left: -100%;
+width: 100%; height: 100%;
+background: rgba(255,34,0,0.6);
+animation: phsweep 2s ease-in-out infinite;
+}
+@keyframes phsweep { 0%{left:-100%} 100%{left:100%} }
+
+/* tap hint */
+.preview-tap {
+position: absolute;
+bottom: 10px; right: 10px;
+font-size: 6px; letter-spacing: 2px; text-transform: uppercase;
+color: rgba(255,255,255,0.12);
+pointer-events: none;
+}
+
+/* ── FULLSCREEN OVERLAY ── */
+#fullscreen {
+display: none;
+position: fixed;
+top: 0; left: 0; right: 0; bottom: 0;
+z-index: 5000;
+background: #000;
+flex-direction: column;
+}
+#fullscreen.active { display: flex; }
+
+#fs-bar {
+height: 36px; flex-shrink: 0;
+background: #000;
+border-bottom: 1px solid rgba(255,34,0,0.15);
+display: flex; align-items: center; justify-content: space-between;
+padding: 0 14px;
+}
+#fs-title {
+font-size: 7px; letter-spacing: 3px; text-transform: uppercase;
+color: rgba(255,255,255,0.25);
+}
+#fs-close {
+font-size: 7px; letter-spacing: 3px; text-transform: uppercase;
+color: rgba(255,34,0,0.5);
+cursor: pointer;
+padding: 4px 0 4px 16px;
+}
+#fs-close:hover { color: rgba(255,34,0,1); }
+
+#fs-frame {
+flex: 1;
+width: 100%; border: none;
+}
+
+/* ── NAV DOTS — session indicator ── */
+#nav-dots {
+position: fixed;
+bottom: 14px; left: 50%;
+transform: translateX(-50%);
+display: flex; gap: 6px;
+z-index: 1000;
+}
+.nav-dot {
+width: 4px; height: 4px;
+border-radius: 50%;
+background: rgba(255,255,255,0.12);
+transition: background 0.3s ease;
+cursor: pointer;
+}
+.nav-dot.active { background: rgba(255,34,0,0.7); }
+</style>
+
+</head>
+<body>
+
+<div id="archive-header">
+  <span id="archive-title">● CUSeeMe — Archive</span>
+  <span id="archive-count"></span>
+</div>
+
+<div id="sessions"></div>
+<div id="nav-dots"></div>
+
+<div id="fullscreen">
+  <div id="fs-bar">
+    <span id="fs-title">—</span>
+    <span id="fs-close">✕ CLOSE</span>
+  </div>
+  <iframe id="fs-frame" src="" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+</div>
+
+<script>
+(function(){
+
+/* ══════════════════════════════
+   ARTIFACT INDEX
+   Base URL — update this to wherever
+   you upload the HTML files on Hostinger
+══════════════════════════════ */
+var BASE = 'https://art.jeffgompertz.site/cuseeme/';
+
+var SESSIONS = [
+  {
+    date: '2026-03-07',
+    label: 'Session 01 — Origin',
+    files: [
+      'cuseeme-v1.html',
+      'index.html',
+      'cuseeme-v1-wordpress.html',
+      'cuseeme-v1-wp-fixed.html',
+      'cuseeme-core.html',
+      'cuseeme-audio.html',
+      'cuseeme-logs.html',
+      'cuseeme-v4.html',
+      'csm-baseline.html',
+      'csm-diagnostic.html',
+    ]
+  },
+  {
+    date: '2026-03-08',
+    label: 'Session 02 — Transmit',
+    files: [
+      'cuseeme-transmit.html',
+      'cuseeme-transmit-test.html',
+      'cuseeme-transmit-v2.html',
+      'cuseeme-transmit-v3.html',
+      'cuseeme-transmit-v4.html',
+      'cuseeme-transmit-v5.html',
+      'cuseeme-transmit-v5b.html',
+      'cuseeme-transmit-v5c.html',
+      'cuseeme-transmit-v5d.html',
+      'cuseeme-transmit-v5e.html',
+      'cuseeme-transmit-v5f.html',
+      'cuseeme-viewer.html',
+      'cuseeme-viewer-v2.html',
+      'cuseeme-receiver-v3.html',
+      'cuseeme-receiver-v4.html',
+      'cuseeme-receiver-v4-wp.html',
+      'cuseeme-receiver-v5.html',
+    ]
+  },
+  {
+    date: '2026-03-09',
+    label: 'Session 03 — TD Engine',
+    files: [
+      'cuseeme-td-live.html',
+      'cuseeme-td-v2.html',
+      'cuseeme-td-v3.html',
+      'cuseeme-td-engine.html',
+      'cuseeme-td-demo.html',
+      'cuseeme-td-proof.html',
+      'cuseeme-td-proof-v2.html',
+      'cuseeme-td-surface.html',
+    ]
+  },
+  {
+    date: '2026-03-10',
+    label: 'Session 04 — Sequence',
+    files: [
+      'cuseeme-sequence.html',
+      'cuseeme-sequence-v2.html',
+      'cuseeme-sequence-v3.html',
+      'cuseeme-sequence-v4.html',
+      'cuseeme-sequence-v4-wp.html',
+      'cuseeme-color-seq.html',
+      'cuseeme-color-seq-wp.html',
+      'cuseeme-iso-cube.html',
+      'cuseeme-origin.html',
+    ]
+  },
+];
+
+/* ── BUILD ── */
+var sessionsEl = document.getElementById('sessions');
+var dotsEl     = document.getElementById('nav-dots');
+var totalFiles = 0;
+
+SESSIONS.forEach(function(sess, si) {
+  totalFiles += sess.files.length;
+
+  /* session strip */
+  var strip = document.createElement('div');
+  strip.className = 'session';
+  strip.id = 'session-'+si;
+
+  var hdr = document.createElement('div');
+  hdr.className = 'session-header';
+  hdr.innerHTML =
+    '<div class="session-date">'+sess.date+'</div>'+
+    '<div class="session-label">'+sess.label+'</div>'+
+    '<div class="session-filecount">'+sess.files.length+' artifacts</div>';
+  strip.appendChild(hdr);
+
+  var list = document.createElement('div');
+  list.className = 'artifact-list';
+
+  sess.files.forEach(function(filename) {
+    var url = BASE + filename;
+    var name = filename.replace('.html','');
+
+    var entry = document.createElement('div');
+    entry.className = 'artifact';
+
+    var meta = document.createElement('div');
+    meta.className = 'artifact-meta';
+    meta.innerHTML =
+      '<span class="artifact-name">'+name+'</span>'+
+      '<a class="artifact-open" href="'+url+'" target="_blank">OPEN ↗</a>';
+    entry.appendChild(meta);
+
+    var wrap = document.createElement('div');
+    wrap.className = 'preview-wrap';
+    wrap.setAttribute('data-url', url);
+    wrap.setAttribute('data-name', name);
+    wrap.innerHTML =
+      '<div class="preview-placeholder">'+
+        '<div class="ph-name">'+name+'</div>'+
+        '<div class="ph-bar"></div>'+
+      '</div>'+
+      '<div class="preview-tap">TAP TO EXPAND</div>';
+
+    wrap.addEventListener('click', function() { openFullscreen(url, name); });
+    entry.appendChild(wrap);
+    list.appendChild(entry);
+  });
+
+  strip.appendChild(list);
+  sessionsEl.appendChild(strip);
+
+  /* nav dot */
+  var dot = document.createElement('div');
+  dot.className = 'nav-dot' + (si===0?' active':'');
+  dot.addEventListener('click', function(){ scrollToSession(si); });
+  dotsEl.appendChild(dot);
+});
+
+document.getElementById('archive-count').textContent = totalFiles + ' artifacts';
+
+/* ── LAZY LOAD IFRAMES on scroll ── */
+var observed = [];
+
+function checkVisible() {
+  var wraps = document.querySelectorAll('.preview-wrap[data-url]');
+  for(var i=0; i<wraps.length; i++) {
+    var w = wraps[i];
+    if(w.getAttribute('data-loaded')) continue;
+    var r = w.getBoundingClientRect();
+    /* load when within 200px of viewport */
+    if(r.top < window.innerHeight + 200 && r.bottom > -200) {
+      loadPreview(w);
+    }
+  }
+}
+
+function loadPreview(wrap) {
+  wrap.setAttribute('data-loaded','1');
+  var url = wrap.getAttribute('data-url');
+  var iframe = document.createElement('iframe');
+  iframe.sandbox = 'allow-scripts allow-same-origin';
+  iframe.src = url;
+  iframe.onload = function() { iframe.classList.add('loaded'); };
+  wrap.appendChild(iframe);
+}
+
+/* scroll listener on each artifact-list */
+var lists = document.querySelectorAll('.artifact-list');
+for(var i=0; i<lists.length; i++) {
+  lists[i].addEventListener('scroll', checkVisible, {passive:true});
+}
+sessionsEl.addEventListener('scroll', updateDots, {passive:true});
+checkVisible();
+
+/* ── NAV DOTS update ── */
+function updateDots() {
+  var idx = Math.round(sessionsEl.scrollLeft / window.innerWidth);
+  var dots = document.querySelectorAll('.nav-dot');
+  for(var i=0; i<dots.length; i++) {
+    dots[i].className = 'nav-dot' + (i===idx?' active':'');
+  }
+  /* trigger lazy load for newly visible session */
+  checkVisible();
+}
+
+function scrollToSession(idx) {
+  sessionsEl.scrollTo({ left: idx * window.innerWidth, behavior: 'smooth' });
+}
+
+/* ── FULLSCREEN ── */
+var fsEl    = document.getElementById('fullscreen');
+var fsFrame = document.getElementById('fs-frame');
+var fsTitle = document.getElementById('fs-title');
+
+function openFullscreen(url, name) {
+  fsTitle.textContent = name;
+  fsFrame.src = url;
+  fsEl.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+document.getElementById('fs-close').addEventListener('click', function() {
+  fsEl.classList.remove('active');
+  fsFrame.src = '';
+  document.body.style.overflow = '';
+});
+
+})();
+</script>
+
+</body>
+</html>
