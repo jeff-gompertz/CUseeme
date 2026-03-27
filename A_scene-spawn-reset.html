@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CUSeeMe — 5 Scenes</title>
+<!--
+╔══════════════════════════════════════════════════════╗
+║  BASED ON: cuseeme-hunt-drift.html (Mar 19 2026)    ║
+║  CHANGES: added scene 5 — WORDS                    ║
+║  SCENES:                                            ║
+║    1. HUNT  — black, no text                        ║
+║    2. DRIFT — black, no text                        ║
+║    3. HUNT  — scrolling text + ticker               ║
+║    4. DRIFT — scrolling text + ticker               ║
+║    5. WORDS — word windows, text wall, ticker       ║
+║  LOCKED: word font = w*0.28  DO NOT CHANGE          ║
+╚══════════════════════════════════════════════════════╝
+-->
+<style>
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+
+html, body {
+height: 100%;
+background: #000;
+font-family: monospace;
+overflow: hidden;
+touch-action: none;
+}
+
+/* scrolling text wall */
+#ecran {
+position: fixed; inset: 0; z-index: 1;
+overflow: hidden;
+text-align: center;
+font-family: ‘Arial Black’, Arial, sans-serif;
+font-size: 11rem; font-weight: 900; line-height: 1.2;
+color: white; pointer-events: none;
+opacity: 0;
+transition: opacity 1.4s ease;
+}
+#ecran-inner {
+display: block;
+animation: scrollup 1900s linear infinite;
+animation-delay: -950s;
+will-change: transform;
+}
+#ecran-inner p { margin: 0; }
+@keyframes scrollup {
+0%   { transform: translateY(100vh); }
+100% { transform: translateY(-100%); }
+}
+
+/* glass windows */
+.gwin {
+position: fixed; z-index: 10;
+background: rgba(255,255,255,0.08);
+backdrop-filter: blur(22px) saturate(1.2);
+-webkit-backdrop-filter: blur(22px) saturate(1.2);
+border: 1px solid rgba(255,255,255,0.13);
+border-radius: 16px;
+box-shadow: 0 8px 32px rgba(0,0,0,0.4),
+inset 0 1px 0 rgba(255,255,255,0.1);
+will-change: transform;
+touch-action: none;
+overflow: hidden;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+/* hunt reticle */
+.gwin.hunting::after {
+content: ‘’;
+position: absolute; inset: 0;
+border: 2px solid rgba(255,68,51,0.5);
+border-radius: inherit;
+animation: pulse 1.2s ease-in-out infinite;
+pointer-events: none;
+}
+@keyframes pulse {
+0%,100% { opacity:0.3; transform:scale(1); }
+50%      { opacity:0.9; transform:scale(0.96); }
+}
+.gwin.locked::after {
+border-color: rgba(233,255,50,0.8);
+animation: none;
+}
+
+/* word inside window */
+.win-word {
+font-family: ‘Arial Black’, Arial, sans-serif;
+font-weight: 900;
+text-transform: uppercase;
+text-align: center;
+line-height: 1;
+color: rgba(255,255,255,0.88);
+padding: 8px;
+pointer-events: none;
+user-select: none;
+}
+
+/* HUD */
+#hud {
+position: fixed; top: 14px; left: 18px;
+z-index: 300; display: flex; gap: 10px;
+touch-action: manipulation;
+}
+.hud-btn {
+font-family: ‘VT323’, ui-monospace, monospace;
+font-size: 18px; color: rgba(255,255,255,0.82);
+background: rgba(210,225,235,0.18);
+backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+border: none; border-radius: 10px;
+padding: 9px 20px; cursor: pointer;
+letter-spacing: 3px; text-transform: uppercase;
+touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+transition: background 0.15s;
+}
+.hud-btn:active { background: rgba(210,225,235,0.35); }
+
+#sceneLabel {
+position: fixed; bottom: 14px; left: 50%;
+transform: translateX(-50%);
+z-index: 300; font-size: 10px; letter-spacing: 4px;
+text-transform: uppercase; color: rgba(255,255,255,0.18);
+pointer-events: none; white-space: nowrap;
+}
+
+/* ticker */
+#ticker {
+position: fixed; left: 16px; bottom: 36px;
+z-index: 300; width: 38vw; max-width: 460px; max-height: 35vh;
+display: flex; flex-direction: column-reverse;
+overflow: hidden; color: #00FFC8;
+font-size: 13px; line-height: 1.35; pointer-events: none;
+opacity: 0;
+transition: opacity 1.4s ease;
+-webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 55%);
+mask-image: linear-gradient(to bottom, transparent 0%, black 55%);
+}
+.tline { opacity:.88; animation: fi .5s ease; }
+@keyframes fi { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+
+@media (max-width:699px) {
+#ecran { font-size: 5.5rem; }
+.hud-btn { font-size: 14px; padding: 7px 13px; }
+#ticker { font-size: 10px; width: 78vw; }
+}
+</style>
+
+</head>
+<body>
+
+<div id="ecran"><div id="ecran-inner"></div></div>
+
+<div id="hud">
+  <button class="hud-btn" id="btnScene">SCENE ›</button>
+  <button class="hud-btn" id="btnSpawn">SPAWN</button>
+  <button class="hud-btn" id="btnReset">RESET</button>
+</div>
+
+<div id="ticker"></div>
+<div id="sceneLabel">1 / 5  HUNT</div>
+
+<script>
+(function(){
+'use strict';
+
+var CORPUS=[
+  'US AND ISRAEL LAUNCH SURPRISE AIRSTRIKES ON IRAN',
+  'KHAMENEI ASSASSINATED IN COMPOUND STRIKE',
+  'IRAN LAUNCHES 500 BALLISTIC MISSILES AND 2,000 DRONES',
+  'IRIS DENA SUNK BY USS CHARLOTTE IN INDIAN OCEAN',
+  'RAF AKROTIRI STRUCK BY HEZBOLLAH DRONE',
+  'THAAD RADAR DESTROYED IN JORDAN AND UAE',
+  'US WAR POWERS RESOLUTION FAILS 47-53 IN SENATE',
+  'MINAB SCHOOL AIRSTRIKE: 180 CIVILIANS KILLED',
+  'IRANIAN PROTESTERS TOPPLE KHOMEINI MONUMENT',
+  'FOUR US SERVICE MEMBERS KILLED IN DRONE STRIKE KUWAIT',
+  'PROTESTS IN 40 US CITIES AGAINST IRAN STRIKES',
+  '26 KILLED IN PROTESTS ACROSS PAKISTAN',
+  'OMAN: THIS IS NOT YOUR WAR',
+  'LARGEST US MIDDLE EAST BUILDUP SINCE 2003',
+  'LEBANON WAR RESUMES AS HEZBOLLAH FIRES ON ISRAEL',
+  'ICC OPENS INVESTIGATION INTO CIVILIAN CASUALTIES',
+  'OVER 3,000 IRANIAN SOLDIERS KILLED IN FIRST WEEK',
+  'TRUMP: IRAN BUILDING MISSILES TO REACH US',
+  'STRAIT OF HORMUZ CLOSED DURING MILITARY DRILL',
+];
+
+/* ecran — built once */
+(function(){
+  var inner=document.getElementById('ecran-inner'),html='';
+  for(var r=0;r<3;r++) for(var i=0;i<CORPUS.length;i++) html+='<p>'+CORPUS[i]+'</p>';
+  inner.innerHTML=html;
+})();
+
+/* word pool */
+var ALL_WORDS=(function(){
+  var w=[];
+  CORPUS.forEach(function(line){
+    line.split(' ').forEach(function(word){ if(word.length>2) w.push(word); });
+  });
+  return w;
+})();
+function pickWord(){ return ALL_WORDS[Math.floor(Math.random()*ALL_WORDS.length)]; }
+
+var wins=[], winCount=0, target=null, currentScene=0, rafId=null;
+
+document.addEventListener('pointerdown',function(e){
+  if(e.target.classList.contains('hud-btn')) return;
+  target={x:e.clientX,y:e.clientY};
+},{passive:true});
+document.addEventListener('pointermove',function(e){
+  if(target){target.x=e.clientX;target.y=e.clientY;}
+},{passive:true});
+document.addEventListener('pointerup',function(){target=null;},{passive:true});
+
+function beep(){
+  try{
+    var ctx=new(window.AudioContext||window.webkitAudioContext)();
+    var o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.type='sine';o.frequency.value=600;
+    g.gain.setValueAtTime(0.15,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.08);
+    o.start();o.stop(ctx.currentTime+0.08);
+  }catch(e){}
+}
+
+function makeWin(x,y,w,h,cls,word){
+  winCount++;
+  var el=document.createElement('div');
+  el.className='gwin'+(cls?' '+cls:'');
+  el.style.left=x+'px'; el.style.top=y+'px';
+  el.style.width=w+'px'; el.style.height=h+'px';
+  el.style.zIndex=10+winCount;
+  if(word){
+    var span=document.createElement('div');
+    span.className='win-word';
+    /* LOCKED: font = w*0.28 — do not change */
+    span.style.fontSize=Math.round(w*0.28)+'px';
+    span.textContent=word;
+    el.appendChild(span);
+  }
+  document.body.appendChild(el);
+  var node={
+    el:el,x:x,y:y,
+    vx:(Math.random()-0.5)*1.5,
+    vy:(Math.random()-0.5)*1.5,
+    w:w,h:h,locked:false,
+    span:word?el.querySelector('.win-word'):null,
+    _wordTimer:word?Date.now()+3000+Math.random()*5000:0
+  };
+  wins.push(node);
+  return node;
+}
+
+function clearAll(){
+  wins.forEach(function(w){if(w.el.parentNode)w.el.remove();});
+  wins.length=0; winCount=0;
+}
+
+function setTextVisible(on){
+  document.getElementById('ecran').style.opacity  = on ? '0.92' : '0';
+  document.getElementById('ticker').style.opacity = on ? '1'    : '0';
+}
+
+/* ── shared ticks ── */
+function huntTick(){
+  var W=window.innerWidth,H=window.innerHeight;
+  wins.forEach(function(n,i){
+    if(target){
+      var cx=n.x+n.w/2,cy=n.y+n.h/2;
+      var dx=target.x-cx,dy=target.y-cy;
+      var dist=Math.sqrt(dx*dx+dy*dy)||1;
+      if(dist<60){
+        if(!n.locked){n.locked=true;n.el.classList.remove('hunting');n.el.classList.add('locked');beep();}
+        var angle=(i/Math.max(1,wins.length))*Math.PI*2+performance.now()*0.0004;
+        var orbitR=50+i*18;
+        var tx=target.x+Math.cos(angle)*orbitR-n.w/2;
+        var ty=target.y+Math.sin(angle)*orbitR-n.h/2;
+        n.vx+=(tx-n.x)*0.08;n.vy+=(ty-n.y)*0.08;
+      } else {
+        if(n.locked){n.locked=false;n.el.classList.remove('locked');n.el.classList.add('hunting');}
+        var force=dist<300?0.055:0.018;
+        n.vx+=(dx/dist)*force*dist*0.12;
+        n.vy+=(dy/dist)*force*dist*0.12;
+      }
+    } else {
+      if(n.locked){n.locked=false;n.el.classList.remove('locked');n.el.classList.add('hunting');}
+      n.vx+=(Math.random()-0.5)*0.2;n.vy+=(Math.random()-0.5)*0.2;
+      if(n.x<-80||n.x>W+80||n.y<-80||n.y>H+80){
+        n.vx+=(W/2-n.x)*0.003;n.vy+=(H/2-n.y)*0.003;
+      }
+    }
+    var spd=Math.sqrt(n.vx*n.vx+n.vy*n.vy);
+    if(spd>7){n.vx=n.vx/spd*7;n.vy=n.vy/spd*7;}
+    n.vx*=0.90;n.vy*=0.90;
+    n.x+=n.vx;n.y+=n.vy;
+    n.el.style.left=n.x+'px';n.el.style.top=n.y+'px';
+  });
+}
+
+function driftTick(){
+  var W=window.innerWidth,H=window.innerHeight;
+  wins.forEach(function(n){
+    if(target){
+      var dx=n.x-target.x,dy=n.y-target.y,d=Math.sqrt(dx*dx+dy*dy)||1;
+      if(d<220){n.vx+=(dx/d)*0.6;n.vy+=(dy/d)*0.6;}
+    }
+    n.vx+=(Math.random()-0.5)*0.06;n.vy+=(Math.random()-0.5)*0.06;
+    if(n.x<=0){n.x=0;n.vx=Math.abs(n.vx)*0.82;}
+    if(n.x>=W-n.w){n.x=W-n.w;n.vx=-Math.abs(n.vx)*0.82;}
+    if(n.y<=0){n.y=0;n.vy=Math.abs(n.vy)*0.82;}
+    if(n.y>=H-n.h){n.y=H-n.h;n.vy=-Math.abs(n.vy)*0.82;}
+    var spd=Math.sqrt(n.vx*n.vx+n.vy*n.vy);
+    if(spd>3.5){n.vx=n.vx/spd*3.5;n.vy=n.vy/spd*3.5;}
+    n.x+=n.vx;n.y+=n.vy;
+    n.el.style.left=n.x+'px';n.el.style.top=n.y+'px';
+  });
+}
+
+function wordsTick(){
+  var W=window.innerWidth,H=window.innerHeight,now=Date.now();
+  wins.forEach(function(n){
+    if(target){
+      var dx=n.x+n.w/2-target.x,dy=n.y+n.h/2-target.y;
+      var d=Math.sqrt(dx*dx+dy*dy)||1;
+      if(d<240){n.vx+=(dx/d)*(240-d)*0.05;n.vy+=(dy/d)*(240-d)*0.05;}
+    }
+    n.vx+=(Math.random()-0.5)*0.07;n.vy+=(Math.random()-0.5)*0.07;
+    if(n.x<=0){n.x=0;n.vx=Math.abs(n.vx)*0.85;}
+    if(n.x>=W-n.w){n.x=W-n.w;n.vx=-Math.abs(n.vx)*0.85;}
+    if(n.y<=0){n.y=0;n.vy=Math.abs(n.vy)*0.85;}
+    if(n.y>=H-n.h){n.y=H-n.h;n.vy=-Math.abs(n.vy)*0.85;}
+    var spd=Math.sqrt(n.vx*n.vx+n.vy*n.vy);
+    if(spd>4.5){n.vx=n.vx/spd*4.5;n.vy=n.vy/spd*4.5;}
+    n.x+=n.vx;n.y+=n.vy;
+    n.el.style.left=n.x+'px';n.el.style.top=n.y+'px';
+    if(n.span&&now>n._wordTimer){
+      n.span.textContent=pickWord();
+      n._wordTimer=now+3000+Math.random()*5000;
+    }
+  });
+}
+
+/* ── inits ── */
+function initHunt(){
+  var W=window.innerWidth,H=window.innerHeight;
+  for(var i=0;i<5;i++){
+    var pw=Math.round(W*0.22+Math.random()*W*0.1);
+    var ph=Math.round(H*0.22+Math.random()*H*0.1);
+    var n=makeWin(Math.random()*(W-pw),Math.random()*(H-ph),pw,ph,'hunting');
+    n.vx=(Math.random()-0.5)*2;n.vy=(Math.random()-0.5)*2;
+  }
+}
+
+function initDrift(){
+  var W=window.innerWidth,H=window.innerHeight;
+  [[0.38,0.42],[0.44,0.5],[0.32,0.38],[0.5,0.55]].forEach(function(s){
+    var pw=Math.round(W*s[0]),ph=Math.round(H*s[1]);
+    var n=makeWin(Math.random()*(W-pw),Math.random()*(H-ph),pw,ph);
+    n.vx=(Math.random()-0.5)*2.5;n.vy=(Math.random()-0.5)*2.5;
+  });
+}
+
+var WORD_TYPES=[
+  {wf:0.48,hf:0.55},{wf:0.65,hf:0.38},{wf:0.52,hf:0.50},
+  {wf:0.42,hf:0.60},{wf:0.70,hf:0.42},{wf:0.55,hf:0.48},
+];
+
+function initWords(){
+  var W=window.innerWidth,H=window.innerHeight;
+  var cols=3,rows=4,cellW=W/cols,cellH=H/rows;
+  for(var r=0;r<rows;r++){
+    for(var c=0;c<cols;c++){
+      var t=WORD_TYPES[(c+r)%WORD_TYPES.length];
+      var pw=Math.round(W*t.wf),ph=Math.round(H*t.hf);
+      var cx=Math.round(c*cellW+cellW/2);
+      var cy=Math.round(r*cellH+cellH/2);
+      var x=cx-Math.round(pw/2)+Math.round((Math.random()-0.5)*cellW*0.3);
+      var y=cy-Math.round(ph/2)+Math.round((Math.random()-0.5)*cellH*0.3);
+      var n=makeWin(x,y,pw,ph,null,pickWord());
+      n.vx=(Math.random()-0.5)*2.5;n.vy=(Math.random()-0.5)*2.5;
+    }
+  }
+  /* 4 extra random */
+  for(var i=0;i<4;i++){
+    var t2=WORD_TYPES[i%WORD_TYPES.length];
+    var pw2=Math.round(W*t2.wf),ph2=Math.round(H*t2.hf);
+    var x2=Math.round(Math.random()*(W+pw2*0.5)-pw2*0.25);
+    var y2=Math.round(Math.random()*(H+ph2*0.5)-ph2*0.25);
+    var n2=makeWin(x2,y2,pw2,ph2,null,pickWord());
+    n2.vx=(Math.random()-0.5)*2.8;n2.vy=(Math.random()-0.5)*2.8;
+  }
+}
+
+/* ── spawns ── */
+function spawnHunt(){
+  var W=window.innerWidth,H=window.innerHeight;
+  var pw=Math.round(W*0.2+Math.random()*W*0.1),ph=Math.round(H*0.2+Math.random()*H*0.1);
+  var n=makeWin(Math.random()*(W-pw),Math.random()*(H-ph),pw,ph,'hunting');
+  n.vx=(Math.random()-0.5)*3;n.vy=(Math.random()-0.5)*3;
+}
+function spawnDrift(){
+  var W=window.innerWidth,H=window.innerHeight;
+  var pw=Math.round(W*0.35+Math.random()*W*0.2),ph=Math.round(H*0.38+Math.random()*H*0.2);
+  var n=makeWin(Math.random()*(W-pw),Math.random()*(H-ph),pw,ph);
+  n.vx=(Math.random()-0.5)*2.5;n.vy=(Math.random()-0.5)*2.5;
+}
+function spawnWords(){
+  var W=window.innerWidth,H=window.innerHeight;
+  var t=WORD_TYPES[Math.floor(Math.random()*WORD_TYPES.length)];
+  var pw=Math.round(W*t.wf),ph=Math.round(H*t.hf);
+  var x=Math.round(Math.random()*(W+pw*0.4)-pw*0.2);
+  var y=Math.round(Math.random()*(H+ph*0.4)-ph*0.2);
+  var n=makeWin(x,y,pw,ph,null,pickWord());
+  n.vx=(Math.random()-0.5)*2.8;n.vy=(Math.random()-0.5)*2.8;
+}
+
+/* ── scene table ── */
+var SCENES=[
+  {name:'1 / 5  HUNT',  text:false, init:initHunt,  tick:huntTick,  spawn:spawnHunt  },
+  {name:'2 / 5  DRIFT', text:false, init:initDrift, tick:driftTick, spawn:spawnDrift },
+  {name:'3 / 5  HUNT',  text:true,  init:initHunt,  tick:huntTick,  spawn:spawnHunt  },
+  {name:'4 / 5  DRIFT', text:true,  init:initDrift, tick:driftTick, spawn:spawnDrift },
+  {name:'5 / 5  WORDS', text:true,  init:null,      tick:wordsTick, spawn:spawnWords },
+];
+
+function loadScene(idx){
+  if(rafId) cancelAnimationFrame(rafId);
+  clearAll();
+  currentScene=idx;
+  var s=SCENES[idx];
+  setTextVisible(s.text);
+  document.getElementById('sceneLabel').textContent=s.name;
+  /* words scene defers init for correct viewport dims */
+  if(idx===4){
+    if(document.readyState==='complete'){
+      setTimeout(function(){ initWords(); },80);
+    } else {
+      window.addEventListener('load',function(){ setTimeout(initWords,80); });
+    }
+  } else {
+    s.init();
+  }
+  (function loop(){ SCENES[currentScene].tick(); rafId=requestAnimationFrame(loop); })();
+}
+
+/* controls */
+document.getElementById('btnScene').addEventListener('click',function(e){
+  e.stopPropagation();beep();loadScene((currentScene+1)%SCENES.length);
+});
+document.getElementById('btnSpawn').addEventListener('click',function(e){
+  e.stopPropagation();beep();SCENES[currentScene].spawn();
+});
+document.getElementById('btnReset').addEventListener('click',function(e){
+  e.stopPropagation();loadScene(currentScene);
+});
+
+/* ticker */
+var rssTitles=[],RSS2JSON='https://api.rss2json.com/v1/api.json?rss_url=';
+function loadRSS(){
+  ['https://feeds.reuters.com/reuters/worldNews','https://feeds.bbci.co.uk/news/world/rss.xml']
+  .forEach(function(feed){
+    fetch(RSS2JSON+encodeURIComponent(feed))
+    .then(function(r){return r.json();})
+    .then(function(data){
+      (data&&data.items||[]).forEach(function(item){
+        if(item.title&&rssTitles.indexOf(item.title)===-1)rssTitles.push(item.title);
+      });
+    }).catch(function(){});
+  });
+}
+var tickerEl=document.getElementById('ticker');
+function addTicker(txt){
+  var d=document.createElement('div');d.className='tline';
+  d.textContent='> '+txt;
+  tickerEl.prepend(d);
+  while(tickerEl.children.length>50)tickerEl.removeChild(tickerEl.lastChild);
+}
+var cp=CORPUS.slice();
+setInterval(function(){
+  if(rssTitles.length&&Math.random()<0.5)
+    addTicker('WIRE — '+rssTitles[Math.floor(Math.random()*rssTitles.length)].substring(0,55)+'…');
+  else{
+    if(!cp.length)cp=CORPUS.slice();
+    addTicker(cp.splice(Math.floor(Math.random()*cp.length),1)[0]+'…');
+  }
+},2200);
+
+loadScene(0);
+loadRSS();
+setInterval(loadRSS,4*60*1000);
+
+})();
+</script>
+
+</body>
+</html>
