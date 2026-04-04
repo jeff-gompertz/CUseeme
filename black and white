@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CUSeeMe — Variations</title>
+<style>
+html, body {
+  margin:0; height:100%;
+  background:black;
+  font-family:monospace;
+  overflow:hidden;
+}
+#gridCanvas {
+  position:fixed;
+  top:0; left:0;
+  width:100vw; height:100vh;
+  z-index:0;
+}
+
+/* scene label bottom right */
+#sceneLabel {
+position:fixed;
+bottom:20px; right:20px;
+z-index:200;
+text-align:right;
+pointer-events:none;
+}
+#sceneName {
+font-size:11px; letter-spacing:5px; text-transform:uppercase;
+color:rgba(255,255,255,0.25);
+display:block; margin-bottom:4px;
+}
+#sceneNum {
+font-size:32px; letter-spacing:2px;
+color:rgba(255,255,255,0.08);
+display:block;
+}
+
+/* tap hint */
+#tapHint {
+position:fixed;
+top:50%; left:50%;
+transform:translate(-50%,-50%);
+font-size:10px; letter-spacing:6px; text-transform:uppercase;
+color:rgba(255,255,255,0.12);
+pointer-events:none;
+z-index:200;
+transition:opacity 1s ease;
+}
+
+/* hud */
+#hud {
+position:fixed;
+top:14px; left:18px;
+z-index:200;
+display:flex; gap:10px;
+}
+.hud-btn {
+font-family:monospace;
+font-size:13px;
+padding:8px 14px;
+border:none;
+border-radius:8px;
+cursor:pointer;
+color:#000;
+background:rgba(255,255,255,0.25);
+}
+.hud-btn:active { background:rgba(255,255,255,0.5); }
+
+/* floating windows */
+.miniWin {
+position:fixed;
+width:240px;
+aspect-ratio:9/12;
+border-radius:14px;
+overflow:hidden;
+box-shadow:0 20px 50px rgba(0,0,0,0.6);
+z-index:50;
+backdrop-filter:blur(12px);
+}
+.miniBar {
+height:24px;
+display:flex; align-items:center;
+padding-left:10px;
+font-size:10px; letter-spacing:2px;
+cursor:grab;
+user-select:none;
+}
+.miniInner {
+position:relative;
+width:100%;
+height:calc(100% - 24px);
+}
+.miniCanvas {
+position:absolute; top:0; left:0;
+width:100%; height:100%;
+display:block;
+}
+
+/* ticker */
+#ticker {
+position:fixed;
+left:16px; bottom:16px;
+width:38vw; max-height:30vh;
+overflow:hidden;
+display:flex; flex-direction:column-reverse;
+font-size:12px;
+z-index:200;
+pointer-events:none;
+}
+.tline { margin:0; line-height:1.6; opacity:0.7; }
+</style>
+
+</head>
+<body>
+
+<canvas id="gridCanvas"></canvas>
+
+<div id="hud">
+  <button class="hud-btn" id="btnSpawn">SPAWN</button>
+  <button class="hud-btn" id="btnClear">CLEAR</button>
+  <button class="hud-btn" id="btnNext">NEXT ›</button>
+</div>
+
+<div id="sceneLabel">
+  <span id="sceneName">—</span>
+  <span id="sceneNum">01</span>
+</div>
+
+<div id="tapHint">TAP TO ADVANCE</div>
+<div id="ticker"></div>
+
+<script>
+/* ═══════════════════════════════════════════
+   SCENES
+   Each defines: name, palette fn, signal fn,
+   emitter config, window style, fade alpha
+═══════════════════════════════════════════ */
+
+var SCENES = [
+
+  /* 01 —原 ORIGIN
+     Red/black, slow vertical raster, dense windows */
+  {
+    name: 'ORIGIN',
+    fadeAlpha: 0.06,
+    emitterCount: 10,
+    emitterWidth: 8,
+    winBg:     'rgba(255,30,0,0.08)',
+    winBorder: 'rgba(255,80,60,0.5)',
+    winBarBg:  'rgba(255,30,0,0.15)',
+    winBarColor: 'rgba(255,180,160,0.7)',
+    tickerColor: '#ff3a2f',
+    signal: function(vCtx, w, h, t) {
+      for (var y = 0; y < h; y += 2) {
+        var v = Math.sin(y * 0.08 + t * 0.0008) * 0.5 + 0.5;
+        vCtx.fillStyle = 'hsl(0 ' + Math.round(60 + v * 40) + '% ' + Math.round(20 + v * 35) + '%)';
+        vCtx.fillRect(0, y, w, 2);
+      }
+    },
+    emitterDir: 'vertical'
+  },
+
+  /* 02 — TRANSMIT
+     Cyan/teal, fast horizontal scan, narrow windows */
+  {
+    name: 'TRANSMIT',
+    fadeAlpha: 0.05,
+    emitterCount: 18,
+    emitterWidth: 4,
+    winBg:     'rgba(0,255,220,0.07)',
+    winBorder: 'rgba(0,255,200,0.4)',
+    winBarBg:  'rgba(0,255,200,0.1)',
+    winBarColor: 'rgba(180,255,240,0.7)',
+    tickerColor: '#00ffcc',
+    signal: function(vCtx, w, h, t) {
+      for (var x = 0; x < w; x += 2) {
+        var v = Math.sin(x * 0.12 + t * 0.002) * 0.5 + 0.5;
+        vCtx.fillStyle = 'hsl(' + Math.round(170 + v * 30) + ' 90% ' + Math.round(30 + v * 40) + '%)';
+        vCtx.fillRect(x, 0, 2, h);
+      }
+    },
+    emitterDir: 'horizontal'
+  },
+
+  /* 03 — FIELD
+     Amber/gold, diagonal drift, large windows */
+  {
+    name: 'FIELD',
+    fadeAlpha: 0.04,
+    emitterCount: 8,
+    emitterWidth: 12,
+    winBg:     'rgba(255,180,0,0.07)',
+    winBorder: 'rgba(255,200,60,0.4)',
+    winBarBg:  'rgba(255,180,0,0.12)',
+    winBarColor: 'rgba(255,230,160,0.7)',
+    tickerColor: '#ffb800',
+    signal: function(vCtx, w, h, t) {
+      for (var x = 0; x < w; x += 3) {
+        for (var y = 0; y < h; y += 3) {
+          var v = Math.sin((x + y) * 0.1 + t * 0.001) * 0.5 + 0.5;
+          vCtx.fillStyle = 'hsl(' + Math.round(35 + v * 20) + ' ' + Math.round(80 + v * 20) + '% ' + Math.round(25 + v * 40) + '%)';
+          vCtx.fillRect(x, y, 3, 3);
+        }
+      }
+    },
+    emitterDir: 'diagonal'
+  },
+
+  /* 04 — DEEP
+     Monochrome white, slow pulse, minimal windows */
+  {
+    name: 'DEEP',
+    fadeAlpha: 0.03,
+    emitterCount: 6,
+    emitterWidth: 3,
+    winBg:     'rgba(255,255,255,0.04)',
+    winBorder: 'rgba(255,255,255,0.2)',
+    winBarBg:  'rgba(255,255,255,0.06)',
+    winBarColor: 'rgba(255,255,255,0.3)',
+    tickerColor: 'rgba(255,255,255,0.4)',
+    signal: function(vCtx, w, h, t) {
+      for (var x = 0; x < w; x += 1) {
+        var v = Math.sin(x * 0.2 + t * 0.0005) * 0.5 + 0.5;
+        var lum = Math.round(v * 80);
+        vCtx.fillStyle = 'hsl(0 0% ' + lum + '%)';
+        vCtx.fillRect(x, 0, 1, h);
+      }
+    },
+    emitterDir: 'horizontal'
+  },
+
+  /* 05 — SPECTRUM
+     Full HSL sweep, fast multi-directional, dense */
+  {
+    name: 'SPECTRUM',
+    fadeAlpha: 0.07,
+    emitterCount: 14,
+    emitterWidth: 6,
+    winBg:     'rgba(120,80,255,0.08)',
+    winBorder: 'rgba(180,120,255,0.45)',
+    winBarBg:  'rgba(120,80,255,0.15)',
+    winBarColor: 'rgba(200,180,255,0.7)',
+    tickerColor: '#b47fff',
+    signal: function(vCtx, w, h, t) {
+      for (var x = 0; x < w; x += 4) {
+        vCtx.fillStyle = 'hsl(' + ((x * 4 + t * 0.05) % 360) + ' 90% 55%)';
+        vCtx.fillRect(x, 0, 4, h);
+      }
+    },
+    emitterDir: 'horizontal'
+  }
+
+];
+
+/* ═══════════════════════════════════════════
+   ENGINE
+═══════════════════════════════════════════ */
+
+var canvas = document.getElementById('gridCanvas');
+var ctx    = canvas.getContext('2d');
+var DPR    = Math.max(1, window.devicePixelRatio || 1);
+
+function resize() {
+  canvas.width  = window.innerWidth  * DPR;
+  canvas.height = window.innerHeight * DPR;
+  canvas.style.width  = window.innerWidth  + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+resize();
+window.addEventListener('resize', resize);
+
+var vCanvas = document.createElement('canvas');
+var vCtx    = vCanvas.getContext('2d');
+var pCanvas = document.createElement('canvas');
+var pCtx    = pCanvas.getContext('2d');
+var SIG_W   = 128;
+
+function updateSample() {
+  var h = Math.round(SIG_W * (window.innerHeight / window.innerWidth));
+  vCanvas.width = SIG_W; vCanvas.height = h;
+  pCanvas.width = SIG_W; pCanvas.height = h;
+}
+updateSample();
+window.addEventListener('resize', updateSample);
+
+/* emitters — rebuilt on scene change */
+var emitters = [];
+
+function buildEmitters(scene) {
+  emitters = [];
+  for (var i = 0; i < scene.emitterCount; i++) {
+    var dir = scene.emitterDir;
+    emitters.push({
+      x:     Math.random() * window.innerWidth,
+      y:     Math.random() * window.innerHeight,
+      speed: (40 + Math.random() * 200) * (Math.random() > 0.5 ? 1 : -1),
+      dir:   dir === 'diagonal' ? (Math.random() > 0.5 ? 'h' : 'v') : (dir === 'vertical' ? 'v' : 'h')
+    });
+  }
+}
+
+function drawScan(scene) {
+  var cssW = window.innerWidth;
+  var cssH = window.innerHeight;
+  var ew   = scene.emitterWidth;
+  emitters.forEach(function(e) {
+    if (e.dir === 'h') {
+      e.x += e.speed * dt;
+      if (e.x < -20)       e.x = cssW + 20;
+      if (e.x > cssW + 20) e.x = -20;
+      var norm = (((e.x % cssW) + cssW) % cssW) / cssW;
+      var sx   = Math.floor(norm * (pCanvas.width - 1));
+      ctx.drawImage(pCanvas, sx, 0, 1, pCanvas.height, Math.round(e.x), 0, ew, cssH);
+    } else {
+      e.y += e.speed * dt;
+      if (e.y < -20)       e.y = cssH + 20;
+      if (e.y > cssH + 20) e.y = -20;
+      var norm2 = (((e.y % cssH) + cssH) % cssH) / cssH;
+      var sy    = Math.floor(norm2 * (pCanvas.height - 1));
+      ctx.drawImage(pCanvas, 0, sy, pCanvas.width, 1, 0, Math.round(e.y), cssW, ew);
+    }
+  });
+}
+
+/* ═══ WINDOWS ═══ */
+var winCount = 0;
+var windows  = [];
+
+function spawnWindow(scene) {
+  winCount++;
+  var num = winCount < 10 ? '000' + winCount : winCount < 100 ? '00' + winCount : '0' + winCount;
+  var el  = document.createElement('div');
+  el.className = 'miniWin';
+  el.style.left       = (60 + Math.random() * (window.innerWidth  - 320)) + 'px';
+  el.style.top        = (60 + Math.random() * (window.innerHeight - 320)) + 'px';
+  el.style.background = scene.winBg;
+  el.style.border     = '1px solid ' + scene.winBorder;
+  el.innerHTML =
+    '<div class="miniBar" style="background:' + scene.winBarBg + ';color:' + scene.winBarColor + '">csm_' + num + '</div>' +
+    '<div class="miniInner"><canvas class="miniCanvas"></canvas></div>';
+  document.body.appendChild(el);
+  var mc   = el.querySelector('.miniCanvas');
+  var mCtx = mc.getContext('2d');
+  windows.push({ el:el, canvas:mc, ctx:mCtx });
+  makeDraggable(el);
+  log('csm_' + num + ' spawned');
+}
+
+function clearWindows() {
+  document.querySelectorAll('.miniWin').forEach(function(n) { n.remove(); });
+  windows.length = 0;
+  log('windows cleared');
+}
+
+function drawWindows() {
+  windows.forEach(function(w) {
+    if (!document.body.contains(w.el)) return;
+    var r = w.el.querySelector('.miniInner').getBoundingClientRect();
+    var mc = w.canvas;
+    if (mc.width !== Math.round(r.width) || mc.height !== Math.round(r.height)) {
+      mc.width  = Math.round(r.width);
+      mc.height = Math.round(r.height);
+    }
+    if (mc.width === 0 || mc.height === 0) return;
+    w.ctx.drawImage(pCanvas, 0, 0, mc.width, mc.height);
+  });
+}
+
+function makeDraggable(el) {
+  var bar = el.querySelector('.miniBar');
+  var active = false, sx, sy, sl, st;
+  bar.addEventListener('pointerdown', function(e) {
+    active = true;
+    sx = e.clientX; sy = e.clientY;
+    var r = el.getBoundingClientRect();
+    sl = r.left; st = r.top;
+    bar.setPointerCapture(e.pointerId);
+    e.stopPropagation();
+  });
+  bar.addEventListener('pointermove', function(e) {
+    if (!active) return;
+    el.style.left = (sl + e.clientX - sx) + 'px';
+    el.style.top  = (st + e.clientY - sy) + 'px';
+  });
+  bar.addEventListener('pointerup', function() { active = false; });
+}
+
+/* ═══ SCENE MANAGEMENT ═══ */
+var sceneIndex = 0;
+var transitioning = false;
+
+function applyScene(idx) {
+  var scene = SCENES[idx];
+  document.getElementById('sceneName').textContent = scene.name;
+  document.getElementById('sceneNum').textContent  = (idx + 1 < 10 ? '0' : '') + (idx + 1);
+  document.getElementById('ticker').style.color = scene.tickerColor;
+  buildEmitters(scene);
+  log('— ' + scene.name + ' —');
+  /* spawn 3 windows on scene entry */
+  clearWindows();
+  for (var i = 0; i < 3; i++) { spawnWindow(scene); }
+}
+
+function nextScene() {
+  if (transitioning) return;
+  transitioning = true;
+  /* flash fade to black */
+  var flash = 0;
+  var flashInt = setInterval(function() {
+    flash += 0.08;
+    ctx.fillStyle = 'rgba(0,0,0,' + Math.min(flash, 0.9) + ')';
+    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+    if (flash >= 0.9) {
+      clearInterval(flashInt);
+      sceneIndex = (sceneIndex + 1) % SCENES.length;
+      applyScene(sceneIndex);
+      transitioning = false;
+    }
+  }, 16);
+  /* hide tap hint after first advance */
+  document.getElementById('tapHint').style.opacity = '0';
+}
+
+/* ═══ TICKER ═══ */
+var ticker = document.getElementById('ticker');
+function log(t) {
+  var d = document.createElement('div');
+  d.className = 'tline';
+  d.textContent = '> ' + t;
+  ticker.prepend(d);
+  if (ticker.children.length > 40) ticker.removeChild(ticker.lastChild);
+}
+
+/* ═══ CONTROLS ═══ */
+document.getElementById('btnNext').onclick  = function(e) { e.stopPropagation(); nextScene(); };
+document.getElementById('btnSpawn').onclick = function(e) { e.stopPropagation(); spawnWindow(SCENES[sceneIndex]); };
+document.getElementById('btnClear').onclick = function(e) { e.stopPropagation(); clearWindows(); };
+
+/* tap anywhere else = next scene */
+document.body.addEventListener('pointerup', function(e) {
+  if (e.target.classList.contains('hud-btn')) return;
+  if (e.target.closest('.miniWin')) return;
+  nextScene();
+});
+
+/* ═══ LOOP ═══ */
+var last = performance.now();
+var dt   = 0;
+
+function loop(now) {
+  dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
+  var scene = SCENES[sceneIndex];
+  ctx.fillStyle = 'rgba(0,0,0,' + scene.fadeAlpha + ')';
+  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+  vCtx.clearRect(0, 0, vCanvas.width, vCanvas.height);
+  scene.signal(vCtx, vCanvas.width, vCanvas.height, now);
+  pCtx.drawImage(vCanvas, 0, 0);
+  drawScan(scene);
+  drawWindows();
+  requestAnimationFrame(loop);
+}
+
+/* ═══ START ═══ */
+applyScene(0);
+log('system online');
+log('tap anywhere to advance');
+requestAnimationFrame(loop);
+</script>
+
+</body>
+</html>
